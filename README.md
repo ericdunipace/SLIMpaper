@@ -1,0 +1,2 @@
+# CoarsePosteriorSummary
+Replicates paper code

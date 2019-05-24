@@ -1,0 +1,12 @@
+Package: CoarsePosteriorSummary
+Type: Package
+Title: Reproduces the figures and data in "Interpretable Posterior Summaries Using the Wasserstein Distance"
+Version: 0.1
+Date: 2019-04-24
+Author: Eric Dunipace
+Maintainer: Eric Dunipace <eduniapce@g.harvard.edu>
+Description: More about what it does (maybe more than one line)
+License: What license is it under?
+Imports: Rcpp (>= 1.0.0), ggplot2, transport, SparsePosterior, mvtnorm
+LinkingTo: Rcpp (>= 1.0.0), RcppEigen (>= 0.3.3.4.0), BH, RcppProgress, transport
+Suggests: ggsci, xtable, doParallel, survbart, dbarts
