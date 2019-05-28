@@ -181,21 +181,23 @@ get_binary_nonlinear_model <- function() {
     } else if (dots$method == "bart") {
       require(dbarts)
       nskip <- dots$nskip
-      if(is.null(nskip)) nskip <- nsamp
+      if(is.null(nskip)) nskip <- n.samp
       k <- dots$k
       power <- dots$power
       base <- dots$base
       ntree <- dots$ntree
       keepevery <- dots$keepevery
+      test <- dots$test
       if(is.null(k)) k <- 2.0
       if(is.null(power)) power <- 2.0
       if(is.null(base)) base <- 0.95
       if(is.null(ntree)) ntree <- 200
       if(is.null(keepevery)) keepevery <- 1
+      if (is.null(test)) test <- NULL
 
       bartFit <- bart(x, y, ndpost=n.samp*keepevery, nskip=nskip,
                       k=k, base=base, power=power, ntree=ntree, keepevery = keepevery,
-                      printevery = nsamp*keepevery/10, keeptrees=TRUE)
+                      printevery = n.samp*keepevery/10, keeptrees=FALSE, x.test = test)
       phi <- bartFit$yhat.train
       prob <- pnorm(phi)
       eta <- qlogis(prob)
@@ -322,14 +324,14 @@ get_binary_nonlinear_model <- function() {
       form <- as.formula(paste("Y ~ ", paste0("s(",namesX,")" , collapse= " + ")))
 
       stanFit <- stan_gamm4(form, data = stan_dat, family = binomial(),
-                 chains = chains, iter = 2*nsamp, algorithm="sampling",
+                 chains = chains, iter = 2*n.samp, algorithm="sampling",
                  warmup = n.samp* (2-1/chains) )
       eta <- posterior_linpred(stanFit)
-      if(nrow(eta) > nsamp) eta <- eta[1:nsamp,]
+      if(nrow(eta) > n.samp) eta <- eta[1:n.samp,]
       prob <- plogis(eta)
+      params <- as.matrix(stanFit$stanfit)
+      theta <- params[,seq_len(ncol(stanFit$x))]
       model <- stanFit
-      params <- extract(model$stanfit, pars=c("alpha", "beta_smooth"))
-      theta <- cbind(params$alpha, params$beta_smooth)
     }
 
     return(list(theta=theta,prob=prob, eta=eta, model=model))
