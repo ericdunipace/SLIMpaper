@@ -162,7 +162,7 @@ rownames(mse.best.perform_logit) <- "MSE"
 ```
 
 ```{r mse_table, echo=FALSE, warning=FALSE, results='asis'}
-print(xtable(mse.best.perform, digits=3, caption="MSE from true data generating probabilities"))
+print(xtable(mse.best.perform, digits=3, caption="MSE from true data generating probabilities"),type = "html")
 ```
 Clearly, the BART model fits best.
 
@@ -301,7 +301,7 @@ if (!file.exists("gamm_adapt.RDS")){
 
 
 
-```{r w2 distances, cache=TRUE}
+```{r w2 distances}
 names(interaction_adapt) <- names(simple_adapt) <- names(gamm_adapt) <- c("Selection",
                                                                         # "Loc./Scale",
                                                                         "MCP Net Projection",
@@ -335,7 +335,7 @@ if ( !file.exists("w2plot_bin.rds") ) {
 ```
 
 
-```{r mse distances, cache=TRUE}
+```{r mse distances}
 mseplot <- list(simple=NULL,
                interaction = NULL, 
                gamm = NULL)
@@ -383,7 +383,7 @@ We may be interested in obtaining a better prediction for a subset of data, or a
 << generate new pop>>
 ```
 ```{r generate new pop param, message=FALSE, warning=FALSE, results='hide'}
-gammXNew <- mgcv::predict.gam(post.gamm$model$jam, newdata=Xnew, type="lpmatrix")
+gammXNew <- mgcv::predict.gam(post.gamm$model$jam, newdata=data.frame(Xnew[,-1]), type="lpmatrix")
 # gammXNew <- as.matrix(gammtemp$model$x)
 
 bartetaNew <- qlogis(pnorm(post.bart$model$yhat.test))
@@ -520,7 +520,7 @@ if (!file.exists("gamm_adapt_subset.RDS")){
 }
 ```
 
-```{r w2 distances new, cache=TRUE}
+```{r w2 distances new}
 names(interaction_adapt_subset) <- names(simple_adapt_subset) <- names(gamm_adapt_subset) <- c("Selection",
                                                                         # "Loc./Scale",
                                                                         "MCP Net Projection",
@@ -554,7 +554,7 @@ if ( !file.exists("w2plot_bin_subset.rds") ) {
 ```
 
 
-```{r mse distances new, cache=TRUE}
+```{r mse distances new}
 mseplot_subset <- list(simple=NULL,
                interaction = NULL, 
                gamm = NULL)
@@ -580,13 +580,13 @@ if (!file.exists("mseplot_bin_subset.rds")) {
 ```
 
 For comparison, the predicted MSE of each method is
-```{r mse subset, echo=FALSE}
+```{r mse subset, echo=FALSE, results='asis'}
 mse.best.perform_new <- data.frame(BART = mean((probNew - plogis(t(bartetaNew)))^2),
-   'Simple Logistic' = mean((prob - plogis(Xnew %*% t(post.stan$theta)))^2),
-   'Logistic with Interactions' = mean((prob - plogis(combinationsNew %*% t(post.stan.full$theta)))^2),
-   GAMM = mean((qlogis(prob) - plogis(gammXNew %*% t(post.gamm$theta)))^2))
-rownames(mse.best.perform_logit) <- "MSE"
-print(xtable(mse.best.perform_new))
+   'Simple Logistic' = mean((probNew - plogis(Xnew %*% t(post.stan$theta)))^2),
+   'Logistic with Interactions' = mean((probNew - plogis(combinationsNew %*% t(post.stan.full$theta)))^2),
+   GAMM = mean((probNew - plogis(gammXNew %*% t(post.gamm$theta)))^2))
+rownames(mse.best.perform_new) <- "MSE"
+print(xtable(mse.best.perform_new, digits=3, caption="MSE from true data generating probabilities for X[,4]<0"), type = "html")
 ```
 
 ```{r dist_plot_post_simple_subset, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap='2-Wasserstein Distance and MSE for new data generated with $X[,4] < 0$ using the simple logistic regression model.'}
