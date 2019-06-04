@@ -88,7 +88,14 @@ and
 We then sample from the posterior `r nsamp` times.
 
 ```{r posterior}
-fullHyper <- hyperparameters
+fullHyper <- list(mu = NULL, sigma = NULL,
+                          alpha = NULL, beta = NULL,
+                          Lambda = NULL)
+  fullHyper$mu <- rep(0, ncol(fullX))
+  fullHyper$sigma <- diag(1, ncol(fullX), ncol(fullX))
+  fullHyper$alpha <- 10
+  fullHyper$beta <- 10
+  fullHyper$Lambda <- solve(fullHyper$sigma)
 
 post <- target$rpost(nsamp, fullX, Y, fullHyper, method = "conjugate")
 post.naive <- target$rpost(nsamp, X, Y, hyperparameters, method = "conjugate")

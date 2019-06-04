@@ -64,7 +64,7 @@ Xnew <- matrix(NA, nrow=n, p)
 i <- 0
 while(i < n) {
   Xnew[i+1,] <- target$X$rX(1, target$X$corr, p)
-  if(Xnew[i+1,4] < 0 ) i <- i + 1
+  if(Xnew[i+1, 2] < 0 & Xnew[i+1, 3] < 0) i <- i + 1
 }
 
 dfXnew <- data.frame(Xnew[,-1])
@@ -167,7 +167,7 @@ print(xtable(mse.best.perform, digits=3, caption="MSE from true data generating 
 Clearly, the BART model fits best.
 
 Then we try to adapt our more poorly fitting but more interpretable models to the better fitting BART model.
-```{r method_in_sample, message=FALSE, warning=FALSE, cache=TRUE}
+```{r method_in_sample, message=FALSE, warning=FALSE, cache=FALSE}
 # penalty.factor.simple <- 1/colMeans(abs(post.stan$theta))
 # penalty.factor.full <- 1/colMeans(abs(post.stan.full$theta))
 # penalty.factor.gamm <- 1/colMeans(abs(post.gamm$theta))
@@ -222,7 +222,8 @@ if (!file.exists("simple_adapt.RDS")){
                         theta=post.stan$theta, penalty="selection.lasso",
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
-                        pseudo_observations = pseudo.observations, display.progress = TRUE,
+                        pseudo_observations = pseudo.observations, 
+                        display.progress = TRUE,
                         penalty.factor = penalty.factor.simple, method="selection.variable"),
                      # location.scale = W2L1(X=X, Y=post.bart$eta, 
                      #    theta=post.stan$theta, penalty="mcp.net", alpha = 0.5,
@@ -261,7 +262,8 @@ if (!file.exists("gamm_adapt.RDS")){
                         theta=post.gamm$theta, penalty="selection.lasso",
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
-                        pseudo_observations = pseudo.observations, display.progress = TRUE,
+                        pseudo_observations = pseudo.observations, 
+                        display.progress = TRUE,
                         penalty.factor = penalty.factor.gamm,
                         method="selection.variable"),
                      # location.scale = W2L1(X=gammX, Y=post.bart$eta, 
@@ -302,11 +304,13 @@ if (!file.exists("gamm_adapt.RDS")){
 
 
 ```{r w2 distances}
-names(interaction_adapt) <- names(simple_adapt) <- names(gamm_adapt) <- c("Selection",
-                                                                        # "Loc./Scale",
-                                                                        "MCP Net Projection",
-                                                                        "MCP Projection",
-                                                                        "Lasso Projection")
+names(interaction_adapt) <- 
+  names(simple_adapt) <- 
+  names(gamm_adapt) <- c("Selection",
+                      # "Loc./Scale",
+                         "MCP Net Projection",
+                         "MCP Projection",
+                         "Lasso Projection")
 w2plot <- list(simple=NULL,
                interaction = NULL, 
                gamm = NULL)
@@ -319,18 +323,19 @@ if ( !file.exists("w2plot_bin.rds") ) {
   w2plot$interaction <- plot.compare(interaction_adapt, post.bart$eta, 
                                      combinations, t(post.stan.full$theta), 
                        "w2", c("mean"), parallel = TRUE) 
-  w2plot$gamm <- plot.compare(gamm_adapt[c(1,4)], post.bart$eta, gammX, t(post.gamm$theta), 
+  w2plot$gamm <- plot.compare(gamm_adapt, post.bart$eta, gammX, t(post.gamm$theta), 
                        "w2", c("mean"), parallel = TRUE) 
-  w2plotData <- lapply(w2plot, function(i) i$data)
+  w2plotData <- lapply(w2plot, function(i) i$data$mean)
   saveRDS( w2plotData, "w2plot_bin.rds" )
-  w2plots <- lapply(w2plot, function(i) i$plot)
+  w2plots <- lapply(w2plot, function(i) i$plot$mean)
 } else {
   w2plotData <- readRDS( "w2plot_bin.rds" )
-  w2plots <- lapply(w2plotData, function(w) lapply(w, function(ww) ggplot(ww, aes(x=nactive, y=dist, color = groups, group=groups )) +
+  w2plots <- lapply(w2plotData, function(ww) ggplot(ww, aes(x=nactive, y=dist, color = groups, group=groups )) +
         geom_line() + scale_color_jama() + labs(color ="Method") +
         xlab("Number of active coefficients") + ylab("2-Wasserstein Distance") + theme_bw() +
         scale_x_continuous(expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0))))
+        scale_y_continuous(expand = c(0, 0),
+                           limits = c(0, max(ww$dist)*1.1)))
 }
 ```
 
@@ -344,36 +349,37 @@ if (!file.exists("mseplot_bin.rds")) {
                         "mse", c("mean"), parallel = TRUE, transform = plogis)
   mseplot$interaction <- plot.compare(interaction_adapt, prob, combinations, t(post.stan.full$theta), 
                           "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplot$gamm <- plot.compare(gamm_adapt[c(1,4)], prob, gammX, t(post.gamm$theta),
+  mseplot$gamm <- plot.compare(gamm_adapt, prob, gammX, t(post.gamm$theta),
                           "mse", c("mean"), parallel = TRUE,transform = plogis)
-  mseplotData <- lapply(mseplot, function(i) i$data)
+  mseplotData <- lapply(mseplot, function(i) i$data$mean)
   saveRDS( mseplotData, "mseplot_bin.rds" )
-  mseplots <- lapply(mseplot, function(i) i$plot)
+  mseplots <- lapply(mseplot, function(i) i$plot$mean)
   
 } else {
   mseplotData <- readRDS("mseplot_bin.rds" )
-  mseplots <- lapply(mseplotData, function(m) lapply(m, function(mm) ggplot(mm, aes(x=nactive, y=dist, color = groups, group=groups )) +
+  mseplots <- lapply(mseplotData, function(mm) ggplot(mm, aes(x=nactive, y=dist, color = groups, group=groups )) +
         geom_line() + scale_color_jama() + labs(color ="Method") +
         xlab("Number of active coefficients") + ylab("MSE") + theme_bw() +
         scale_x_continuous(expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0))))
+        scale_y_continuous(expand = c(0, 0), 
+                           limits = c(0,max(mm$dist)*1.1)))
 }
 ```
 
 
 ```{r dist_plot_post_simple, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap='2-Wasserstein Distance and MSE for the data used to estimate the posterior using the simple logistic regression model.'}
-print(w2plots$simple$mean)
-print(mseplots$simple$mean)
+print(w2plots$simple)
+print(mseplots$simple)
 ```
 
 ```{r dist_plot_post_interact,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap='2-Wasserstein Distance and MSE for the data used to estimate the posterior using the logistic regression model with all two-way interactions.'}
-print(w2plots$interaction$mean)
-print(mseplots$interaction$mean)
+print(w2plots$interaction)
+print(mseplots$interaction)
 ```
 
 ```{r dist_plot_post_gamm, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap='2-Wasserstein Distance and MSE for the data used to estimate the posterior using the Generalized Additive Mixed regression model.'}
-print(w2plots$gamm$mean)
-print(mseplots$gamm$mean)
+print(w2plots$gamm)
+print(mseplots$gamm)
 ```
 
 
@@ -390,7 +396,7 @@ bartetaNew <- qlogis(pnorm(post.bart$model$yhat.test))
 ```
 
 Then we can try our procedures again 
-```{r method_subset_sample, message=FALSE, warning=FALSE, cache=TRUE}
+```{r method_subset_sample, message=FALSE, warning=FALSE, cache=FALSE}
 # penalty.factor.simple <- 1/colMeans(abs(post.stan$theta))
 # penalty.factor.full <- 1/colMeans(abs(post.stan.full$theta))
 # penalty.factor.gamm <- 1/colMeans(abs(post.gamm$theta))
@@ -522,10 +528,10 @@ if (!file.exists("gamm_adapt_subset.RDS")){
 
 ```{r w2 distances new}
 names(interaction_adapt_subset) <- names(simple_adapt_subset) <- names(gamm_adapt_subset) <- c("Selection",
-                                                                        # "Loc./Scale",
-                                                                        "MCP Net Projection",
-                                                                        "MCP Projection",
-                                                                        "Lasso Projection")
+                              # "Loc./Scale",
+                              "MCP Net Projection",
+                              "MCP Projection",
+                              "Lasso Projection")
 w2plot_subset <- list(simple=NULL,
                interaction = NULL, 
                gamm = NULL)
@@ -538,18 +544,19 @@ if ( !file.exists("w2plot_bin_subset.rds") ) {
   w2plot_subset$interaction <- plot.compare(interaction_adapt_subset, bartetaNew, 
                                      combinationsNew, t(post.stan.full$theta), 
                        "w2", c("mean"), parallel = TRUE) 
-  w2plot_subset$gamm <- plot.compare(gamm_adapt_subset[c(1,4)], bartetaNew, gammXNew, t(post.gamm$theta), 
+  w2plot_subset$gamm <- plot.compare(gamm_adapt_subset, bartetaNew, gammXNew, t(post.gamm$theta), 
                        "w2", c("mean"), parallel = TRUE) 
-  w2plotData_subset <- lapply(w2plot_subset, function(i) i$data)
+  w2plotData_subset <- lapply(w2plot_subset, function(i) i$data$mean)
   saveRDS( w2plotData_subset, "w2plot_bin_subset.rds" )
-  w2plots_subset <- lapply(w2plot_subset, function(i) i$plot)
+  w2plots_subset <- lapply(w2plot_subset, function(i) i$plot$mean)
 } else {
   w2plotData_subset <- readRDS( "w2plot_bin_subset.rds" )
-  w2plots_subset <- lapply(w2plotData_subset, function(w) lapply(w, function(ww) ggplot(ww, aes(x=nactive, y=dist, color = groups, group=groups )) +
+  w2plots_subset <- lapply(w2plotData_subset, function(ww) ggplot(ww, aes(x=nactive, y=dist, color = groups, group=groups )) +
         geom_line() + scale_color_jama() + labs(color ="Method") +
         xlab("Number of active coefficients") + ylab("2-Wasserstein Distance") + theme_bw() +
         scale_x_continuous(expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0))))
+        scale_y_continuous(expand = c(0, 0),
+                           limits = c(0, max(ww$dist)*1.1)))
 }
 ```
 
@@ -563,19 +570,20 @@ if (!file.exists("mseplot_bin_subset.rds")) {
                         "mse", c("mean"), parallel = TRUE, transform = plogis)
   mseplot_subset$interaction <- plot.compare(interaction_adapt_subset, probNew, combinationsNew, t(post.stan.full$theta), 
                           "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplot_subset$gamm <- plot.compare(gamm_adapt_subset[c(1,4)], probNew, gammXNew, t(post.gamm$theta),
+  mseplot_subset$gamm <- plot.compare(gamm_adapt_subset, probNew, gammXNew, t(post.gamm$theta),
                           "mse", c("mean"), parallel = TRUE,transform = plogis)
-  mseplotData_subset <- lapply(mseplot_subset, function(i) i$data)
+  mseplotData_subset <- lapply(mseplot_subset, function(i) i$data$mean)
   saveRDS( mseplotData_subset, "mseplot_bin_subset.rds" )
-  mseplots_subset <- lapply(mseplot_subset, function(i) i$plot)
+  mseplots_subset <- lapply(mseplot_subset, function(i) i$plot$mean)
   
 } else {
   mseplotData_subset <- readRDS("mseplot_bin_subset.rds" )
-  mseplots_subset <- lapply(mseplotData_subset, function(m) lapply(m, function(mm) ggplot(mm, aes(x=nactive, y=dist, color = groups, group=groups )) +
+  mseplots_subset <- lapply(mseplotData_subset, function(mm) ggplot(mm, aes(x=nactive, y=dist, color = groups, group=groups )) +
         geom_line() + scale_color_jama() + labs(color ="Method") +
         xlab("Number of active coefficients") + ylab("MSE") + theme_bw() +
         scale_x_continuous(expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0))))
+        scale_y_continuous(expand = c(0, 0), 
+                           limits = c(0,max(mm$dist)*1.1)))
 }
 ```
 
@@ -590,16 +598,16 @@ print(xtable(mse.best.perform_new, digits=3, caption="MSE from true data generat
 ```
 
 ```{r dist_plot_post_simple_subset, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap='2-Wasserstein Distance and MSE for new data generated with $X[,4] < 0$ using the simple logistic regression model.'}
-print(w2plots_subset$simple$mean)
-print(mseplots_subset$simple$mean)
+print(w2plots_subset$simple)
+print(mseplots_subset$simple)
 ```
 
 ```{r dist_plot_post_interact_subset,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap='2-Wasserstein Distance and MSE for new data generated with $X[,4] < 0$ using the logistic regression model with all twoway interactions.'}
-print(w2plots_subset$interaction$mean)
-print(mseplots_subset$interaction$mean)
+print(w2plots_subset$interaction)
+print(mseplots_subset$interaction)
 ```
 
 ```{r dist_plot_post_gamm_subset, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', , fig.cap='2-Wasserstein Distance and MSE for new data generated with $X[,4] < 0$ using the generalized additive mixed models model.'}
-print(w2plots_subset$gamm$mean)
-print(mseplots_subset$gamm$mean)
+print(w2plots_subset$gamm)
+print(mseplots_subset$gamm)
 ```

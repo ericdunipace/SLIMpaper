@@ -2,6 +2,7 @@ plot.compare <- function(models, target = NULL, X, theta, method = c("w2", "mse"
 
   method <- match.arg(method)
   quantity <- match.arg(quantity,several.ok = TRUE)
+
   if(length(quantity)>1 & method == "mse") stop("Can only do one quantity with mse")
   if(parallel) {
     require(doParallel)
@@ -65,6 +66,9 @@ plot.compare <- function(models, target = NULL, X, theta, method = c("w2", "mse"
   method <- match.arg(method)
   if (!is.list(models)) models <- list(models)
 
+  group_names <- names(models)
+  if(is.null(group_names)) group_names <- seq.int(length(models))
+
   # theta <- models[[1]]$call$theta
   # X <- models[[1]]$call$X
   n <- nrow(X)
@@ -116,7 +120,7 @@ plot.compare <- function(models, target = NULL, X, theta, method = c("w2", "mse"
         geom_line() + scale_color_jama() + labs(color ="Method") +
         xlab("Number of active coefficients") + ylab(ylab) + theme_bw() +
         scale_x_continuous(expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0))
+        scale_y_continuous(expand = c(0, 0), limits = c(0, max(dist_df$dist)*1.1))
     }
 
   }
@@ -143,7 +147,7 @@ plot.compare <- function(models, target = NULL, X, theta, method = c("w2", "mse"
         geom_line() + scale_color_jama() + labs(color ="Method") +
         xlab("Number of active coefficients") + ylab(ylab) + theme_bw() +
         scale_x_continuous(expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0))
+        scale_y_continuous(expand = c(0, 0), limits = c(0, max(dist_mu_df$dist)*1.1))
     }
 
   }

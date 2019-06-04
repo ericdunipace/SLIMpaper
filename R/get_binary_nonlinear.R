@@ -238,7 +238,7 @@ get_binary_nonlinear_model <- function() {
 
       stanModel <- stan_model(stan_dir)
       stanFit <- sampling(stanModel, data=stan_dat, iter=n.samp*2,
-                          warmup =n.samp* (2-1/chains) , chains=chains, pars = c("eta","theta","prob"))
+                          warmup =n.samp* (2-1/chains) , chains=chains, pars = c("eta","theta","prob", "beta", "intercept"))
       samples <- extract(stanFit, pars= c("eta","theta","prob"))
       eta <- samples$eta
       prob <- samples$prob
