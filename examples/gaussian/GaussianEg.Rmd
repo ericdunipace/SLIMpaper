@@ -3,8 +3,8 @@ title: "Gaussian Data Example"
 author: "Eric Dunipace"
 date: "5/6/2019"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 <style>
 p.caption {
