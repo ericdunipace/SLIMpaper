@@ -53,7 +53,7 @@ get_binary_nonlinear_model <- function() {
     # f(x) = 10 * sin(pi * x[,1] * x[,2]) + 20 * (x[,3]-0.5)^2  10 * x[,4] + 5 * x[,5]
     x3sq <- x[,3]^2
     costerm <- cos(2 * x3sq + pi/2)
-    x3term <- ifelse(2 * x3sq > 6/4 * pi, 1,  costerm)
+    x3term <- ifelse(2 * x3sq > 3/4 * pi, 1,  costerm)
     return(1 * sin(pi/8 * x[,1] * x[,2] + pi/2) + 2 * x3term  + tanh(-x[,4]) + 0.25 * x[,5])
     # return(1 * sin(pi/8 * x[,1] * x[,2] + pi/2) - 2 * x[,3]^2 + x[,4] + 0.5 * x[,5])
     #sin(pi/8* X[,2]*X[,3] + pi/2)* cos(2*X[,3]^2 + pi/2)
