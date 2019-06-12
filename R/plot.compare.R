@@ -1,4 +1,7 @@
-plot.compare <- function(models, target = NULL, X, theta, method = c("w2", "mse"), quantity=c("posterior","mean"), parallel=FALSE, transform = function(x){return(x)}) {
+plot.compare <- function(models, target = NULL, X = NULL, theta = NULL, method = c("w2", "mse"), quantity=c("posterior","mean"), parallel=FALSE, transform = function(x){return(x)}) {
+
+  require(ggplot2)
+  require(ggsci)
 
   method <- match.arg(method)
   quantity <- match.arg(quantity,several.ok = TRUE)
@@ -71,14 +74,17 @@ plot.compare <- function(models, target = NULL, X, theta, method = c("w2", "mse"
 
   # theta <- models[[1]]$call$theta
   # X <- models[[1]]$call$X
-  n <- nrow(X)
-  p <- ncol(X)
+  # n <- nrow(X)
+  # p <- ncol(X)
+  # s <- dim(theta)[2]
+  n <- dim(models[[1]]$eta[[1]])[1]
+  p <- dim(models[[1]]$theta[[1]])[1]
+  s <- dim(models[[1]]$theta[[1]])[2]
+  # if ( p != nrow(theta) ) theta <- t(theta)
+  # if ( is.null(target) ) target <- models[[1]]$Y
+  # if ( is.null(target) ) target <- X %*% theta
+  if ( is.null(target) ) target <- models[[1]]$eta[[length(models[[1]]$eta)]]
 
-
-  if ( p != nrow(theta) ) theta <- t(theta)
-  if ( is.null(target) ) target <- models[[1]]$Y
-  if ( is.null(target) ) target <- X %*% theta
-  s <- ncol(theta)
 
   if (method == "mse" & (is.vector(target) | any(dim(target)[2]==1))) {
     target <- if(quantity == "mean") {
@@ -91,7 +97,9 @@ plot.compare <- function(models, target = NULL, X, theta, method = c("w2", "mse"
 
   dist_df <- dist_mu_df <- nactive <- groups <- plot <- plot_mu <- NULL
 
-  theta_coarse <- lapply(models, extractTheta, theta=theta)
+  # theta_coarse <- lapply(models, extractTheta, theta=theta)
+  theta_coarse <- lapply(models, function(mm) mm$theta)
+  nzero <- lapply(models, function(mm) mm$nzero)
 
   if (method == "w2") {
     ylab <- "2-Wasserstein Distance"
@@ -100,14 +108,20 @@ plot.compare <- function(models, target = NULL, X, theta, method = c("w2", "mse"
   }
 
   if("posterior" %in% quantity){
+    # dist_list <- if ( method == "w2" ){
+    #    lapply(theta_coarse, function(mc) dist_fun(mc$theta, method=method, mu=t(theta)))
+    # } else if ( method == "mse" ) {
+    #    lapply(theta_coarse, function(mc) dist_fun(mc$theta, method=method, mu=t(target)))
+    # }
     dist_list <- if ( method == "w2" ){
-       lapply(theta_coarse, function(mc) dist_fun(mc$theta, method=method, mu=t(theta)))
+      lapply(theta_coarse, function(mc) dist_fun(mc, method=method, mu=t(theta)))
     } else if ( method == "mse" ) {
-       lapply(theta_coarse, function(mc) dist_fun(mc$theta, method=method, mu=t(target)))
+      lapply(theta_coarse, function(mc) dist_fun(mc, method=method, mu=t(target)))
     }
 
     dist <- unlist(dist_list)
-    nactive <- sapply(theta_coarse, function(d) d$nzero)
+    # nactive <- sapply(theta_coarse, function(d) d$nzero)
+    nactive <- unlist(nzero)
     groups <- mapply(function(x,z){return(rep(x, each=z))}, x=names(models), z=sapply(dist_list, length))
 
     dist_df <- data.frame(dist = dist,
@@ -126,14 +140,21 @@ plot.compare <- function(models, target = NULL, X, theta, method = c("w2", "mse"
   }
 
   if("mean" %in% quantity){
-    mu_coarse <- lapply(theta_coarse, function(tc) mu_fun(tc, X=X))
-    if(any(dim(target) == dim(mu_coarse[[1]][[1]][[1]]))) {
-      if(nrow(target) == nrow(mu_coarse[[1]][[1]][[1]])) target <- t(target)
+    # mu_coarse <- lapply(theta_coarse, function(tc) mu_fun(tc, X=X))
+    # if(any(dim(target) == dim(mu_coarse[[1]][[1]][[1]]))) {
+    #   if(nrow(target) == nrow(mu_coarse[[1]][[1]][[1]])) target <- t(target)
+    # }
+    # dist_list_mu <- lapply(mu_coarse, function(mc) dist_fun(mc$mu, method=method, mu=target))
+    # dist_mu <- unlist(dist_list_mu)
+    # if(is.null(nactive)) nactive <- sapply(theta_coarse, function(d) d$nzero)
+    mu_coarse  <- lapply(models, function(mm) mm$eta)
+    if(any(dim(target) == dim(mu_coarse[[1]][[1]]))) {
+      if(nrow(target) == nrow(mu_coarse[[1]][[1]])) target <- t(target)
     }
-    dist_list_mu <- lapply(mu_coarse, function(mc) dist_fun(mc$mu, method=method, mu=target))
+    dist_list_mu <- lapply(mu_coarse, function(mc) dist_fun(mc, method=method, mu=target))
 
     dist_mu <- unlist(dist_list_mu)
-    if(is.null(nactive)) nactive <- sapply(theta_coarse, function(d) d$nzero)
+    if(is.null(nactive)) nactive <- unlist(nzero)
 
     if(is.null(groups)) groups <- mapply(function(x,z){ return(rep(x, each=z)) }, x=names(models), z=sapply(dist_list_mu, length))
 

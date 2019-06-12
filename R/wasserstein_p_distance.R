@@ -9,7 +9,7 @@ WpDist_iid <- function(X,Y, p, observations = c("colwise","rowwise")) {
   }
 
   loss <- Wasserstein_p_iid(X,Y,p)
-  return(loss)
+  return(loss^(1/p))
 }
 
 wass_trajectory <- function(traj, compare, p=2, idx, max) {
@@ -26,6 +26,24 @@ wass_trajectory <- function(traj, compare, p=2, idx, max) {
     dist[idx[i]] <- transport::wasserstein(A, B,p=p)
   }
   return(dist)
+}
+
+WpDist_individual <- function(X,Y, p, observations = c("colwise","rowwise")) {
+  if(!is.matrix(X)) X <- as.matrix(X)
+  if(!is.matrix(Y)) Y <- as.matrix(Y)
+  obs <- match.arg(observations)
+  if(obs == "rowwise"){
+    X <- t(X)
+    Y <- t(Y)
+  }
+
+  Xs <- apply(X,2,sort)
+  Ys <- apply(Y,2,sort)
+
+  loss <- colMeans((Xs - Ys)^p)
+
+  return(loss^(1/p))
+
 }
 
 # WpDist_norm <- function(X,Y, p) {

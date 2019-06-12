@@ -195,6 +195,7 @@ print(mseplot_mean$plot$mean)
 
 
 Finally, we can see as more covariates are active, the coarse distribution gets close to the truth. Importantly, it looks like the selection method does better here for this individual $i = 512$. However, overall, the projection and location/scale methods do better, which we can see in the above plots.
+
 ```{r ridge_plots, ,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=8, out.width="90%", optipng = '-o7', fig.align = "center"}
 select.idx <- 512
 means <- lapply(theta, function(tclist) 

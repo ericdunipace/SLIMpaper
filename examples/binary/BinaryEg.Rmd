@@ -94,10 +94,10 @@ We can measure variable importance in a variety of settings. Our first example i
 
 ### Outcome
 We sample the outcome from a modified Friedman model:
-cos(2 * x3sq + pi/2)
-    x3term <- ifelse(2 * x3sq > 6/4 * pi, 1,  costerm)
-return(1 * sin(\frac{pi}{8}  x[,1] * x[,2] + pi/2) + 2 * x3term  + tanh(-x[,4]) + 0.25 * x[,5])
-\[Y_i \sim \text{Bernoulli}(p) \] with \[p = \text{logit}^{-1} \left (\sin\left(\frac{\pi}{8}x_{i,1}x_{i,2} + \pi/2 \right) + 2 I \left(x_{i,3}^2 > 6/4 \pi\right) +  2 I \left(x_{i,3}^2 \leq 6/4 \pi \right) \cos\left(2 x_{i,3}^2  + \pi/2\right) + \tanh(-x_{i,4}) + 0.25 x_{i,5}\right).\]
+<!-- cos(2 * x3sq + pi/2) -->
+<!--     x3term <- ifelse(2 * x3sq > 3/4 * pi, 1,  costerm) -->
+<!-- return(1 * sin(\frac{pi}{8}  x[,1] * x[,2] + pi/2) + 2 * x3term  + tanh(-x[,4]) + 0.25 * x[,5]) -->
+\[Y_i \sim \text{Bernoulli}(\nu_i) \] with \[\nu_i = \text{logit}^{-1} \left [\sin\left(\frac{\pi}{8}x_{i,1}x_{i,2} + \pi/2 \right) + 2 I \left(x_{i,3}^2 > 3/4 \pi\right) +  2 I \left(x_{i,3}^2 \leq 3/4 \pi \right) \cos\left(2 x_{i,3}^2  + \pi/2\right) + \tanh(-x_{i,4}) + 0.25 x_{i,5}\right].\]
 
 ```{r data_echo, echo=TRUE, eval=FALSE}
 <<data>>
@@ -105,14 +105,15 @@ return(1 * sin(\frac{pi}{8}  x[,1] * x[,2] + pi/2) + 2 * x3term  + tanh(-x[,4]) 
 
 ## Posterior Estimation
 We use 4 posterior distributions:
+
 1. a Bayesian additive regression tree (BART) model,
-2. a simple logistic regression with the main effects of $X$
+2. a simple logistic regression with the main effects of $X$,
 3. a more complicated logistic regression with the main effects and all second order interactions, and
 4. a generalized additive mixed model (GAMM).
 
 All models are estimated with their software defaults and the logistic regression are estimated with the Finnish horseshoe.
 
-```{r posterior, message = FALSE, warning = FALSE, results="hide"}
+```{r posterior, message = FALSE, warning = FALSE, results="hide", echo=FALSE}
 hyperparameters <- list(m0 = NULL, nodes = NULL,
                           L = NULL)
   hyperparameters$m0 <- 5
@@ -162,9 +163,9 @@ rownames(mse.best.perform_logit) <- "MSE"
 ```
 
 ```{r mse_table, echo=FALSE, warning=FALSE, results='asis'}
-print(xtable(mse.best.perform, digits=3, caption="MSE from true data generating probabilities"),type = "html")
+print(xtable(mse.best.perform, digits=3, caption="MSE of the posterior predictive means from true data generating probabilities"),type = "html", sanitize.colnames.function = function(x) gsub(".", " ",x))
 ```
-Clearly, the BART model fits best.
+Clearly, the GAM model fits best followed by the BART model.
 
 Then we try to adapt our more poorly fitting but more interpretable models to the better fitting BART model.
 ```{r method_in_sample, message=FALSE, warning=FALSE, cache=FALSE}
