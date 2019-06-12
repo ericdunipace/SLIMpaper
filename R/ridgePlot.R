@@ -8,7 +8,7 @@ ridgePlot <- function(fit, index = 1, maxCoef = 10, scale = 1, alpha = 0.5, full
   if(inherits(fit, "sparse-posterior")){
     n <- nrow(fit$eta[[1]])
     s <- ncol(fit$eta[[1]])
-    whichModel <- which(fit$nzero <= maxCoef)
+    whichModel <- which(fit$nzero <= maxCoef & fit$nzero>0)
     ncoef <- rep(fit$nzero[whichModel], each = ncol(eta[[1]]))
     eta <- lapply(fit$eta[whichModel], function(ee) ee[idx,,drop=FALSE])
 
@@ -25,7 +25,7 @@ ridgePlot <- function(fit, index = 1, maxCoef = 10, scale = 1, alpha = 0.5, full
     n <- nrow(fit[[1]]$eta[[1]])
     s <- ncol(fit[[1]]$eta[[1]])
 
-    whichModel <- lapply(fit, function(nn) which(nn$nzero <= maxCoef))
+    whichModel <- lapply(fit, function(nn) which(nn$nzero <= maxCoef & nn$nzero>0))
     ncoef <- mapply(function(f,wm) {rep(f$nzero[wm], each=s)},
                     f = fit, wm = whichModel)
 
@@ -86,9 +86,9 @@ ridgePlot <- function(fit, index = 1, maxCoef = 10, scale = 1, alpha = 0.5, full
   if(!is.null(full)) {
     levs <- levels(df_ridge$Method)
     levs <- levs[levs != "Full"]
+    cols <- c(pal_jama("default")(length(levs)), "#e41a1c")
         ridgeplot <- ridgeplot +
-          scale_fill_manual(values=c("Full" = "#e41a1c")) +
-          scale_fill_discrete(breaks=levs)
+          scale_fill_manual(breaks=levs, values=cols)
   }
 
   return(ridgeplot)
