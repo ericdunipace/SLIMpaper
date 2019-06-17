@@ -179,6 +179,10 @@ if(!file.exists(msefile)){
 }
 ```
 ```{r ridgeplot, echo = FALSE, warning = FALSE, messages = FALSE}
+models <- list(Selection = theta_selection, 
+               Projection = theta_proj,
+               "Simulated Annealing" = theta_SA,
+               "Backward Stepwise" = theta_SW)
 idx <- 512
 ridge512 <- ridgePlot(models, index=idx, maxCoef = 10, scale =1 , alpha =0.5, full = cond_mu_full)
 
@@ -310,7 +314,10 @@ print(ridge512)
 
 Of course, we may be interested in looking at how good or how bad the predictions from the coarsened posterior can be. Thus, we can calculate how far the coarsened predictions are from the full posterior for each individual in terms of 2-Wasserstein distance, rank the distances, and display the results for say the best and worst performing coarsened predictions, or for any quantile inbetween.
 
-```{r rigeplot_print, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 8, fig.width=8, out.width="50%", optipng = '-o7', fig.align = "center",fig.show='hold', fig.cap = "Ridgeline plots for 1 to 10 coefficients. The top left plot is the observation whose coarsened posterior prediction is closest to the true posterior predictive distribution in terms of 2-Wasserstein distance ($0^{th}$ percentile in terms of ranks), and the bottom right is the observations whose is furthest from the true posterior predictive distribution ($100^{th}$ percentile in terms of ranks). Top row, left to right: $0^{th}$ and $33^{rd}$ percentiles. Bottom row, left to right: $67^{th}$ and $100^{th}$ percentiles."}
-for(i in 1:seq_along(ridgePlots)) print(ridgePlots[[i]])
+```{r rigeplot_print, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 8, fig.width=8, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap = "Ridgeline plots for 1 to 10 coefficients. The top left plot is the observation whose coarsened posterior prediction is closest to the true posterior predictive distribution in terms of 2-Wasserstein distance ($0^{th}$ percentile in terms of ranks), and the bottom right is the observations whose is furthest from the true posterior predictive distribution ($100^{th}$ percentile in terms of ranks). Top row, left to right: $0^{th}$ and $33^{rd}$ percentiles. Bottom row, left to right: $67^{th}$ and $100^{th}$ percentiles."}
+ridgePlots[[1]]
+ridgePlots[[2]]
+ridgePlots[[3]]
+ridgePlots[[4]]
 ```
 
