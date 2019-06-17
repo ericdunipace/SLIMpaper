@@ -1,4 +1,4 @@
-ranking <- function(fit, full, p = 2, maxCoef = 10, quantiles = c(0, 0.25, 0.5, 0.75, 1)) {
+ranking <- function(fit, full, p = 2, maxCoef = 10, quantiles = c(0, 0.25, 0.5, 0.75, 1), transform = function(x){x}) {
 
   # rankMethod   <- match.arg(rankMethod)
   # rankFun      <- match.fun(rankMethod)
@@ -11,7 +11,9 @@ ranking <- function(fit, full, p = 2, maxCoef = 10, quantiles = c(0, 0.25, 0.5, 
 
     # losses     <- sapply(coarse[whichModel], function(x) WpDist_individual(x, full, p, "rowwise"))
     # rankLoss   <- apply(losses, 1, rankFun )
-    rankLoss   <- sapply(coarse[whichModel], function(x) WpDist_individual(x, full, p, "rowwise"))
+    rankLoss   <- sapply(coarse[whichModel],
+                function(x)
+                  WpDist_individual(transform(x), transform(full), p, "rowwise"))
   } else{
     if(!is.list(fit)) stop("fit must be a sparse-posterior output or a list of outputs from the SparsePosterior package")
     if(!(all(sapply(fit, inherits, "sparse-posterior")))) {
@@ -23,7 +25,7 @@ ranking <- function(fit, full, p = 2, maxCoef = 10, quantiles = c(0, 0.25, 0.5, 
 
     losses     <- mapply(function (cc,nn){
           return(sapply(cc[nn], function(x)
-            WpDist_individual(x, full, p, "rowwise")))
+            WpDist_individual(transform(x), transform(full), p, "rowwise")))
           }, cc = coarse, nn = whichModel)
 
     # rankLosses <- sapply(losses, function(ll) apply(ll, 1, rankFun ))

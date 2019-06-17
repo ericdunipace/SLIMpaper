@@ -18,6 +18,14 @@ p.caption {
 </style>
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+require(SparsePosterior)
+require(ggplot2)
+require(CoarsePosteriorSummary)
+require(rstan)
+require(ggsci)
+require(doParallel)
+require(ggridges)
+require(data.table)
 ```
 ```{r data, message= FALSE, warning = FALSE, echo = FALSE}
 #### Load packages ####
@@ -58,19 +66,104 @@ x <- target$X$rX(1, target$X$corr, p)
 true_mu_full <- X[,1:p_star, drop=FALSE] %*% c(param$theta)
 true_mu <- x[,1:p_star,drop=FALSE] %*% c(param$theta)
 ```
+```{r posterior, message = FALSE, warning = FALSE, echo = FALSE}
+
+hyperparameters <- list(mu = NULL, sigma = NULL,
+                          alpha = NULL, beta = NULL,
+                        Lambda = NULL)
+hyperparameters$mu <- rep(0,p)
+hyperparameters$sigma <- diag(1,p,p)
+hyperparameters$alpha <- 10
+hyperparameters$beta <- 10
+hyperparameters$Lambda <- solve(hyperparameters$sigma)
+  
+# posterior <- target$rpost(nsamp, X, Y, method = "stan",
+#                           stan_dir ="../../Stan/normal_horseshoe_noQR.stan",
+#                           m0 = 20, scale_intercept = 2.5, chains = 4) # this can take a bit
+
+posterior <- target$rpost(nsamp, X, Y, hyperparameters = hyperparameters, method="conjugate")
 
 
+cond_mu <- x %*% posterior$theta
+cond_mu_full <- X %*% posterior$theta
+```
+```{r method_in_sample, message=FALSE, warning=FALSE, echo=FALSE}
+penalty.factor <- rep(1,p)
+force <- NULL
+adapt_file <- "gaussian_adapt.RData"
+if(!file.exists(adapt_file)){
+  theta_selection <- W2L1(X=X, Y = cond_mu_full, 
+                          theta=posterior$theta, penalty="selection.lasso",
+                          nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                          infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
+                          pseudo_observations = 0, display.progress = TRUE,
+                   penalty.factor = penalty.factor, method="selection.variable")
+  
+  theta_proj <- W2L1(X=X, Y=cond_mu_full, 
+                          theta=posterior$theta, penalty="mcp",
+                          nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                          infimum.maxit=1, maxit = 1e3, gamma = gamma,
+                          pseudo_observations = pseudo.observations, display.progress = TRUE,
+                   penalty.factor = penalty.factor, method="projection")
+  theta_SA <- WPSA(X=X, Y=cond_mu_full, 
+                        theta=posterior$theta, force = force,
+                 p = 2, model.size = c(1:p),
+                 iter=10, temps = 10,
+                 pseudo.obs = 0,
+                 proposal = proposal.fun,
+                 options = list(method = c("selection.variable"),
+                                energy.distribution = "boltzman",
+                                cooling.schedule = "exponential"),
+                 display.progress = TRUE
+                  )
+  theta_SW <- WPSW(X=X, Y=cond_mu_full, 
+                          theta=posterior$theta, force = force, p = 2,
+                          direction = "backward", 
+                          method="selection.variable",
+                   display.progress = TRUE
+                  )
+  save(theta_proj, theta_selection, theta_SA, theta_SW, file=adapt_file)
+} else {
+  load(adapt_file)
+}
 
+```
+```{r w2 distances, message=FALSE, warning=FALSE, echo=FALSE}
+models <- list(Selection = theta_selection, 
+               Projection = theta_proj,
+               "Simulated Annealing" = theta_SA,
+               "Backward Stepwise" = theta_SW)
+gauss_plot_file <- "w2plot.rds"
+if ( !file.exists(gauss_plot_file) ) { #only run if file doesn't exist
+  w2plot <- plot.compare(models, cond_mu_full, X, posterior$theta, 
+                       "w2", c("posterior","mean"), parallel = TRUE) # this can take a LONG time
+  w2plots <- w2plot$plot
+  w2plot.dat <- w2plot$data
+  saveRDS( w2plot.dat, gauss_plot_file )
+} else {
+  w2plot <- readRDS( gauss_plot_file )
+}
+```
+```{r mse distances, message=FALSE, warning=FALSE, echo=FALSE}
+#these should run faster
+mseplot_mean <- plot.compare(models, true_mu_full, X, posterior$theta, 
+                        "mse", c("mean"), parallel = TRUE)
+mseplot_posterior <- plot.compare(models, c(param$theta, rep(0,p-p_star)), X, posterior$theta, 
+                        "mse", c("posterior"), parallel = TRUE)
+
+
+```
 ## Setup
 ### Predictors
 We can measure variable importance in a variety of settings. Our first example is in a setting with Normally distributed data. We generate $n = `r n`$ predictor variables, $X$, from a Multivariate Normal,
-\[ X_i \sim N(0, \Sigma), \] with $\Sigma_{i,i} = 1$ for all $i$ from 1 to $p = `r p-1`.$ The first 20 dimensions of $X$ are correlated, and  dimensions 21 to 30 are correlated with correlations `r target$X$corr`. Thus, $\Sigma$ is block diagonal.
+\[ X_i \sim N(0, \Sigma), \] with $\Sigma_{i,i} = 1$ for all $i$ from 1 to $p = `r p-1`.$ The first 5 dimensions of $X$ are correlated, dimensions 6-10 are correlated, dimensions 10-20 are correlated, and dimensions 21 to 30 are correlated with correlations `r target$X$corr`. Thus, $\Sigma$ is block diagonal.
 
 ### Parameters
 We generate parameters as follows
 \[ \beta_{0:5} \sim \text{Unif}(1,2),\]
 \[ \beta_{6:10} \sim \text{Unif}(-2,-1), \] 
-\[ \beta_{11:20} \sim \text{Unif}(0,0.5), \] and
+\[ \beta_{11:20} \sim \text{Unif}(0,0.5), \] 
+\[ \beta_{21:30} = 0 ,\] and
 \[\sigma^2 = 1.\]
 
 ### Outcome
@@ -90,96 +183,67 @@ We put conjugate priors on our parameters,
   \sigma^2 \sim \text{Inv-Gamma}(10,10),
 \]
 which facillitates quick estimation via known posterior distributions.
-
-```{r posterior, message = FALSE, warning = FALSE}
-
+```{r post print, eval=FALSE}
 hyperparameters <- list(mu = NULL, sigma = NULL,
                           alpha = NULL, beta = NULL,
-                          Lambda = NULL)
-  hyperparameters$mu <- rep(0,p)
-  hyperparameters$sigma <- diag(1,p,p)
-  hyperparameters$alpha <- 10
-  hyperparameters$beta <- 10
-  hyperparameters$Lambda <- solve(hyperparameters$sigma)
-  
-# posterior <- target$rpost(nsamp, X, Y, method = "stan",
-#                           stan_dir ="../../Stan/normal_horseshoe_noQR.stan",
-#                           m0 = 20, scale_intercept = 2.5, chains = 4) # this can take a bit
+                        Lambda = NULL)
+hyperparameters$mu <- rep(0,p)
+hyperparameters$sigma <- diag(1,p,p)
+hyperparameters$alpha <- 10
+hyperparameters$beta <- 10
+hyperparameters$Lambda <- solve(hyperparameters$sigma)
 
 posterior <- target$rpost(nsamp, X, Y, hyperparameters = hyperparameters, method="conjugate")
 
 
 cond_mu <- x %*% posterior$theta
 cond_mu_full <- X %*% posterior$theta
-
-penalty.factor <- 1/sqrt(rowSums(posterior$theta^2))
 ```
 
 
 We then utilize our 1) selection variable, 2) location/scale, and 3) projection methods to find coarse posteriors close to our full one. Note: this code may take a bit to run.
-```{r method_in_sample, message=FALSE, warning=FALSE, cache=TRUE}
-adapt_file <- "gaussian_adapt.RData"
-if(!file.exists(adapt_file)){
-    theta_selection <- W2L1(X=X, Y = cond_mu_full, 
+
+```{r adapt print, eval = FALSE}
+penalty.factor <- rep(1, p)
+force <- NULL
+
+theta_selection <- W2L1(X=X, Y = cond_mu_full, 
                           theta=posterior$theta, penalty="selection.lasso",
                           nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                           infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
                           pseudo_observations = 0, display.progress = TRUE,
                    penalty.factor = penalty.factor, method="selection.variable")
-  
-  #these iterations may not be enough
-  theta_adaptive <-W2L1(X=X, Y=cond_mu_full, 
-                          theta=posterior$theta, penalty="mcp",
-                          nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
-                          infimum.maxit=1e2, maxit = 5e2, gamma = gamma,
-                          pseudo_observations = pseudo.observations, display.progress = TRUE,
-                   penalty.factor = penalty.factor,
-                    method="location.scale")
-  theta_proj <- W2L1(X=X, Y=cond_mu_full, 
-                          theta=posterior$theta, penalty="mcp",
-                          nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
-                          infimum.maxit=1, maxit = 1e3, gamma = gamma,
-                          pseudo_observations = pseudo.observations, display.progress = TRUE,
-                   penalty.factor = penalty.factor, method="projection")
-  save(theta_proj, theta_adaptive, theta_selection, file=adapt_file)
-} else {
-  load(adapt_file)
-}
-
-
-theta <- list(selection = NULL, adaptive = NULL, projection = NULL)
-
-theta$selection <- extractTheta(theta_selection, posterior$theta)
-theta$adaptive <- extractTheta(theta_adaptive, posterior$theta)
-theta$projection <-  extractTheta(theta_proj, posterior$theta)
+theta_proj <- W2L1(X=X, Y=cond_mu_full, 
+                        theta=posterior$theta, penalty="mcp",
+                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                        infimum.maxit=1, maxit = 1e3, gamma = gamma,
+                        pseudo_observations = pseudo.observations, display.progress = TRUE,
+                 penalty.factor = penalty.factor, method="projection")
+theta_SA <- WPSA(X=X, Y=cond_mu_full, 
+                        theta=posterior$theta, force = force,
+                 p = 2, model.size = c(1:p),
+                 iter=10, temps = 50,
+                 pseudo.obs = 0,
+                 proposal = proposal.fun,
+                 options = list(method = c("selection.variable"),
+                                energy.distribution = "boltzman",
+                                cooling.schedule = "exponential"),
+                 display.progress = TRUE
+                  )
+  theta_SW <- WPSW(X=X, Y=cond_mu_full, 
+                          theta=posterior$theta, force = force, p = 2,
+                          direction = "backward", 
+                          method="selection.variable",
+                   display.progress = TRUE
+                  )
 ```
+
 
 Then we measure our distance from the posterior predictive mean and posterior distribution.
-```{r w2 distances, cache = TRUE}
-models <- list(Selection = theta_selection, 
-               "Loc./Scale" = theta_adaptive,
-               Projection = theta_proj)
-gauss_plot_file <- "w2plot.rds"
-if ( !file.exists(gauss_plot_file) ){ #only run if file doesn't exist
-  w2plot <- plot.compare(models, cond_mu_full, X, posterior$theta, 
-                       "w2", c("posterior","mean"), parallel = TRUE) # this can take a LONG time
-  saveRDS( w2plot, gauss_plot_file )
-} else {
-  w2plot <- readRDS( gauss_plot_file )
-}
-```
 
 
 We also measure the mean-squared error from the true mean, since it is known in this case.
-```{r mse distances, cache=TRUE}
-#these should run faster
-mseplot_mean <- plot.compare(models, true_mu_full, X, posterior$theta, 
-                        "mse", c("mean"), parallel = TRUE)
-mseplot_posterior <- plot.compare(models, c(param$theta, rep(0,p-p_star)), X, posterior$theta, 
-                        "mse", c("posterior"), parallel = TRUE)
 
-
-```
 
 Using the Wasserstein distance, we can see how the coarse versions move closer to both the full posterior. The coarse posteriors also converge in MSE to the true parameters 
 ```{r dist_plot_post,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap="2-Wasserstein distance between the full posterior for the regression coefficients and our coarsened version."}

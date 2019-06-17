@@ -1,4 +1,4 @@
-ridgePlot <- function(fit, index = 1, maxCoef = 10, scale = 1, alpha = 0.5, full = NULL) {
+ridgePlot <- function(fit, index = 1, maxCoef = 10, scale = 1, alpha = 0.5, full = NULL, transform = function(x){x}) {
   require(ggplot2)
   require(ggridges)
   require(ggsci)
@@ -10,7 +10,7 @@ ridgePlot <- function(fit, index = 1, maxCoef = 10, scale = 1, alpha = 0.5, full
     s <- ncol(fit$eta[[1]])
     whichModel <- which(fit$nzero <= maxCoef & fit$nzero>0)
     ncoef <- rep(fit$nzero[whichModel], each = ncol(eta[[1]]))
-    eta <- lapply(fit$eta[whichModel], function(ee) ee[idx,,drop=FALSE])
+    eta <- lapply(fit$eta[whichModel], function(ee) transform(ee[idx,,drop=FALSE]))
 
 
     df_ridge <- data.frame(value = unlist(eta),
@@ -30,7 +30,7 @@ ridgePlot <- function(fit, index = 1, maxCoef = 10, scale = 1, alpha = 0.5, full
                     f = fit, wm = whichModel)
 
     eta <- mapply(function(f,wm) {lapply(f$eta[wm],
-                                         function(e) e[idx,,drop=FALSE])},
+                                         function(e) transform(e[idx,,drop=FALSE]))},
                   f = fit, wm = whichModel)
 
     df_ridge <- data.frame(value = unlist(eta), ncoef = factor(unlist(ncoef)))
@@ -42,7 +42,7 @@ ridgePlot <- function(fit, index = 1, maxCoef = 10, scale = 1, alpha = 0.5, full
       if(nrow(full)>1) {
         if(nrow(full) != n) stop("'full' must be a vector of predictions for correct observation or matrix of predictions for every observation")
         if(ncol(full) != s) stop("'full' must have the same number of predictions per observation as are found in the coarse posterior version")
-        full <- full[idx,]
+        full <- transform(full[idx,])
       }
     } else {
       if(length(full) != s) stop("'full' must have the same number of predictions as found in the coarse posterior version")
