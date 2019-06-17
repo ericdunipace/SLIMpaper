@@ -141,18 +141,51 @@ if ( !file.exists(gauss_plot_file) ) { #only run if file doesn't exist
   w2plot.dat <- w2plot$data
   saveRDS( w2plot.dat, gauss_plot_file )
 } else {
-  w2plot <- readRDS( gauss_plot_file )
+  w2plot.dat <- readRDS( gauss_plot_file )
+  w2plots <- lapply(w2plot.dat, function(dd)
+                    ggplot( dd, aes(x=nactive, y=dist, color = groups, group=groups )) +
+        geom_line() + scale_color_jama() + labs(color ="Method") +
+        xlab("Number of active coefficients") + ylab("2-Wasserstein Distance") + theme_bw() +
+        scale_x_continuous(expand = c(0, 0)) +
+        scale_y_continuous(expand = c(0, 0), limits = c(0, max(dd$dist)*1.1)))
 }
 ```
 ```{r mse distances, message=FALSE, warning=FALSE, echo=FALSE}
-#these should run faster
-mseplot_mean <- plot.compare(models, true_mu_full, X, posterior$theta, 
+models <- list(Selection = theta_selection, 
+               Projection = theta_proj,
+               "Simulated Annealing" = theta_SA,
+               "Backward Stepwise" = theta_SW)
+msefile <- "mseplot.rds"
+if(!file.exists(msefile)){
+  mseplot_mean <- plot.compare(models, true_mu_full, X, posterior$theta, 
                         "mse", c("mean"), parallel = TRUE)
-mseplot_posterior <- plot.compare(models, c(param$theta, rep(0,p-p_star)), X, posterior$theta, 
-                        "mse", c("posterior"), parallel = TRUE)
-
-
+  mseplot_posterior <- plot.compare(models, c(param$theta, rep(0,p-p_star)), X, posterior$theta, 
+                          "mse", c("posterior"), parallel = TRUE)
+  mse_dat <- list(posterior = mseplot_posterior$data$posterior,
+                  mean = mseplot_mean$data$mean)
+  mse_plots <- list(posterior = mseplot_posterior$plot$posterior,
+                    mean = mseplot_mean$plot$mean)
+  saveRDS(mse_dat, msefile)
+} else {
+  mse_dat <- readRDS(msefile)
+  
+  mse_plots <- lapply(mse_dat, function(dd) 
+    ggplot( dd, aes(x=nactive, y=dist, color = groups, group=groups )) +
+        geom_line() + scale_color_jama() + labs(color ="Method") +
+        xlab("Number of active coefficients") + ylab("MSE") + theme_bw() +
+        scale_x_continuous(expand = c(0, 0)) +
+        scale_y_continuous(expand = c(0, 0), limits = c(0, max(dd$dist)*1.1))
+    )
+}
 ```
+```{r ridgeplot, echo = FALSE, warning = FALSE, messages = FALSE}
+idx <- 512
+ridge512 <- ridgePlot(models, index=idx, maxCoef = 10, scale =1 , alpha =0.5, full = cond_mu_full)
+
+ranks <- ranking(models, cond_mu_full, p = 2, maxCoef = 10, quantiles = c(0,0.3, 0.67, 1))
+ridgePlots <- ridgePlot(models, index=ranks$index, maxCoef = ranks$ncoef, scale =1 , alpha =0.5, full = cond_mu_full)
+```
+
 ## Setup
 ### Predictors
 We can measure variable importance in a variety of settings. Our first example is in a setting with Normally distributed data. We generate $n = `r n`$ predictor variables, $X$, from a Multivariate Normal,
@@ -208,11 +241,12 @@ penalty.factor <- rep(1, p)
 force <- NULL
 
 theta_selection <- W2L1(X=X, Y = cond_mu_full, 
-                          theta=posterior$theta, penalty="selection.lasso",
-                          nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
-                          infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
-                          pseudo_observations = 0, display.progress = TRUE,
-                   penalty.factor = penalty.factor, method="selection.variable")
+                        theta=posterior$theta, penalty="selection.lasso",
+                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                        infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
+                        pseudo_observations = 0, display.progress = TRUE,
+                 penalty.factor = penalty.factor, method="selection.variable")
+
 theta_proj <- W2L1(X=X, Y=cond_mu_full, 
                         theta=posterior$theta, penalty="mcp",
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
@@ -220,22 +254,22 @@ theta_proj <- W2L1(X=X, Y=cond_mu_full,
                         pseudo_observations = pseudo.observations, display.progress = TRUE,
                  penalty.factor = penalty.factor, method="projection")
 theta_SA <- WPSA(X=X, Y=cond_mu_full, 
-                        theta=posterior$theta, force = force,
-                 p = 2, model.size = c(1:p),
-                 iter=10, temps = 50,
-                 pseudo.obs = 0,
-                 proposal = proposal.fun,
-                 options = list(method = c("selection.variable"),
-                                energy.distribution = "boltzman",
-                                cooling.schedule = "exponential"),
+                      theta=posterior$theta, force = force,
+               p = 2, model.size = c(1:p),
+               iter=10, temps = 10,
+               pseudo.obs = 0,
+               proposal = proposal.fun,
+               options = list(method = c("selection.variable"),
+                              energy.distribution = "boltzman",
+                              cooling.schedule = "exponential"),
+               display.progress = TRUE
+                )
+theta_SW <- WPSW(X=X, Y=cond_mu_full, 
+                        theta=posterior$theta, force = force, p = 2,
+                        direction = "backward", 
+                        method="selection.variable",
                  display.progress = TRUE
-                  )
-  theta_SW <- WPSW(X=X, Y=cond_mu_full, 
-                          theta=posterior$theta, force = force, p = 2,
-                          direction = "backward", 
-                          method="selection.variable",
-                   display.progress = TRUE
-                  )
+                )
 ```
 
 
@@ -247,33 +281,36 @@ We also measure the mean-squared error from the true mean, since it is known in 
 
 Using the Wasserstein distance, we can see how the coarse versions move closer to both the full posterior. The coarse posteriors also converge in MSE to the true parameters 
 ```{r dist_plot_post,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap="2-Wasserstein distance between the full posterior for the regression coefficients and our coarsened version."}
-print(w2plot$plot$posterior)
-print(mseplot_posterior$plot$posterior)
+print(w2plots$posterior)
 ```
+
+```{r mse_plot_post,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap="MSE between the full posterior for the regression coefficients and the true data generating parameters."}
+print(mse_plots$posterior)
+```
+
 
 And we can look at the differences the posterior predictive mean and the full posterior predictive mean, as well as the MSE between the coarse posterior and true mean.
 ```{r dist_plot_mean,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap="2-Wasserstein distance between coarse and full posterior predictive means and MSE between posterior predictive means and the true means (calculated from the true parameters)"}
-print(w2plot$plot$mean)
-print(mseplot_mean$plot$mean)
+print(w2plots$mean)
+print(mse_plots$mean)
 ```
 
 
-Finally, we can see as more covariates are active, the coarse distribution gets close to the truth. Importantly, it looks like the selection method does better here for this individual $i = 512$. However, overall, the projection and location/scale methods do better, which we can see in the above plots.
+Finally, we can see as more covariates are active, the coarse distribution gets close to the truth. Importantly, it looks like the selection method does better here for this individual $i = 512$. For this person, all of the predictions appear to be exactly the same, so it doesn't matter which method we go with.
+```{r ridgeplot_echo, eval=FALSE}
+idx <- 512
+ridge512 <- ridgePlot(models, index=idx, maxCoef = 10, scale =1 , alpha =0.5, full = cond_mu_full)
+```
 
-```{r ridge_plots, ,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=8, out.width="90%", optipng = '-o7', fig.align = "center"}
-select.idx <- 512
-means <- lapply(theta, function(tclist) 
-              data.frame(value = c(sapply(tclist$theta, function(tc) X[select.idx,] %*% tc)), 
-             ncoef = rep(tclist$nzero, each = nsamp)
-             ))
-names(means) <- c("Selection","Loc./Scale","Projection")
+<!-- However, overall, the projection and location/scale methods do better, which we can see in the above plots. -->
+which creates this figure
+```{r ridge_plots_single, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=8, out.width="90%", optipng = '-o7', fig.align = "center"}
+print(ridge512)
+```
 
-df_means <- as.data.frame(data.table::rbindlist(means))
-df_means$Method <- factor(unlist(mapply(function(n,l) {rep(n,each=l)}, n = names(means), l = sapply(means, nrow))))
-ridgeplot <- ggplot(df_means, aes(y = factor(ncoef))) + 
-  geom_density_ridges(aes(x = value, fill=Method), scale=4, alpha=0.5) + 
-  theme_ridges() + ylab("Number of Active Coefficients") + xlab("") +
-  scale_fill_jama()
-print(ridgeplot)
+Of course, we may be interested in looking at how good or how bad the predictions from the coarsened posterior can be. Thus, we can calculate how far the coarsened predictions are from the full posterior for each individual in terms of 2-Wasserstein distance, rank the distances, and display the results for say the best and worst performing coarsened predictions, or for any quantile inbetween.
+
+```{r rigeplot_print, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=8, out.width="90%", optipng = '-o7', fig.align = "center"}
+print(ridgePlots)
 ```
 
