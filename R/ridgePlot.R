@@ -84,8 +84,7 @@ ridgePlot <- function(fit, index = 1, maxCoef = 10, scale = 1, alpha = 0.5, full
     ridgeplot <- ridgeplot +
       theme_ridges() +
       ylab("Number of Active Coefficients") +
-      xlab("") +
-      scale_fill_jama()
+      xlab("")
 
     # remove full from legend
     if(!is.null(full)) {
@@ -94,6 +93,8 @@ ridgePlot <- function(fit, index = 1, maxCoef = 10, scale = 1, alpha = 0.5, full
       cols <- c(pal_jama("default")(length(levs)), "#e41a1c")
       ridgeplot <- ridgeplot +
         scale_fill_manual(breaks=levs, values=cols)
+    } else {
+      ridgeplot <- ridgeplot + scale_fill_jama()
     }
   }
 

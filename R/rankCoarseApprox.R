@@ -3,7 +3,7 @@ ranking <- function(fit, full, p = 2, maxCoef = 10, quantiles = c(0, 0.25, 0.5, 
   # rankMethod   <- match.arg(rankMethod)
   # rankFun      <- match.fun(rankMethod)
 
-  if(inherits(fit, "sparse-posterior")){
+  if (inherits(fit, "sparse-posterior")) {
     coarse     <- fit$eta
     nzero      <- fit$nzero
     whichModel <- which(nzero <= maxCoef)

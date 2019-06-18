@@ -48,12 +48,12 @@ target <- get_binary_nonlinear_model()
 target$X$corr <- 0.5
 
 X <- target$X$rX(n, target$X$corr, p)
-# param <- target$rparam() #for non-linear model, not needed
-param <- NULL
-Y.list <- target$rdata(n, X, param, method="modified.friedman")
+param <- target$rparam() #for non-linear model, not needed
+# param <- NULL
+Y.list <- target$rdata(n, X, param, method="random.interaction")
 Y <- Y.list$Y
 prob <- Y.list$prob
-param <- Y.list$theta
+param <- Y.list$param
 
 x <- target$X$rX(1, target$X$corr, p)
 
@@ -79,40 +79,6 @@ probNew <- Y.listNew$prob
 paramNew <- Y.listNew$theta
 
 ```
-## Setup
-The method can also be used on binary data. We simulate data as follows. 
-
-### Predictors
-We can measure variable importance in a variety of settings. Our first example is in a setting with Normally distributed data. We generate $n = `r n`$ predictor variables, $X$, from a Multivariate Normal,
-\[ X_i \sim N(0, \Sigma), \] with $\Sigma_{i,i} = 1$ for all $i$ from 1 to $p = `r p-1`.$ The first 20 dimensions of $X$ are correlated, dimensions 21 to 50 are correlated, and dimensions 51 to 100 are corrlated,  with correlations `r target$X$corr`. Thus, $\Sigma$ is block diagonal.
-
-<!-- ### Parameters -->
-<!-- We generate parameters as follows -->
-<!-- \[ \beta_{0:5} \sim \text{Unif}(0.1,0.2),\] -->
-<!-- \[ \beta_{6:10} \sim \text{Unif}(-0.2,-0.1), \] and -->
-<!-- \[ \beta_{11:20} \sim \text{Unif}(0,0.05). \] -->
-
-### Outcome
-We sample the outcome from a modified Friedman model:
-<!-- cos(2 * x3sq + pi/2) -->
-<!--     x3term <- ifelse(2 * x3sq > 3/4 * pi, 1,  costerm) -->
-<!-- return(1 * sin(\frac{pi}{8}  x[,1] * x[,2] + pi/2) + 2 * x3term  + tanh(-x[,4]) + 0.25 * x[,5]) -->
-\[Y_i \sim \text{Bernoulli}(\nu_i) \] with \[\nu_i = \text{logit}^{-1} \left [\sin\left(\frac{\pi}{8}x_{i,1}x_{i,2} + \pi/2 \right) + 2 I \left(x_{i,3}^2 > 3/4 \pi\right) +  2 I \left(x_{i,3}^2 \leq 3/4 \pi \right) \cos\left(2 x_{i,3}^2  + \pi/2\right) + \tanh(-x_{i,4}) + 0.25 x_{i,5}\right].\]
-
-```{r data_echo, echo=TRUE, eval=FALSE}
-<<data>>
-```
-
-## Posterior Estimation
-We use 4 posterior distributions:
-
-1. a Bayesian additive regression tree (BART) model,
-2. a simple logistic regression with the main effects of $X$,
-3. a more complicated logistic regression with the main effects and all second order interactions, and
-4. a generalized additive mixed model (GAMM).
-
-All models are estimated with their software defaults and the logistic regression are estimated with the Finnish horseshoe.
-
 ```{r posterior, message = FALSE, warning = FALSE, results="hide", echo=FALSE}
 hyperparameters <- list(m0 = NULL, nodes = NULL,
                           L = NULL)
@@ -149,6 +115,7 @@ if(!file.exists("posterior.RData")){
 } else {
   load("posterior.RData")
 }
+prob <- c(prob)
 mse.best.perform <- data.frame(BART = mean((prob - plogis(t(post.bart$eta)))^2),
    'Simple Logistic' = mean((prob - plogis(t(post.stan$eta)))^2),
    'Logistic with Interactions' = mean((prob - plogis(t(post.stan.full$eta)))^2),
@@ -161,14 +128,7 @@ mse.best.perform_logit <- data.frame(BART = mean((qlogis(prob) - (t(post.bart$et
    GAMM = mean((qlogis(prob) - (t(post.gamm$eta)))^2))
 rownames(mse.best.perform_logit) <- "MSE"
 ```
-
-```{r mse_table, echo=FALSE, warning=FALSE, results='asis'}
-print(xtable(mse.best.perform, digits=3, caption="MSE of the posterior predictive means from true data generating probabilities"),type = "html", sanitize.colnames.function = function(x) gsub(".", " ",x))
-```
-Clearly, the GAM model fits best followed by the BART model.
-
-Then we try to adapt our more poorly fitting but more interpretable models to the better fitting BART model.
-```{r method_in_sample, message=FALSE, warning=FALSE, cache=FALSE}
+```{r method_in_sample, message=FALSE, warning=FALSE, cache=FALSE, echo = FALSE}
 # penalty.factor.simple <- 1/colMeans(abs(post.stan$theta))
 # penalty.factor.full <- 1/colMeans(abs(post.stan.full$theta))
 # penalty.factor.gamm <- 1/colMeans(abs(post.gamm$theta))
@@ -178,8 +138,8 @@ penalty.factor.gamm <- rep(1, ncol(post.gamm$theta))
 
 
 
-if( !file.exists("interact_adapt.rds") ) {
-  interaction_adapt <- list(
+if( !file.exists("interact_adapt_bart.rds") ) {
+  interaction_adapt_bart <- list(
                  selection = W2L1(X=combinations, Y = post.bart$eta, 
                         theta=post.stan.full$theta, penalty="selection.lasso",
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
@@ -193,32 +153,69 @@ if( !file.exists("interact_adapt.rds") ) {
                  #        pseudo_observations = pseudo.observations, display.progress = TRUE,
                  #        penalty.factor = penalty.factor.full,
                  #        method="location.scale"),
-                 projection = W2L1(X=combinations, Y=post.bart$eta, 
-                        theta=post.stan.full$theta, penalty="mcp.net", alpha=0.99,
-                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
-                        infimum.maxit=1, maxit = 1e3, gamma = gamma,
-                        pseudo_observations = pseudo.observations, display.progress = TRUE,
-                        penalty.factor = penalty.factor.full, method="projection",tol = 1e-3),
-                 projection2 = W2L1(X=combinations, Y=post.bart$eta, 
+                 # projection = W2L1(X=combinations, Y=post.bart$eta, 
+                 #        theta=post.stan.full$theta, penalty="mcp.net", alpha=0.99,
+                 #        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                 #        infimum.maxit=1, maxit = 1e3, gamma = gamma,
+                 #        pseudo_observations = pseudo.observations, display.progress = TRUE,
+                 #        penalty.factor = penalty.factor.full, method="projection",tol = 1e-3),
+                 mcp = W2L1(X=combinations, Y=post.bart$eta, 
                         theta=post.stan.full$theta, penalty="mcp", alpha=0.99,
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1, maxit = 1e3, gamma = gamma,
                         pseudo_observations = pseudo.observations, display.progress = TRUE,
                         penalty.factor = penalty.factor.full, method="projection",tol = 1e-3),
-                 projection3 = W2L1(X=combinations, Y=post.bart$eta, 
+                 lasso = W2L1(X=combinations, Y=post.bart$eta, 
                         theta=post.stan.full$theta, penalty="lasso", alpha=1,
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1, maxit = 1e3, gamma = gamma,
                         pseudo_observations = pseudo.observations, display.progress = TRUE,
                         penalty.factor = penalty.factor.full, method="projection",tol = 1e-3)
                 )
-  saveRDS(interaction_adapt, "interact_adapt.rds")
+  saveRDS(interaction_adapt_bart, "interact_adapt_bart.rds")
 } else {
-  interaction_adapt <- readRDS( "interact_adapt.rds")
+  interaction_adapt_bart <- readRDS( "interact_adapt_bart.rds")
 }
-
-if (!file.exists("simple_adapt.RDS")){
-  simple_adapt <- list(
+if( !file.exists("interact_adapt_gam.rds") ) {
+  interaction_adapt_gam <- list(
+                 selection = W2L1(X=combinations, Y = post.gamm$eta, 
+                        theta=post.stan.full$theta, penalty="selection.lasso",
+                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                        infimum.maxit=1e4, maxit = 5e2, gamma = gamma,
+                        pseudo_observations = pseudo.observations, display.progress = TRUE,
+                        penalty.factor = penalty.factor.full, method="selection.variable"),
+                 # location.scale = W2L1(X=combinations, Y=post.bart$eta, 
+                 #        theta=post.stan.full$theta, penalty="mcp.net", alpha=0.99,
+                 #        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                 #        infimum.maxit=1e2, maxit = 1e3, gamma = gamma,
+                 #        pseudo_observations = pseudo.observations, display.progress = TRUE,
+                 #        penalty.factor = penalty.factor.full,
+                 #        method="location.scale"),
+                 # projection = W2L1(X=combinations, Y=post.gamm$eta, 
+                 #        theta=post.stan.full$theta, penalty="mcp.net", alpha=0.99,
+                 #        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                 #        infimum.maxit=1, maxit = 1e3, gamma = gamma,
+                 #        pseudo_observations = pseudo.observations, display.progress = TRUE,
+                 #        penalty.factor = penalty.factor.full, method="projection",tol = 1e-3),
+                 mcp = W2L1(X=combinations, Y=post.gamm$eta, 
+                        theta=post.stan.full$theta, penalty="mcp", alpha=0.99,
+                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                        infimum.maxit=1, maxit = 1e3, gamma = gamma,
+                        pseudo_observations = pseudo.observations, display.progress = TRUE,
+                        penalty.factor = penalty.factor.full, method="projection",tol = 1e-3),
+                 lasso = W2L1(X=combinations, Y=post.gamm$eta, 
+                        theta=post.stan.full$theta, penalty="lasso", alpha=1,
+                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                        infimum.maxit=1, maxit = 1e3, gamma = gamma,
+                        pseudo_observations = pseudo.observations, display.progress = TRUE,
+                        penalty.factor = penalty.factor.full, method="projection",tol = 1e-3)
+                )
+  saveRDS(interaction_adapt_gam, "interact_adapt_gam.rds")
+} else {
+  interaction_adapt_gam <- readRDS( "interact_adapt_gam.rds")
+}
+if (!file.exists("simple_adapt_bart.RDS")){
+  simple_adapt_bart <- list(
                      selection = W2L1(X=X, Y = post.bart$eta, 
                         theta=post.stan$theta, penalty="selection.lasso",
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
@@ -233,156 +230,257 @@ if (!file.exists("simple_adapt.RDS")){
                      #    pseudo_observations = pseudo.observations, display.progress = TRUE,
                      #    penalty.factor = penalty.factor.simple,
                      #    method="location.scale"),
-                     projection = W2L1(X=X, Y=post.bart$eta, 
-                        theta=post.stan$theta, penalty="mcp.net", alpha = 0.5,
+                     # mcp = W2L1(X=X, Y=post.bart$eta, 
+                     #    theta=post.stan$theta, penalty="mcp.net", alpha = 0.5,
+                     #    nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                     #    infimum.maxit=1, maxit = 1e3, gamma = gamma,
+                     #    pseudo_observations = pseudo.observations, display.progress = TRUE,
+                     #    penalty.factor = penalty.factor.simple, method="projection"),
+                     mcp = W2L1(X=X, Y=post.bart$eta, 
+                        theta=post.stan$theta, penalty="mcp", alpha = 1,
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1, maxit = 1e3, gamma = gamma,
                         pseudo_observations = pseudo.observations, display.progress = TRUE,
                         penalty.factor = penalty.factor.simple, method="projection"),
-                     projection2 = W2L1(X=X, Y=post.bart$eta, 
-                        theta=post.stan$theta, penalty="mcp", alpha = 0.5,
-                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
-                        infimum.maxit=1, maxit = 1e3, gamma = gamma,
-                        pseudo_observations = pseudo.observations, display.progress = TRUE,
-                        penalty.factor = penalty.factor.simple, method="projection"),
-                     projection3 = W2L1(X=X, Y=post.bart$eta, 
+                     lasso = W2L1(X=X, Y=post.bart$eta, 
                         theta=post.stan$theta, penalty="lasso", alpha = 1,
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1, maxit = 1e3, gamma = gamma,
                         pseudo_observations = pseudo.observations, display.progress = TRUE,
                         penalty.factor = penalty.factor.simple, method="projection")
                 )
-  saveRDS(simple_adapt, "simple_adapt.RDS")
+  saveRDS(simple_adapt_bart, "simple_adapt_bart.RDS")
 } else {
-  simple_adapt <- readRDS("simple_adapt.RDS")
+  simple_adapt_bart <- readRDS("simple_adapt_bart.RDS")
 }
 
-if (!file.exists("gamm_adapt.RDS")){
-  gamm_adapt <- list(
-                     selection = W2L1(X=gammX, Y = post.bart$eta, 
-                        theta=post.gamm$theta, penalty="selection.lasso",
+if (!file.exists("simple_adapt_gam.RDS")){
+  simple_adapt_gam <- list(
+                     selection = W2L1(X=X, Y = post.gamm$eta, 
+                        theta=post.stan$theta, penalty="selection.lasso",
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
                         pseudo_observations = pseudo.observations, 
                         display.progress = TRUE,
-                        penalty.factor = penalty.factor.gamm,
-                        method="selection.variable"),
-                     # location.scale = W2L1(X=gammX, Y=post.bart$eta, 
-                     #    theta=post.gamm$theta, penalty="mcp.net", alpha = 0.5,
+                        penalty.factor = penalty.factor.simple, method="selection.variable"),
+                     # location.scale = W2L1(X=X, Y=post.bart$eta, 
+                     #    theta=post.stan$theta, penalty="mcp.net", alpha = 0.5,
                      #    nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                      #    infimum.maxit=1e2, maxit = 1e3, gamma = gamma,
                      #    pseudo_observations = pseudo.observations, display.progress = TRUE,
-                     #    penalty.factor = penalty.factor.gamm,
+                     #    penalty.factor = penalty.factor.simple,
                      #    method="location.scale"),
-                     projection = W2L1(X=gammX, Y=post.bart$eta, 
-                        theta=post.gamm$theta, penalty="mcp.net", alpha = 0.5,
+                     # projection = W2L1(X=X, Y=post.bart$eta, 
+                     #    theta=post.stan$theta, penalty="mcp.net", alpha = 0.5,
+                     #    nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                     #    infimum.maxit=1, maxit = 1e3, gamma = gamma,
+                     #    pseudo_observations = pseudo.observations, display.progress = TRUE,
+                     #    penalty.factor = penalty.factor.simple, method="projection"),
+                     mcp = W2L1(X=X, Y=post.gamm$eta, 
+                        theta=post.stan$theta, penalty="mcp", alpha = 0.5,
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1, maxit = 1e3, gamma = gamma,
                         pseudo_observations = pseudo.observations, display.progress = TRUE,
-                        penalty.factor = penalty.factor.gamm,
-                        method="projection"),
-                     projection2 = W2L1(X=gammX, Y=post.bart$eta, 
-                        theta=post.gamm$theta, penalty="mcp", alpha = 0.5,
+                        penalty.factor = penalty.factor.simple, method="projection"),
+                     lasso = W2L1(X=X, Y=post.gamm$eta, 
+                        theta=post.stan$theta, penalty="lasso", alpha = 1,
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1, maxit = 1e3, gamma = gamma,
                         pseudo_observations = pseudo.observations, display.progress = TRUE,
-                        penalty.factor = penalty.factor.gamm,
-                        method="projection"),
-                     projection3 = W2L1(X=gammX, Y=post.bart$eta, 
-                        theta=post.gamm$theta, penalty="lasso", alpha = 1,
-                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
-                        infimum.maxit=1, maxit = 1e3, gamma = gamma,
-                        pseudo_observations = pseudo.observations, display.progress = TRUE,
-                        penalty.factor = penalty.factor.gamm,
-                        method="projection")
+                        penalty.factor = penalty.factor.simple, method="projection")
                 )
-  saveRDS(gamm_adapt, "gamm_adapt.RDS")
+  saveRDS(simple_adapt_gam, "simple_adapt_gam.RDS")
 } else {
-  gamm_adapt <- readRDS("gamm_adapt.RDS")
+  simple_adapt_gam <- readRDS("simple_adapt_gam.RDS")
 }
+
+# if (!file.exists("gamm_adapt.RDS")){
+#   gamm_adapt <- list(
+#                      selection = W2L1(X=gammX, Y = post.bart$eta, 
+#                         theta=post.gamm$theta, penalty="selection.lasso",
+#                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+#                         infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
+#                         pseudo_observations = pseudo.observations, 
+#                         display.progress = TRUE,
+#                         penalty.factor = penalty.factor.gamm,
+#                         method="selection.variable"),
+#                      # location.scale = W2L1(X=gammX, Y=post.bart$eta, 
+#                      #    theta=post.gamm$theta, penalty="mcp.net", alpha = 0.5,
+#                      #    nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+#                      #    infimum.maxit=1e2, maxit = 1e3, gamma = gamma,
+#                      #    pseudo_observations = pseudo.observations, display.progress = TRUE,
+#                      #    penalty.factor = penalty.factor.gamm,
+#                      #    method="location.scale"),
+#                      projection = W2L1(X=gammX, Y=post.bart$eta, 
+#                         theta=post.gamm$theta, penalty="mcp.net", alpha = 0.5,
+#                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+#                         infimum.maxit=1, maxit = 1e3, gamma = gamma,
+#                         pseudo_observations = pseudo.observations, display.progress = TRUE,
+#                         penalty.factor = penalty.factor.gamm,
+#                         method="projection"),
+#                      projection2 = W2L1(X=gammX, Y=post.bart$eta, 
+#                         theta=post.gamm$theta, penalty="mcp", alpha = 0.5,
+#                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+#                         infimum.maxit=1, maxit = 1e3, gamma = gamma,
+#                         pseudo_observations = pseudo.observations, display.progress = TRUE,
+#                         penalty.factor = penalty.factor.gamm,
+#                         method="projection"),
+#                      projection3 = W2L1(X=gammX, Y=post.bart$eta, 
+#                         theta=post.gamm$theta, penalty="lasso", alpha = 1,
+#                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+#                         infimum.maxit=1, maxit = 1e3, gamma = gamma,
+#                         pseudo_observations = pseudo.observations, display.progress = TRUE,
+#                         penalty.factor = penalty.factor.gamm,
+#                         method="projection")
+#                 )
+#   saveRDS(gamm_adapt, "gamm_adapt.RDS")
+# } else {
+#   gamm_adapt <- readRDS("gamm_adapt.RDS")
+# }
 ```
 
-
-
-```{r w2 distances}
-names(interaction_adapt) <- 
-  names(simple_adapt) <- 
-  names(gamm_adapt) <- c("Selection",
+```{r w2 distances, echo = FALSE, warning= FALSE, message= FALSE}
+names(interaction_adapt_bart) <- 
+  names(simple_adapt_bart) <- 
+  names(interaction_adapt_gam) <- 
+  names(simple_adapt_gam) <-  c("Selection",
                       # "Loc./Scale",
-                         "MCP Net Projection",
+                         # "MCP Net Projection",
                          "MCP Projection",
                          "Lasso Projection")
-w2plot <- list(simple=NULL,
-               interaction = NULL, 
-               gamm = NULL)
+
+w2plot <- list(bart = list (simple=NULL, interaction = NULL),
+               gam = list (simple=NULL, interaction = NULL))
 if ( !file.exists("w2plot_bin.rds") ) {
-  w2plot$simple <- plot.compare(simple_adapt, post.bart$eta, X, t(post.stan$theta), 
+  w2plot$bart$simple <- plot.compare(simple_adapt_bart, post.bart$eta, X, t(post.stan$theta), 
                        "w2", c("mean"), parallel = TRUE) 
   # w2plot$interaction <- plot.compare(interaction_adapt, post.bart$eta, 
   #                                    combinations, t(post.stan.full$theta), 
   #                      "w2", c("mean"), parallel = TRUE) 
-  w2plot$interaction <- plot.compare(interaction_adapt, post.bart$eta, 
+  w2plot$bart$interaction <- plot.compare(interaction_adapt_bart, post.bart$eta, 
                                      combinations, t(post.stan.full$theta), 
                        "w2", c("mean"), parallel = TRUE) 
-  w2plot$gamm <- plot.compare(gamm_adapt, post.bart$eta, gammX, t(post.gamm$theta), 
+  w2plot$gam$simple <- plot.compare(simple_adapt_gam, post.bart$eta, X, t(post.stan$theta), 
                        "w2", c("mean"), parallel = TRUE) 
-  w2plotData <- lapply(w2plot, function(i) i$data$mean)
+  # w2plot$interaction <- plot.compare(interaction_adapt, post.bart$eta, 
+  #                                    combinations, t(post.stan.full$theta), 
+  #                      "w2", c("mean"), parallel = TRUE) 
+  w2plot$gam$interaction <- plot.compare(interaction_adapt_gam, post.bart$eta, 
+                                     combinations, t(post.stan.full$theta), 
+                       "w2", c("mean"), parallel = TRUE) 
+  w2plotData <- lapply(w2plot, function(i) lapply(i, function(j) j$data$mean))
   saveRDS( w2plotData, "w2plot_bin.rds" )
-  w2plots <- lapply(w2plot, function(i) i$plot$mean)
+  w2plots <- lapply(w2plot, function(i) lapply(i, function(j) j$plot$mean))
 } else {
   w2plotData <- readRDS( "w2plot_bin.rds" )
-  w2plots <- lapply(w2plotData, function(ww) ggplot(ww, aes(x=nactive, y=dist, color = groups, group=groups )) +
+  w2plots <- lapply(w2plotData, function(ll) lapply(ll, function(ww) ggplot(ww, aes(x=nactive, y=dist, color = groups, group=groups )) +
         geom_line() + scale_color_jama() + labs(color ="Method") +
         xlab("Number of active coefficients") + ylab("2-Wasserstein Distance") + theme_bw() +
         scale_x_continuous(expand = c(0, 0)) +
         scale_y_continuous(expand = c(0, 0),
-                           limits = c(0, max(ww$dist)*1.1)))
+                           limits = c(0, max(ww$dist)*1.1))))
 }
 ```
+```{r mse distances, message=FALSE, echo=FALSE, warning=FALSE}
+names(interaction_adapt_bart) <- 
+  names(simple_adapt_bart) <- 
+  names(interaction_adapt_gam) <- 
+  names(simple_adapt_gam) <-  c("Selection",
+                      # "Loc./Scale",
+                         # "MCP Net Projection",
+                         "MCP Projection",
+                         "Lasso Projection")
 
-
-```{r mse distances}
-mseplot <- list(simple=NULL,
-               interaction = NULL, 
-               gamm = NULL)
+mseplot <- list(bart = list (simple=NULL, interaction = NULL),
+               gam = list (simple=NULL, interaction = NULL))
 if (!file.exists("mseplot_bin.rds")) {
-  mseplot$simple <- plot.compare(simple_adapt, prob, X, t(post.stan$theta),
+  mseplot$bart$simple <- plot.compare(simple_adapt_bart, prob, X, t(post.stan$theta),
                         "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplot$interaction <- plot.compare(interaction_adapt, prob, combinations, t(post.stan.full$theta), 
+  mseplot$bart$interaction <- plot.compare(interaction_adapt_bart, prob, 
+                                           combinations, t(post.stan.full$theta), 
                           "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplot$gamm <- plot.compare(gamm_adapt, prob, gammX, t(post.gamm$theta),
-                          "mse", c("mean"), parallel = TRUE,transform = plogis)
-  mseplotData <- lapply(mseplot, function(i) i$data$mean)
+  mseplot$gam$simple <- plot.compare(simple_adapt_gam, prob, X, t(post.stan$theta),
+                        "mse", c("mean"), parallel = TRUE, transform = plogis)
+  mseplot$gam$interaction <- plot.compare(interaction_adapt_gam, prob, 
+                                          combinations, t(post.stan.full$theta), 
+                          "mse", c("mean"), parallel = TRUE, transform = plogis)
+  mseplotData <- lapply(mseplot, function(i) lapply(i, function(j) j$data$mean))
   saveRDS( mseplotData, "mseplot_bin.rds" )
-  mseplots <- lapply(mseplot, function(i) i$plot$mean)
+  mseplots <- lapply(mseplot, function(i) lapply(i, function(j) j$plot$mean))
   
 } else {
   mseplotData <- readRDS("mseplot_bin.rds" )
-  mseplots <- lapply(mseplotData, function(mm) ggplot(mm, aes(x=nactive, y=dist, color = groups, group=groups )) +
+  mseplots <- lapply(mseplotData, function(dd) lapply(dd, function(mm) ggplot(mm, aes(x=nactive, y=dist, color = groups, group=groups )) +
         geom_line() + scale_color_jama() + labs(color ="Method") +
         xlab("Number of active coefficients") + ylab("MSE") + theme_bw() +
         scale_x_continuous(expand = c(0, 0)) +
         scale_y_continuous(expand = c(0, 0), 
-                           limits = c(0,max(mm$dist)*1.1)))
+                           limits = c(0,max(mm$dist)*1.1))))
 }
 ```
+## Setup
+The method can also be used on binary data. We simulate data as follows. 
+
+### Predictors
+We can measure variable importance in a variety of settings. Our first example is in a setting with Normally distributed data. We generate $n = `r n`$ predictor variables, $X$, from a Multivariate Normal,
+\[ X_i \sim N(0, \Sigma), \] with $\Sigma_{i,i} = 1$ for all $i$ from 1 to $p = `r p-1`.$ The first 20 dimensions of $X$ are correlated, dimensions 21 to 50 are correlated, and dimensions 51 to 100 are corrlated,  with correlations `r target$X$corr`. Thus, $\Sigma$ is block diagonal.
+
+<!-- ### Parameters -->
+<!-- We generate parameters as follows -->
+<!-- \[ \beta_{0:5} \sim \text{Unif}(0.1,0.2),\] -->
+<!-- \[ \beta_{6:10} \sim \text{Unif}(-0.2,-0.1), \] and -->
+<!-- \[ \beta_{11:20} \sim \text{Unif}(0,0.05). \] -->
+
+### Outcome
+We sample the outcome from a modified Friedman model:
+<!-- cos(2 * x3sq + pi/2) -->
+<!--     x3term <- ifelse(2 * x3sq > 3/4 * pi, 1,  costerm) -->
+<!-- return(1 * sin(\frac{pi}{8}  x[,1] * x[,2] + pi/2) + 2 * x3term  + tanh(-x[,4]) + 0.25 * x[,5]) -->
+\[Y_i \sim \text{Bernoulli}(\nu_i) \] with \[\nu_i = \text{logit}^{-1} \left [\sin\left(\frac{\pi}{8}x_{i,1}x_{i,2} + \pi/2 \right) + 2 I \left(x_{i,3}^2 > 3/4 \pi\right) +  2 I \left(x_{i,3}^2 \leq 3/4 \pi \right) \cos\left(2 x_{i,3}^2  + \pi/2\right) + \tanh(-x_{i,4}) + 0.25 x_{i,5}\right].\]
+
+```{r data_echo, echo=TRUE, eval=FALSE}
+<<data>>
+```
+
+## Posterior Estimation
+We use 4 posterior distributions:
+
+1. a Bayesian additive regression tree (BART) model,
+2. a simple logistic regression with the main effects of $X$,
+3. a more complicated logistic regression with the main effects and all second order interactions, and
+4. a generalized additive mixed model (GAMM).
+
+All models are estimated with their software defaults and the logistic regression are estimated with the Finnish horseshoe.
+
+
+
+```{r mse_table, echo=FALSE, warning=FALSE, results='asis'}
+print(xtable(mse.best.perform, digits=3, caption="MSE of the posterior predictive means from true data generating probabilities"),type = "html", sanitize.colnames.function = function(x) gsub(".", " ",x))
+```
+Clearly, the GAM model fits best followed by the BART model.
+
+Then we try to adapt our more poorly fitting but more interpretable models to the better fitting BART model.
 
 
 ```{r dist_plot_post_simple, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap='2-Wasserstein Distance and MSE for the data used to estimate the posterior using the simple logistic regression model.'}
-print(w2plots$simple)
-print(mseplots$simple)
+print(w2plots$bart$simple)
+print(w2plots$bart$interaction)
 ```
 
 ```{r dist_plot_post_interact,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap='2-Wasserstein Distance and MSE for the data used to estimate the posterior using the logistic regression model with all two-way interactions.'}
-print(w2plots$interaction)
-print(mseplots$interaction)
+print(mseplots$bart$simple)
+print(mseplots$bart$interaction)
 ```
 
 ```{r dist_plot_post_gamm, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap='2-Wasserstein Distance and MSE for the data used to estimate the posterior using the Generalized Additive Mixed regression model.'}
-print(w2plots$gamm)
-print(mseplots$gamm)
+print(w2plots$gam$simple)
+print(w2plots$gam$interaction)
 ```
 
+```{r dist_plot_post_gamm, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap='MSE for the data used to estimate the posterior using the Generalized Additive Mixed regression model.'}
+print(mseplots$gam$simple)
+print(mseplots$gam$interaction)
+```
 
 ## Using a subset of data
 We may be interested in obtaining a better prediction for a subset of data, or a new population, as from a more interpretable model. That is, maybe we want to adapt our interpretable model to our better predicting model---in this case the BART model. As a reminder:

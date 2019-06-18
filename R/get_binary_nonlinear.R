@@ -84,18 +84,19 @@ get_binary_nonlinear_model <- function() {
     return(apply(x,1,prod) )
   }
   data_gen_functions <- list(brownian=brownian, modified_friedman = modified_friedman)
-  rdata <- function(n, x, theta, ...) {
+  rdata <- function(n, x, param, ...) {
 
     dots <- list(...)
     method <- dots$method
     if(is.null(method)) method <- "cart"
-    method <- match.arg(method, c("brownian","modified.friedman","cart","gp"))
+    method <- match.arg(method, c("brownian","modified.friedman","cart","gp","glm", "random.interaction"))
 
     p <- ncol(x)-1
     logit.p <- NA
+    extra <- NULL
     if (method == "brownian") {
       data_gen_functions <- brownian
-      num.comb <- length(theta) - ncol(x)
+      num.comb <- length(param) - ncol(x)
       potential.combinations <- combn(rep(1:p,2), 2)
       combinations <- potential.combinations[,sample(1:ncol(potential.combinations), num.comb)]
       if (num.comb > 0){
@@ -106,27 +107,88 @@ get_binary_nonlinear_model <- function() {
         design.matrix <- x[,-1]
       }
       browned <- apply(design.matrix,2,brownian)
-      logit.p <-  cbind(1, browned) %*% theta
-    } else if (method == "modified.friedman") {
+      logit.p <-  cbind(1, browned) %*% param
+    }
+    else if (method == "modified.friedman") {
       data_gen_functions <- modified_friedman
       stopifnot(ncol(x)>=6)
       logit.p <- modified_friedman(x[,-1])
       theta <- c(1,2,1,0.5)
-    } else if (method == "cart") {
+    }
+    else if (method == "cart") {
       stopifnot(ncol(x)>=6)
       output <- cart(x[,-1])
       data_gen_functions <- output$model
       logit.p <- output$eta
-    } else if (method == "gp") {
+    }
+    else if (method == "gp") {
       output <- apply(x[,-1],2,gp)
-      theta <- theta[1:(p+1)]
+      theta <- param[1:(p+1)]
       theta <- abs(theta)/sqrt(sum(theta^2))
       logit.p <- cbind(1,output) %*% theta
       data_gen_functions <- gp
     }
+    else if (method == "glm") {
+      logit.p <- x %*% dots$param
+    } else if (method == "random.interaction") {
+      # param <- dots$param
+      if(is.null(param) | length(param) != (20 +1)) stop("must specifiy 21 parameters")
+
+      if(all(x[,1] == 1)) x <- x[,-1]
+      x <- data.frame(x)
+      p_star <- min(p, 20)
+      # pwrs <- c(rep(1, p_star + 1), 2*rpois(p_star, 0.5)+1)
+
+      # formula <- formula(paste0("~ .^3 "))#, paste0("I(",colnames(x[,1:p_star]),"^2)", collapse=" + ")))
+      # combinations <- model.matrix(formula, data=x)
+      # select <- sample.int(ncol(combinations) - p_star, p_star) + p_star + 1
+      # coef.names <- strsplit(colnames(combinations)[select], ":")
+      # cmb <- matrix(NA, ncol=2*p_star + 1 , nrow = nrow(x))
+      # cmb[,1:(p_star+1)] <- as.matrix(combinations[,1:(p_star + 1)])
+      # colnames(cmb) <- c(colnames(combinations)[1:(p_star+1)], rep(NA, p_star))
+      # sample.odd <- function(){
+      #   rpois(1, 0.5) * 2 + 1
+      # }
+      # sample.even <- function() {
+      #   rpois(1, 0.5) * 2 + 2
+      # }
+      # for(j in 1:p_star) {
+      #   jj <- j + p_star + 1
+      #   cur.coef <- sample(coef.names[[j]],length(coef.names[[j]]))
+      #   ncoef <- length(cur.coef)
+      #   pwrs <- rep(NA, ncoef)
+      #   tmp <- rep(1, nrow(x))
+      #   nm <- NULL
+      #   for(i in 1:ncoef) {
+      #     pwrs <- ifelse((i %% 2)==0, sample.odd(), sample.even())
+      #     nm <- c(nm, paste0(cur.coef[i],"^",pwrs))
+      #     tmp <- tmp*x[,cur.coef[i]] ^ pwrs
+      #   }
+      #   cmb[,jj] <- tmp
+      #   colnames(cmb)[jj] <- paste0("(",nm,")", collapse=":")
+      # }
+      # cmb <- combinations[,c(1:(p_star+1),  select)] * pwrs
+      # colnames(cmb) <- paste0("(", colnames(cmb), ")", "^",pwrs)
+      # param <- c(param, rep(NA, p_star))
+      # for(i in (p_star + 1):ncol(cmb)){
+      #   param[i] <- runif(1, -0.05, 0.05) * 2/max(abs(cmb[,i]))
+      # }
+      formula <- formula(paste0("~ .^3 "))#, paste0("I(",colnames(x[,1:p_star]),"^2)", collapse=" + ")))
+      combinations <- model.matrix(formula, data=x)
+      prob.sel <- ((ncol(combinations)-1):1) / sum( (ncol(combinations) - 1):1 )
+      select <- c(1,sample.int(ncol(combinations)-1, p_star, prob = prob.sel) + 1)
+      cmb <- combinations[,select]
+      colnames(cmb) <- colanames(combinations)[select]
+      theta <- param
+      extra <- list(Xgen = cmb, param = param)
+      logit.p <- cmb %*% param
+
+    } else {
+      stop("Method not found!")
+    }
 
     probs <- plogis(logit.p)
-    return(list(Y = rbinom(n, 1, probs), probs = probs, theta = theta, data_gen_functions=data_gen_functions, method=method))
+    return(list(Y = rbinom(n, 1, probs), probs = probs, param = theta, data_gen_functions=data_gen_functions, method=method, extra = extra))
   }
 
   #### Posterior on Coefficients ####
@@ -314,9 +376,11 @@ get_binary_nonlinear_model <- function() {
       n <- nrow(x)
 
       # stan_dir <- dots$stan_dir
-      # m0 <- dots$m0
-      # scale_intercept <- dots$scale_intercept
+      m0 <- dots$m0
+      scale_intercept <- dots$scale_intercept
+      L <- dots$L
       chains <- dots$chains
+      prior <- hs_plus()
 
       stan_dat <- data.frame(Y = Y)
       namesX <- paste0("X",1:p)
@@ -325,7 +389,7 @@ get_binary_nonlinear_model <- function() {
 
       stanFit <- stan_gamm4(form, data = stan_dat, family = binomial(),
                  chains = chains, iter = 2*n.samp, algorithm="sampling",
-                 warmup = n.samp* (2-1/chains) )
+                 warmup = n.samp* (2-1/chains), prior = prior )
       eta <- posterior_linpred(stanFit)
       if(nrow(eta) > n.samp) eta <- eta[1:n.samp,]
       prob <- plogis(eta)

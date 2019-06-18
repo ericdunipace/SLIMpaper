@@ -1,10 +1,11 @@
 ---
 title: "Gaussian Data Example"
 author: "Eric Dunipace"
-date: "5/6/2019"
+date: "6/18/2019"
 output:
   pdf_document: default
   html_document: default
+header-includes: \usepackage{float}
 ---
 <style>
 p.caption {
@@ -18,6 +19,7 @@ p.caption {
 </style>
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.pos = 'H')
 require(SparsePosterior)
 require(ggplot2)
 require(CoarsePosteriorSummary)
@@ -105,6 +107,7 @@ if(!file.exists(adapt_file)){
                           infimum.maxit=1, maxit = 1e3, gamma = gamma,
                           pseudo_observations = pseudo.observations, display.progress = TRUE,
                    penalty.factor = penalty.factor, method="projection")
+  
   theta_SA <- WPSA(X=X, Y=cond_mu_full, 
                         theta=posterior$theta, force = force,
                  p = 2, model.size = c(1:p),
@@ -188,6 +191,9 @@ ridge512 <- ridgePlot(models, index=idx, maxCoef = 10, scale =1 , alpha =0.5, fu
 
 ranks <- ranking(models, cond_mu_full, p = 2, maxCoef = 10, quantiles = c(0,0.3, 0.67, 1))
 ridgePlots <- ridgePlot(models, index=ranks$index, maxCoef = ranks$ncoef, scale =1 , alpha =0.5, full = cond_mu_full)
+
+ranks2 <- ranking(models, cond_mu_full, p = 2, maxCoef = 6, quantiles = c(0,0.3, 0.67, 1))
+ridgePlots2 <- ridgePlot(models, index=ranks2$index, maxCoef = ranks2$ncoef, scale =1 , alpha =0.5, full = cond_mu_full)
 ```
 
 ## Setup
@@ -245,79 +251,111 @@ penalty.factor <- rep(1, p)
 force <- NULL
 
 theta_selection <- W2L1(X=X, Y = cond_mu_full, 
-                        theta=posterior$theta, penalty="selection.lasso",
-                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
-                        infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
-                        pseudo_observations = 0, display.progress = TRUE,
-                 penalty.factor = penalty.factor, method="selection.variable")
+                    theta=posterior$theta, penalty="selection.lasso",
+                    nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                    infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
+                    pseudo_observations = 0, display.progress = TRUE,
+                    penalty.factor = penalty.factor, 
+                    method="selection.variable")
 
 theta_proj <- W2L1(X=X, Y=cond_mu_full, 
-                        theta=posterior$theta, penalty="mcp",
-                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
-                        infimum.maxit=1, maxit = 1e3, gamma = gamma,
-                        pseudo_observations = pseudo.observations, display.progress = TRUE,
-                 penalty.factor = penalty.factor, method="projection")
+                    theta=posterior$theta, penalty="mcp",
+                    nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                    infimum.maxit=1, maxit = 1e3, gamma = gamma,
+                    pseudo_observations = pseudo.observations, 
+                    display.progress = TRUE,
+                    penalty.factor = penalty.factor, method="projection")
+
 theta_SA <- WPSA(X=X, Y=cond_mu_full, 
-                      theta=posterior$theta, force = force,
-               p = 2, model.size = c(1:p),
-               iter=10, temps = 10,
-               pseudo.obs = 0,
-               proposal = proposal.fun,
-               options = list(method = c("selection.variable"),
-                              energy.distribution = "boltzman",
-                              cooling.schedule = "exponential"),
-               display.progress = TRUE
-                )
+                    theta=posterior$theta, force = force,
+                    p = 2, model.size = c(1:p),
+                    iter=10, temps = 10,
+                    pseudo.obs = 0,
+                    proposal = proposal.fun,
+                    options = list(method = c("selection.variable"),
+                                  energy.distribution = "boltzman",
+                                  cooling.schedule = "exponential"),
+                    display.progress = TRUE)
+
 theta_SW <- WPSW(X=X, Y=cond_mu_full, 
-                        theta=posterior$theta, force = force, p = 2,
-                        direction = "backward", 
-                        method="selection.variable",
-                 display.progress = TRUE
-                )
+                    theta=posterior$theta, force = force, p = 2,
+                    direction = "backward", 
+                    method="selection.variable",
+                    display.progress = TRUE)
 ```
 
-
-Then we measure our distance from the posterior predictive mean and posterior distribution.
-
-
-We also measure the mean-squared error from the true mean, since it is known in this case.
-
-
-Using the Wasserstein distance, we can see how the coarse versions move closer to both the full posterior. The coarse posteriors also converge in MSE to the true parameters 
-```{r dist_plot_post,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap="2-Wasserstein distance between the full posterior for the regression coefficients and our coarsened version."}
+## Distance Plots
+It is useful to look at plots to see how our coarsened posteriors are doing. We can look at how close the coarsened posterior parameters are to the full posterior parameters in terms of 2-Wasserstein distance 
+```{r dist_plot_post,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, fig.pos = "H", out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold',fig.pos="H", fig.cap="2-Wasserstein distance between the full posterior for the regression coefficients and our coarsened version."}
 print(w2plots$posterior)
 ```
 
-```{r mse_plot_post,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap="MSE between the full posterior for the regression coefficients and the true data generating parameters."}
+and how far away the coarsened posteriors are in terms of mean-squared error (MSE) from the true data generating parameters.
+
+```{r mse_plot_post,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, fig.pos = "H", out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.pos="H",fig.cap="MSE between the full posterior for the regression coefficients and the true data generating parameters."}
 print(mse_plots$posterior)
 ```
 
 
-And we can look at the differences the posterior predictive mean and the full posterior predictive mean, as well as the MSE between the coarse posterior and true mean.
-```{r dist_plot_mean,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap="2-Wasserstein distance between coarse and full posterior predictive means and MSE between posterior predictive means and the true means (calculated from the true parameters)"}
+Moreover, we can look at the differences the posterior predictive mean and the full posterior predictive mean, as well as the MSE between the coarse posterior and true mean.
+```{r dist_plot_mean,echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=4, fig.pos = "H", out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.pos="H", fig.cap="2-Wasserstein distance between coarse and full posterior predictive means and MSE between posterior predictive means and the true means (calculated from the true parameters)"}
 print(w2plots$mean)
 print(mse_plots$mean)
 ```
 
 
-Finally, we can see as more covariates are active, the coarse distribution gets close to the truth. Importantly, it looks like the selection method does better here for this individual $i = 512$. For this person, all of the predictions appear to be exactly the same, so it doesn't matter which method we go with.
+We can see as more covariates are active, the coarse distribution gets close to the full posterior and the true mean. 
+
+## Ridgeline Plots
+We may be interested to see how well the coarasened posterior is approximating an individuals mean, relative to the full model, for a given model size. To examine this relationship, we can look at ridgeline plots of the posterior predictive means from the coarsened posteriors. Take, for example, individual $i = 512$.
 ```{r ridgeplot_echo, eval=FALSE}
 idx <- 512
-ridge512 <- ridgePlot(models, index=idx, maxCoef = 10, scale =1 , alpha =0.5, full = cond_mu_full)
+ridge512 <- ridgePlot(models, index=idx, maxCoef = 10, 
+                      scale =1 , alpha =0.5, full = cond_mu_full)
 ```
-
-<!-- However, overall, the projection and location/scale methods do better, which we can see in the above plots. -->
-which creates this figure
 ```{r ridge_plots_single, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 4, fig.width=8, out.width="90%", optipng = '-o7', fig.align = "center"}
 print(ridge512)
 ```
+We can see that as we add more coefficients up to our desired size, 10, the models perform better. For model size 10, there is no prediction for the Projection method, but it looks like the backward stepwise method performs best. If we really wanted to include the Projection method, we could try model size 9 or try a larger model size where it was present.
 
-Of course, we may be interested in looking at how good or how bad the predictions from the coarsened posterior can be. Thus, we can calculate how far the coarsened predictions are from the full posterior for each individual in terms of 2-Wasserstein distance, rank the distances, and display the results for say the best and worst performing coarsened predictions, or for any quantile inbetween.
+Of course, we may be interested in looking at how good or how bad the predictions from the coarsened posterior can be for the entire sample, and not just one person chosen at random. Towards this end, we have implemented a function that for a given model size, will calculate the average p-Wasserstein distance between the coarsened predictions and the full posterior, and rank all individual observations by this distance. Then this ranking function will give the observations at user provided quantiles.
 
-```{r rigeplot_print, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 8, fig.width=8, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.cap = "Ridgeline plots for 1 to 10 coefficients. The top left plot is the observation whose coarsened posterior prediction is closest to the true posterior predictive distribution in terms of 2-Wasserstein distance ($0^{th}$ percentile in terms of ranks), and the bottom right is the observations whose is furthest from the true posterior predictive distribution ($100^{th}$ percentile in terms of ranks). Top row, left to right: $0^{th}$ and $33^{rd}$ percentiles. Bottom row, left to right: $67^{th}$ and $100^{th}$ percentiles."}
+```{r rank fun, eval=FALSE}
+ranks <- ranking(models, cond_mu_full, p = 2, 
+                 maxCoef = 10, quantiles = c(0,0.3, 0.67, 1))
+```
+Note, when we provide this function more than one model, it will average all of the calculated distances for a selected model size. S
+
+
+Next, we can plot ridgeline plots of the predictions from 1 coefficient up to the given model size. This allows us to see if smaller models perform equally well.
+```{r ridge print, eval = FALSE}
+ridgePlots <- ridgePlot(models, index=ranks$index, 
+                        maxCoef = ranks$ncoef, scale =1 , alpha =0.5, full = cond_mu_full)
+print(ridgePlots)
+```
+
+
+```{r rigeplot_print, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 8, fig.width=8, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.pos = "H", fig.cap = "Ridgeline plots for 1 to 10 coefficients. The top left plot is the observation whose coarsened posterior prediction is closest to the true posterior predictive distribution in terms of 2-Wasserstein distance ($0^{th}$ percentile in terms of ranks), and the bottom right is the observations whose is furthest from the true posterior predictive distribution ($100^{th}$ percentile in terms of ranks). Top row, left to right: $0^{th}$ and $33^{rd}$ percentiles. Bottom row, left to right: $67^{th}$ and $100^{th}$ percentiles."}
 ridgePlots[[1]]
 ridgePlots[[2]]
 ridgePlots[[3]]
 ridgePlots[[4]]
 ```
 
+If we had wanted a smaller model size, say 6, that would be possible as well
+
+```{r ridgeplot 2, eval = FALSE}
+ranks2 <- ranking(models, cond_mu_full, p = 2, 
+                  maxCoef = 6, quantiles = c(0,0.3, 0.67, 1))
+ridgePlots2 <- ridgePlot(models, index=ranks2$index, 
+                         maxCoef = ranks2$ncoef, scale =1 , alpha =0.5, full = cond_mu_full)
+print(ridgePlots2)
+```
+
+
+
+```{r rigeplot_print2, echo=FALSE, message=FALSE, warning=FALSE, fig.height= 8, fig.width=8, out.width="49%", optipng = '-o7', fig.align = "center", fig.show='hold', fig.pos = "H", fig.cap = "Ridgeline plots for 1 to 6 coefficients. The top left plot is the observation whose coarsened posterior prediction is closest to the true posterior predictive distribution in terms of 2-Wasserstein distance ($0^{th}$ percentile in terms of ranks), and the bottom right is the observations whose is furthest from the true posterior predictive distribution ($100^{th}$ percentile in terms of ranks). Top row, left to right: $0^{th}$ and $33^{rd}$ percentiles. Bottom row, left to right: $67^{th}$ and $100^{th}$ percentiles."}
+ridgePlots2[[1]]
+ridgePlots2[[2]]
+ridgePlots2[[3]]
+ridgePlots2[[4]]
