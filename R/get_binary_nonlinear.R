@@ -309,7 +309,7 @@ get_binary_nonlinear_model <- function() {
                       nchain = chains, nthread = min(chains,parallel::detectCores()-1))
       phi <- bartFit$yhat.train
       mu <- pnorm(phi)
-      eta <- qlogis(prob)
+      eta <- qlogis(mu)
       model <- bartFit
       if(!is.null(X.test)){
         test$mu  <- pnorm(bartFit$yhat.test)
@@ -317,7 +317,8 @@ get_binary_nonlinear_model <- function() {
       }
 
 
-    } else if (dots$method == "logistic"){
+    }
+    else if (dots$method == "logistic"){
       require(rstan)
 
       if (all(x[,1]==1)) x <- x[,-1]
@@ -368,7 +369,8 @@ get_binary_nonlinear_model <- function() {
       }
 
 
-    } else if (dots$method == "vb.logistic"){
+    }
+    else if (dots$method == "vb.logistic"){
       require(rstan)
 
       if (all(x[,1]==1)) x <- x[,-1]
@@ -433,7 +435,8 @@ get_binary_nonlinear_model <- function() {
       # test$eta <- tcrossprod(X.test, samples$theta)
       # test$mu <- plogis(test$eta)
 
-    } else if (dots$method == "gamm") {
+    }
+    else if (dots$method == "gamm") {
       require(rstanarm)
       if(all(x[,1] == 1)) x <- x[,-1]
       p <- ncol(x)
