@@ -6,8 +6,8 @@ plot.compare <- function(models, target = NULL, X = NULL, theta = NULL, method =
   method <- match.arg(method)
   quantity <- match.arg(quantity,several.ok = TRUE)
 
-  if(length(quantity)>1 & method == "mse") stop("Can only do one quantity with mse")
-  if(parallel) {
+  if ( length(quantity)>1 & method == "mse" ) stop("Can only do one quantity with mse")
+  if ( parallel ) {
     require(doParallel)
     cl <- parallel::makeCluster(parallel::detectCores()-1)
     doParallel::registerDoParallel(cl)
@@ -67,10 +67,10 @@ plot.compare <- function(models, target = NULL, X = NULL, theta = NULL, method =
   }
 
   method <- match.arg(method)
-  if (!is.list(models)) models <- list(models)
+  if ( !is.list(models) ) models <- list(models)
 
   group_names <- names(models)
-  if(is.null(group_names)) group_names <- seq.int(length(models))
+  if ( is.null(group_names) ) group_names <- seq.int(length(models))
 
   # theta <- models[[1]]$call$theta
   # X <- models[[1]]$call$X

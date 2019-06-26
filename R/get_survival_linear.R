@@ -55,10 +55,12 @@ get_survival_linear_model <- function() {
   #### Y  Data ####
   rdata <- function(n, x, theta, ...) {
     dots <- list(...)
-    id <- dots$id
+    # id <- dots$id
 
     log.rate <- x %*% c(theta)
-    return(rexp(n, exp(log.rate)))
+    mu <- exp(log.rate)
+    Y <- rexp(n, mu)
+    return(list(Y= Y, mu = mu, eta = log.rate, link = Gamma(link = log)$linkfun, invlink = Gamma(link = log)$linkinv, param = theta))
   }
 
   #### Parameters ####
@@ -77,6 +79,9 @@ get_survival_linear_model <- function() {
     thin <- dots$thin
     model <- dots$model
     nchain <- dots$nchain
+    X.test <- dots$X.test
+
+    test <- list(eta = NULL, mu = NULL)
 
     if(is.null(thin)) thin <- 1
     if(all(x[,1]==1)) x <- x[,-1]
@@ -163,6 +168,10 @@ get_survival_linear_model <- function() {
     }
 
     eta <- tcrossprod(cbind(1,x), theta)
+    if(!is.null(X.test)){
+      if(!(all(X.test[,1]==1))) X.test <- cbind(1,X.test)
+      test$eta <- tcrossprod(X.test, theta)
+    }
 
     return(list(theta=theta, alpha = alpha, eta = eta, model=model))
 
@@ -174,5 +183,7 @@ get_survival_linear_model <- function() {
               rpost = rpost,
               X = list(rX = rX, corr = NULL),
               data_gen_function = NULL,
-              rparam = rparam))
+              rparam = rparam,
+              link = Gamma(link = log)$linkfun,
+              invlink = Gamma(link = log)$linkinv))
 }

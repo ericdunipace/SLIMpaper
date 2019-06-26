@@ -54,7 +54,7 @@ param$sigma2 <- 25
 
 X2 <- X[,2,drop=FALSE]
 less0 <- X2<0
-Y <- ifelse(!less0, target$rdata(n,X2, param$theta[1], param$sigma2),
+Y <- ifelse(!less0, target$rdata(n,X2, param$theta[1], param$sigma2)$Y,
             target$rdata(n,X2, param$theta[2], param$sigma2))
 
 fullX <- cbind(as.numeric(X[,2]>0),

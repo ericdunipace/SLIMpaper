@@ -51,12 +51,14 @@ get_binary_nonlinear_model <- function() {
   }
   modified_friedman <- function(x){
     # f(x) = 10 * sin(pi * x[,1] * x[,2]) + 20 * (x[,3]-0.5)^2  10 * x[,4] + 5 * x[,5]
-    x3sq <- x[,3]^2
-    costerm <- cos(2 * x3sq + pi/2)
-    x3term <- ifelse(2 * x3sq > 3/4 * pi, 1,  costerm)
-    return(1 * sin(pi/8 * x[,1] * x[,2] + pi/2) + 2 * x3term  + tanh(-x[,4]) + 0.25 * x[,5])
+    x6sq <- x[,6]^2
+    costerm <- cos(2 * x6sq + pi/2)
+    x6term <- ifelse(2 * x6sq > 3/4 * pi, 1,  costerm)
+    # x6term <- costerm
+    return(1 * sin(pi/8 * x[,1] * x[,2] + pi/2) + 2 * x6term  + tanh(-pi/8 * x[,11] * x[,15]^2) + (2/5 * (x[,7])^3 - 1/8 * (x[,7])^2 - 2 * x[,7])*exp(-x[,7]^2/5) )
+    # return(1 * sin(pi/8 * x[,1] * x[,2] + pi/2) + 2 * x6sq  + sin(-pi/8 * x[,11] * x[,15]^2) + 1/20 * x[,7]^3 - 1/24 * x[,7]^2 - 1 * x[,7])
+    # return(1 * sin(pi/8 * x[,1] * x[,2] + pi/2) + 2 * x6sq  + tanh(-x[,11] * x[,15]^2) + 0.25 * x[,7])
     # return(1 * sin(pi/8 * x[,1] * x[,2] + pi/2) - 2 * x[,3]^2 + x[,4] + 0.5 * x[,5])
-    #sin(pi/8* X[,2]*X[,3] + pi/2)* cos(2*X[,3]^2 + pi/2)
   }
   cart <- function(x) {
     require(rpart)
@@ -89,9 +91,13 @@ get_binary_nonlinear_model <- function() {
     dots <- list(...)
     method <- dots$method
     if(is.null(method)) method <- "cart"
-    method <- match.arg(method, c("brownian","modified.friedman","cart","gp","glm", "random.interaction"))
+    method <- match.arg(method, c("brownian","modified.friedman","cart","gp","glm", "polynomial","random.interaction"))
 
-    p <- ncol(x)-1
+    if(all(x[,1] == 1)) {
+      p <- ncol(x)-1
+    } else {
+      p <- ncol(x)
+    }
     logit.p <- NA
     extra <- NULL
     if (method == "brownian") {
@@ -113,7 +119,7 @@ get_binary_nonlinear_model <- function() {
       data_gen_functions <- modified_friedman
       stopifnot(ncol(x)>=6)
       logit.p <- modified_friedman(x[,-1])
-      theta <- c(1,2,1,0.5)
+      theta <- c(1,2,1,1)
     }
     else if (method == "cart") {
       stopifnot(ncol(x)>=6)
@@ -130,13 +136,14 @@ get_binary_nonlinear_model <- function() {
     }
     else if (method == "glm") {
       logit.p <- x %*% dots$param
-    } else if (method == "random.interaction") {
+    }
+    else if (method == "random.interaction") {
       # param <- dots$param
       if(is.null(param) | length(param) != (20 +1)) stop("must specifiy 21 parameters")
 
       if(all(x[,1] == 1)) x <- x[,-1]
-      x <- data.frame(x)
       p_star <- min(p, 20)
+      x <- data.frame(x[,1:p_star])
       # pwrs <- c(rep(1, p_star + 1), 2*rpois(p_star, 0.5)+1)
 
       # formula <- formula(paste0("~ .^3 "))#, paste0("I(",colnames(x[,1:p_star]),"^2)", collapse=" + ")))
@@ -178,17 +185,38 @@ get_binary_nonlinear_model <- function() {
       prob.sel <- ((ncol(combinations)-1):1) / sum( (ncol(combinations) - 1):1 )
       select <- c(1,sample.int(ncol(combinations)-1, p_star, prob = prob.sel) + 1)
       cmb <- combinations[,select]
-      colnames(cmb) <- colanames(combinations)[select]
+      colnames(cmb) <- colnames(combinations)[select]
       theta <- param
       extra <- list(Xgen = cmb, param = param)
       logit.p <- cmb %*% param
 
-    } else {
+    }
+    else if (method == "polynomial") {
+      # param <- dots$param
+      if (is.null(param) | length(param) < 6) stop("must specifiy at least  6parameters")
+
+      if(all(x[,1] == 1)) x <- x[,-1]
+      p_star <- min(p, 20)
+      x <- data.frame(x[,1:p_star])
+
+      formula <- formula("~ I(tanh(X1^3 * X20)) + I( pnorm(X8 * X15 * X20)*2 - 1) + X2  + I(log(1+X2^2*X12^2)-2) +  I( exp(X6) - 1.64) ")
+      mm <- model.matrix(formula, data=x)
+      intercept_adjust <- c(1,-1, 0, -2, -1.64)
+      theta <- param[1:min(p_star,6)] * c(1,2,1,1,1,1)
+      # -0.7 - 1 * 0.14  - 2 * 0.12 - 1.64 * 0.18
+      theta[1] <- round(param[1:min(p_star,6)] %*% c(1,0, -1, 0, -2, -1.64)[1:min(p_star,6)], digits=3)
+      extra <- list(Xgen = mm, param = theta)
+      logit.p <- mm %*% theta
+
+    }
+    else {
       stop("Method not found!")
     }
 
     probs <- plogis(logit.p)
-    return(list(Y = rbinom(n, 1, probs), probs = probs, param = theta, data_gen_functions=data_gen_functions, method=method, extra = extra))
+    return(list(Y = rbinom(n, 1, probs), mu = probs, eta = logit.p,
+                link = binomial()$linkfun, invlink = binomial()$linkinv, param = theta,
+                data_gen_functions=data_gen_functions, method=method, extra = extra))
   }
 
   #### Posterior on Coefficients ####
@@ -198,6 +226,7 @@ get_binary_nonlinear_model <- function() {
   rpost <- function(n.samp, x, y, hyperparameters,...) { # implements either BART or BNN
     dots <- list(...)
     theta <- NULL
+    test <- list(eta  = NULL, mu = NULL)
     if (dots$method == "bnn"){
       require(rstan)
 
@@ -240,30 +269,53 @@ get_binary_nonlinear_model <- function() {
       pars <- extract(vb.out, pars=c("eta","prob"))
       eta <- pars$eta
       prob <- pars$prob
-    } else if (dots$method == "bart") {
-      require(dbarts)
-      nskip <- dots$nskip
-      if(is.null(nskip)) nskip <- n.samp
-      k <- dots$k
-      power <- dots$power
-      base <- dots$base
-      ntree <- dots$ntree
-      keepevery <- dots$keepevery
-      test <- dots$test
-      if(is.null(k)) k <- 2.0
-      if(is.null(power)) power <- 2.0
-      if(is.null(base)) base <- 0.95
-      if(is.null(ntree)) ntree <- 200
-      if(is.null(keepevery)) keepevery <- 1
-      if (is.null(test)) test <- NULL
 
-      bartFit <- bart(x, y, ndpost=n.samp*keepevery, nskip=nskip,
-                      k=k, base=base, power=power, ntree=ntree, keepevery = keepevery,
-                      printevery = n.samp*keepevery/10, keeptrees=FALSE, x.test = test)
+    }
+    else if (dots$method == "bart") {
+      require(dbarts)
+      if(all(x[,1] == 1)) x <- x[,-1]
+
+      nskip <- dots[["nskip"]]
+      ntree <- dots[["ntree"]]
+      keepevery <- dots[["keepevery"]]
+      X.test <- dots[["X.test"]]
+      numcut <- dots[["numcut"]]
+      chains <- dots[["chains"]]
+
+
+      k <- hyperparameters[["k"]]
+      power <- hyperparameters[["power"]]
+      base <- hyperparameters[["base"]]
+
+      if ( is.null(ntree) ) ntree <- 200
+      if ( is.null(keepevery) ) keepevery <- 1
+      # if ( is.null(test) ) test <- NULL
+      if (is.null(chains)) chains <- 1
+      if ( is.null(nskip) ) nskip <- n.samp * keepevery
+      if ( is.null(numcut) ) numcut <- 100
+
+      # if ( !("k" %in% names(hyperparameters)) ) k <- 2.0
+      if ( is.null(k) ) k <- "chi(degreesOfFreedom = 1.25, scale = Inf)"
+      if ( !is.numeric(k) ) if ( !is.character(k) ) stop( "k must be a number > 0 or a string of the form 'chi(degreesOfFreedom, scale )'")
+      if ( is.null(power) ) power <- 2.0 # function default
+      if ( is.null(base) ) base <- 0.95 # function default
+
+      ndpost <- n.samp * keepevery / chains
+
+      bartFit <- bart(x.train = x, y.train = y, ndpost = ndpost, nskip = nskip,
+                      k = k, base=base, power=power,
+                      numcut = numcut, ntree=ntree, keepevery = keepevery,
+                      printevery = n.samp*keepevery/10, keeptrees=FALSE, x.test = X.test,
+                      nchain = chains, nthread = min(chains,parallel::detectCores()-1))
       phi <- bartFit$yhat.train
-      prob <- pnorm(phi)
+      mu <- pnorm(phi)
       eta <- qlogis(prob)
       model <- bartFit
+      if(!is.null(X.test)){
+        test$mu  <- pnorm(bartFit$model$yhat.test)
+        test$eta <- qlogis(test$mu )
+      }
+
 
     } else if (dots$method == "logistic"){
       require(rstan)
@@ -275,37 +327,46 @@ get_binary_nonlinear_model <- function() {
       n <- nrow(x)
 
       stan_dir <- dots$stan_dir
-      m0 <- dots$m0
-      scale_intercept <- dots$scale_intercept
+      m0 <- hyperparameters$m0
+      scale_intercept <- hyperparameters$scale_intercept
       chains <- dots$chains
+      X.test <- dots[["X.test"]]
 
       if(is.null(m0)) m0 <- round(0.1 * p)
       if(is.null(scale_intercept)) scale_intercept <- 2.5
-      if(is.null(chains)) chains <-4
+      if(is.null(chains)) chains <- 4
 
       x_c <- scale(x, scale=FALSE)
-      qrdecomp <- qr(x_c)
-      Q_x <- qr.Q(qrdecomp) * sqrt(n-1)
-      R_inv <- solve(qr.R(qrdecomp)/sqrt(n-1))
+      # {
+      #   qrdecomp <- qr(x_c)
+      #   Q_x <- qr.Q(qrdecomp)[,1:p] * sqrt(n-1)
+      #   R_inv <- solve(qr.R(qrdecomp)/sqrt(n-1))
+      # }
 
       stan_dat <- list(N = n,
                        P = p,
                        Y = y,
                        X = x,
                        mean_x = attr(x_c, "scaled:center"),
-                       Q_x = Q_x,
-                       R_inv_x = R_inv,
                        m0 = m0,
                        scale_intercept = scale_intercept)
 
+      warmup <- nsamp
+      iter <- ceiling(n.samp/chains) + warmup
+
       stanModel <- stan_model(stan_dir)
-      stanFit <- sampling(stanModel, data=stan_dat, iter=n.samp*2,
-                          warmup =n.samp* (2-1/chains) , chains=chains, pars = c("eta","theta","prob", "beta", "intercept"))
+      stanFit <- sampling(stanModel, data = stan_dat, iter = iter,
+                          warmup = warmup, chains = chains, pars = c("eta","theta","prob", "beta", "intercept"))
       samples <- extract(stanFit, pars= c("eta","theta","prob"))
       eta <- samples$eta
-      prob <- samples$prob
+      mu <- samples$prob
       theta <- samples$theta
       model <- stanFit
+      if(!is.null(X.test)){
+        test$eta <- tcrossprod(X.test, samples$theta)
+        test$mu <- plogis(testEta)
+      }
+
 
     } else if (dots$method == "vb.logistic"){
       require(rstan)
@@ -339,6 +400,7 @@ get_binary_nonlinear_model <- function() {
       stan_dir <- dots$stan_dir
       m0 <- dots$m0
       scale_intercept <- dots$scale_intercept
+      X.test <- dots[["X.test"]]
 
       if(is.null(m0)) m0 <- round(0.1 * p)
       if(is.null(scale_intercept)) scale_intercept <- 2.5
@@ -365,9 +427,12 @@ get_binary_nonlinear_model <- function() {
                     output_samples = n.samp, pars=c("eta","prob","theta"))
       samples <- extract(stanFit, pars=c("eta","prob","theta"))
       eta <- samples$eta
-      prob <- samples$prob
+      mu <- samples$prob
       theta <- samples$theta
       model <- stanFit
+      # testEta <- tcrossprod(X.test, samples$theta)
+      # testMu <- plogis(testEta)
+      # test <- list(eta = testEta, mu = testMu)
 
     } else if (dots$method == "gamm") {
       require(rstanarm)
@@ -380,7 +445,10 @@ get_binary_nonlinear_model <- function() {
       scale_intercept <- dots$scale_intercept
       L <- dots$L
       chains <- dots$chains
+      X.test <- dots[["X.test"]]
       prior <- hs_plus()
+      warmup <- n.samp
+      iter <- ceiling(n.samp/chains) + warmup
 
       stan_dat <- data.frame(Y = Y)
       namesX <- paste0("X",1:p)
@@ -388,17 +456,23 @@ get_binary_nonlinear_model <- function() {
       form <- as.formula(paste("Y ~ ", paste0("s(",namesX,")" , collapse= " + ")))
 
       stanFit <- stan_gamm4(form, data = stan_dat, family = binomial(),
-                 chains = chains, iter = 2*n.samp, algorithm="sampling",
-                 warmup = n.samp* (2-1/chains), prior = prior )
+                 chains = chains, iter = iter, algorithm="sampling",
+                 warmup = warmup, prior = prior )
       eta <- posterior_linpred(stanFit)
       if(nrow(eta) > n.samp) eta <- eta[1:n.samp,]
-      prob <- plogis(eta)
+      mu <- plogis(eta)
       params <- as.matrix(stanFit$stanfit)
       theta <- params[,seq_len(ncol(stanFit$x))]
       model <- stanFit
+      if(!is.null(X.test)){
+        if(all(X.test[,1]==1)) X.test <- X.test[,-1]
+        X.test.lp <- mgcv::predict.gam(stanFit$jam, newdata=data.frame(X.test), type="lpmatrix")
+        test$eta <- tcrossprod(X.test.lp, theta)
+        test$mu <- plogis(testEta)
+      }
     }
 
-    return(list(theta=theta,prob=prob, eta=eta, model=model))
+    return(list(theta=theta, mu=mu, eta=eta, model=model, test = test))
 
   }
 
@@ -408,5 +482,7 @@ get_binary_nonlinear_model <- function() {
               rpost = rpost,
               X = list(rX = rX, corr = NULL),
               data_gen_function = data_gen_functions,
-              rparam = rparam))
+              rparam = rparam,
+              link = binomial()$linkfun,
+              invlink = binomial()$linkinv))
 }

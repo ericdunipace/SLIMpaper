@@ -33,7 +33,9 @@ get_normal_linear_model <- function() {
       x <- x[, 1: length(theta)]
       warning("Ncol X > length(theta). Only using first length(theta) columns of X.")
     }
-    return(rnorm(n, x%*% theta, sqrt(sigma2)))
+    mu <- x%*% theta
+    Y <- rnorm(n, mu, sqrt(sigma2))
+    return(list(Y = Y, mu = mu, eta = mu, link = gaussian()$linkfun, invlink = gaussian()$linkinv, theta = theta))
   }
 
   #### Parameters ####
@@ -51,6 +53,7 @@ get_normal_linear_model <- function() {
     # n <- length(y)
     dots <- list(...)
     model <- NULL
+    test <- list(eta = NULL, mu = NULL)
 
     method <- dots$method
 
@@ -66,16 +69,21 @@ get_normal_linear_model <- function() {
     #
     # post_theta <- sapply(1:n.samp, function(i) rmvnorm(1, post_mu, solve(post_prec_beta)*post_sigma[i]))
     if (method == "conjugate") {
+      X.test <- dots$X.test
       if ( !("Lambda" %in% names(hyperparameters) ) ) {
         hyperparameters$Lambda <- solve(hyperparameters$sigma)
       }
 
       conjFit <- bayesConjRegNormal(n.samp, hyperparameters,
                               y, x)
-      theta <- conjFit$theta
+      theta <- t(conjFit$theta)
       sigma <- conjFit$sigma
       model <- "conjugate"
-      y_hat <- x %*% theta
+      eta <- mu <- x %*% theta
+      if(!is.null(X.test)){
+        testEta <- testMu <- tcrossprod(X.test, theta)
+        test <- list(eta = testEta, mu = testMu)
+      }
 
     } else if (method == "stan") {
       require(rstan)
@@ -90,6 +98,7 @@ get_normal_linear_model <- function() {
       m0 <- dots$m0
       scale_intercept <- dots$scale_intercept
       chains <- dots$chains
+      X.test <- dots$X.test
 
       if(is.null(m0)) m0 <- round(0.1 * p)
       if(is.null(scale_intercept)) scale_intercept <- 2.5
@@ -114,14 +123,18 @@ get_normal_linear_model <- function() {
       stanFit <- sampling(stanModel, data=stan_dat, iter=n.samp*2,
                           warmup = n.samp*7/4, chains=chains, pars = c("y_hat","theta","sigma"))
       samples <- extract(stanFit, pars= c("y_hat","theta","sigma"))
-      y_hat <- t(samples$y_hat)
-      theta <- t(samples$theta)
-      sigma <- t(samples$sigma^2)
+      eta <- mu <- samples$y_hat
+      theta <- (samples$theta)
+      sigma <- (samples$sigma^2)
       model <- stanFit
+      if(!is.null(X.test)){
+        testEta <- testMu <- tcrossprod(X.test, theta)
+        test <- list(eta = testEta, mu = testMu)
+      }
     } else {
       stopifnot(match.arg(method, c("conjugate","stan")))
     }
-    return(list(theta=theta, sigma=sigma, y_hat = y_hat, model=model))
+    return(list(theta=theta, sigma=sigma, eta = eta, mu = mu, model=model, test = test))
 
   }
 
@@ -130,5 +143,7 @@ get_normal_linear_model <- function() {
               rpost = rpost,
               X = list(rX = rX, corr = NULL),
               data_gen_function = NULL,
-              rparam = rparam))
+              rparam = rparam,
+              link = gaussian()$linkfun,
+              invlink = gaussian()$linkinv))
 }

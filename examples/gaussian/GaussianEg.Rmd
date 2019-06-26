@@ -4,7 +4,7 @@ author: "Eric Dunipace"
 date: "6/18/2019"
 output:
   pdf_document: default
-  html_document: default
+  # html_document: default
 header-includes: \usepackage{float}
 ---
 <style>
