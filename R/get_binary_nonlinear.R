@@ -364,7 +364,7 @@ get_binary_nonlinear_model <- function() {
       model <- stanFit
       if(!is.null(X.test)){
         test$eta <- tcrossprod(X.test, samples$theta)
-        test$mu <- plogis(testEta)
+        test$mu <- plogis(test$eta )
       }
 
 
@@ -430,9 +430,8 @@ get_binary_nonlinear_model <- function() {
       mu <- samples$prob
       theta <- samples$theta
       model <- stanFit
-      # testEta <- tcrossprod(X.test, samples$theta)
-      # testMu <- plogis(testEta)
-      # test <- list(eta = testEta, mu = testMu)
+      # test$eta <- tcrossprod(X.test, samples$theta)
+      # test$mu <- plogis(test$eta)
 
     } else if (dots$method == "gamm") {
       require(rstanarm)
@@ -468,7 +467,7 @@ get_binary_nonlinear_model <- function() {
         if(all(X.test[,1]==1)) X.test <- X.test[,-1]
         X.test.lp <- mgcv::predict.gam(stanFit$jam, newdata=data.frame(X.test), type="lpmatrix")
         test$eta <- tcrossprod(X.test.lp, theta)
-        test$mu <- plogis(testEta)
+        test$mu <- plogis(test$eta)
       }
     }
 
