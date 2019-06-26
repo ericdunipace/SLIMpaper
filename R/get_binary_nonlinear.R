@@ -312,7 +312,7 @@ get_binary_nonlinear_model <- function() {
       eta <- qlogis(prob)
       model <- bartFit
       if(!is.null(X.test)){
-        test$mu  <- pnorm(bartFit$model$yhat.test)
+        test$mu  <- pnorm(bartFit$yhat.test)
         test$eta <- qlogis(test$mu )
       }
 
