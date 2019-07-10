@@ -61,11 +61,12 @@ p_star <- length(param$theta)
 
 target$X$corr <- 0.5
 X <- target$X$rX(n, target$X$corr, p)
-Y <- target$rdata(n,X[,1:p_star], param$theta, param$sigma2)
+data <- target$rdata(n,X[,1:p_star], param$theta, param$sigma2)
+Y <- data$Y
 
 x <- target$X$rX(1, target$X$corr, p)
 
-true_mu_full <- X[,1:p_star, drop=FALSE] %*% c(param$theta)
+true_mu_full <- data$mu
 true_mu <- x[,1:p_star,drop=FALSE] %*% c(param$theta)
 ```
 ```{r posterior, message = FALSE, warning = FALSE, echo = FALSE}
@@ -83,11 +84,11 @@ hyperparameters$Lambda <- solve(hyperparameters$sigma)
 #                           stan_dir ="../../Stan/normal_horseshoe_noQR.stan",
 #                           m0 = 20, scale_intercept = 2.5, chains = 4) # this can take a bit
 
-posterior <- target$rpost(nsamp, X, Y, hyperparameters = hyperparameters, method="conjugate")
+posterior <- target$rpost(nsamp, X, Y, X.test = x, hyperparameters = hyperparameters, method="conjugate")
 
 
-cond_mu <- x %*% posterior$theta
-cond_mu_full <- X %*% posterior$theta
+cond_mu <- posterior$test$mu
+cond_mu_full <- posterior$mu
 ```
 ```{r method_in_sample, message=FALSE, warning=FALSE, echo=FALSE}
 penalty.factor <- rep(1,p)
@@ -138,20 +139,16 @@ models <- list(Selection = theta_selection,
                "Backward Stepwise" = theta_SW)
 gauss_plot_file <- "w2plot.rds"
 if ( !file.exists(gauss_plot_file) ) { #only run if file doesn't exist
-  w2plot <- plot.compare(models, cond_mu_full, X, posterior$theta, 
-                       "w2", c("posterior","mean"), parallel = TRUE) # this can take a LONG time
-  w2plots <- w2plot$plot
-  w2plot.dat <- w2plot$data
-  saveRDS( w2plot.dat, gauss_plot_file )
+  w2plot <- distCompare(models, list(posterior = posterior$theta, 
+                                     mean = cond_mu_full),
+                       method = c("exact", "exact"),
+                       quantity = c("posterior","mean"), 
+                       parallel = TRUE) # this can take a LONG time
+  saveRDS( w2plot, gauss_plot_file )
 } else {
-  w2plot.dat <- readRDS( gauss_plot_file )
-  w2plots <- lapply(w2plot.dat, function(dd)
-                    ggplot( dd, aes(x=nactive, y=dist, color = groups, group=groups )) +
-        geom_line() + scale_color_jama() + labs(color ="Method") +
-        xlab("Number of active coefficients") + ylab("2-Wasserstein Distance") + theme_bw() +
-        scale_x_continuous(expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0), limits = c(0, max(dd$dist)*1.1)))
+  w2plot <- readRDS( gauss_plot_file )
 }
+  w2plots <- plot(w2plot, ylab = "2-Wasserstein Distance")
 ```
 ```{r mse distances, message=FALSE, warning=FALSE, echo=FALSE}
 models <- list(Selection = theta_selection, 
@@ -159,27 +156,19 @@ models <- list(Selection = theta_selection,
                "Simulated Annealing" = theta_SA,
                "Backward Stepwise" = theta_SW)
 msefile <- "mseplot.rds"
-if(!file.exists(msefile)){
-  mseplot_mean <- plot.compare(models, true_mu_full, X, posterior$theta, 
-                        "mse", c("mean"), parallel = TRUE)
-  mseplot_posterior <- plot.compare(models, c(param$theta, rep(0,p-p_star)), X, posterior$theta, 
-                          "mse", c("posterior"), parallel = TRUE)
-  mse_dat <- list(posterior = mseplot_posterior$data$posterior,
-                  mean = mseplot_mean$data$mean)
-  mse_plots <- list(posterior = mseplot_posterior$plot$posterior,
-                    mean = mseplot_mean$plot$mean)
-  saveRDS(mse_dat, msefile)
+if (!file.exists(msefile)) {
+  mse_plot <- distCompare(models, list(posterior = c(param$theta, 
+                                                     rep(0,p-p_star)), 
+                                     mean = true_mu_full),
+                       method = c("mse", "mse"),
+                       quantity = c("posterior","mean"), 
+                       parallel = TRUE) # this can take a LONG time
+  saveRDS( mse_plot, msefile )
 } else {
-  mse_dat <- readRDS(msefile)
-  
-  mse_plots <- lapply(mse_dat, function(dd) 
-    ggplot( dd, aes(x=nactive, y=dist, color = groups, group=groups )) +
-        geom_line() + scale_color_jama() + labs(color ="Method") +
-        xlab("Number of active coefficients") + ylab("MSE") + theme_bw() +
-        scale_x_continuous(expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0), limits = c(0, max(dd$dist)*1.1))
-    )
+  mse_plot <- readRDS(msefile)
 }
+
+mse_plots <- plot(mse_plot, ylab = "MSE")
 ```
 ```{r ridgeplot, echo = FALSE, warning = FALSE, messages = FALSE}
 models <- list(Selection = theta_selection, 
@@ -187,12 +176,12 @@ models <- list(Selection = theta_selection,
                "Simulated Annealing" = theta_SA,
                "Backward Stepwise" = theta_SW)
 idx <- 512
-ridge512 <- ridgePlot(models, index=idx, maxCoef = 10, scale =1 , alpha =0.5, full = cond_mu_full)
+ridge512 <- ridgePlot(models, index=idx, minCoef = 7, maxCoef = 10, scale =1 , alpha =0.5, full = cond_mu_full)
 
-ranks <- ranking(models, cond_mu_full, p = 2, maxCoef = 10, quantiles = c(0,0.3, 0.67, 1))
-ridgePlots <- ridgePlot(models, index=ranks$index, maxCoef = ranks$ncoef, scale =1 , alpha =0.5, full = cond_mu_full)
+ranks <- ranking(models$Projection, cond_mu_full, p = 2, minCoef = 7, maxCoef = 10, quantiles = c(0,0.3, 0.67, 1))
+ridgePlots <- ridgePlot(models, index=ranks$index, minCoef = 7, maxCoef = ranks$ncoef, scale =1 , alpha =0.5, full = cond_mu_full)
 
-ranks2 <- ranking(models, cond_mu_full, p = 2, maxCoef = 6, quantiles = c(0,0.3, 0.67, 1))
+ranks2 <- ranking(models$Projection, cond_mu_full, p = 2, maxCoef = 6, quantiles = c(0,0.3, 0.67, 1))
 ridgePlots2 <- ridgePlot(models, index=ranks2$index, maxCoef = ranks2$ncoef, scale =1 , alpha =0.5, full = cond_mu_full)
 ```
 
@@ -321,10 +310,10 @@ We can see that as we add more coefficients up to our desired size, 10, the mode
 Of course, we may be interested in looking at how good or how bad the predictions from the coarsened posterior can be for the entire sample, and not just one person chosen at random. Towards this end, we have implemented a function that for a given model size, will calculate the average p-Wasserstein distance between the coarsened predictions and the full posterior, and rank all individual observations by this distance. Then this ranking function will give the observations at user provided quantiles.
 
 ```{r rank fun, eval=FALSE}
-ranks <- ranking(models, cond_mu_full, p = 2, 
+ranks <- ranking(models$Projection, cond_mu_full, p = 2, 
                  maxCoef = 10, quantiles = c(0,0.3, 0.67, 1))
 ```
-Note, when we provide this function more than one model, it will average all of the calculated distances for a selected model size. S
+
 
 
 Next, we can plot ridgeline plots of the predictions from 1 coefficient up to the given model size. This allows us to see if smaller models perform equally well.

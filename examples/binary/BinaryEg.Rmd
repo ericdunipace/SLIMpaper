@@ -1,7 +1,7 @@
 ---
 title: "Binary Data Example"
 author: "Eric Dunipace"
-date: "5/7/2019"
+date: "6/26/2019"
 output:
   pdf_document: default
   # html_document: default
@@ -261,7 +261,6 @@ if (!file.exists("simple_adapt_bart.RDS")){
 } else {
   simple_adapt_bart <- readRDS("simple_adapt_bart.RDS")
 }
-
 if (!file.exists("simple_adapt_gam.RDS")){
   simple_adapt_gam <- list(
                      selection = W2L1(X=X, Y = post.gamm$eta, 
@@ -301,50 +300,6 @@ if (!file.exists("simple_adapt_gam.RDS")){
 } else {
   simple_adapt_gam <- readRDS("simple_adapt_gam.RDS")
 }
-
-# if (!file.exists("gamm_adapt.RDS")){
-#   gamm_adapt <- list(
-#                      selection = W2L1(X=gammX, Y = post.bart$eta, 
-#                         theta=post.gamm$theta, penalty="selection.lasso",
-#                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
-#                         infimum.maxit=1e4, maxit = 1e5, gamma = gamma,
-#                         pseudo_observations = pseudo.observations, 
-#                         display.progress = TRUE,
-#                         penalty.factor = penalty.factor.gamm,
-#                         method="selection.variable"),
-#                      # location.scale = W2L1(X=gammX, Y=post.bart$eta, 
-#                      #    theta=post.gamm$theta, penalty="mcp.net", alpha = 0.5,
-#                      #    nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
-#                      #    infimum.maxit=1e2, maxit = 1e5, gamma = gamma,
-#                      #    pseudo_observations = pseudo.observations, display.progress = TRUE,
-#                      #    penalty.factor = penalty.factor.gamm,
-#                      #    method="location.scale"),
-#                      projection = W2L1(X=gammX, Y=post.bart$eta, 
-#                         theta=post.gamm$theta, penalty="mcp.net", alpha = 0.5,
-#                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
-#                         infimum.maxit=1, maxit = 1e5, gamma = gamma,
-#                         pseudo_observations = pseudo.observations, display.progress = TRUE,
-#                         penalty.factor = penalty.factor.gamm,
-#                         method="projection"),
-#                      mcp = W2L1(X=gammX, Y=post.bart$eta, 
-#                         theta=post.gamm$theta, penalty="mcp", alpha = 0.5,
-#                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
-#                         infimum.maxit=1, maxit = 1e5, gamma = gamma,
-#                         pseudo_observations = pseudo.observations, display.progress = TRUE,
-#                         penalty.factor = penalty.factor.gamm,
-#                         method="projection"),
-#                      lasso = W2L1(X=gammX, Y=post.bart$eta, 
-#                         theta=post.gamm$theta, penalty="lasso", alpha = 1,
-#                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
-#                         infimum.maxit=1, maxit = 1e5, gamma = gamma,
-#                         pseudo_observations = pseudo.observations, display.progress = TRUE,
-#                         penalty.factor = penalty.factor.gamm,
-#                         method="projection")
-#                 )
-#   saveRDS(gamm_adapt, "gamm_adapt.RDS")
-# } else {
-#   gamm_adapt <- readRDS("gamm_adapt.RDS")
-# }
 ```
 ```{r w2 distances, echo = FALSE, warning= FALSE, message= FALSE}
 names(interaction_adapt_bart) <- 
@@ -361,34 +316,22 @@ w2plot <- list(bart = list (simple=NULL, interaction = NULL),
 w2_file <- "w2plot_bin.rds"
 
 if ( !file.exists(w2_file) ) {
-  w2plot$bart$simple <- plot.compare(simple_adapt_bart, post.bart$eta, X, t(post.stan$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  # w2plot$interaction <- plot.compare(interaction_adapt, post.bart$eta, 
-  #                                    combinations, t(post.stan.full$theta), 
-  #                      "w2", c("mean"), parallel = TRUE) 
-  w2plot$bart$interaction <- plot.compare(interaction_adapt_bart, post.bart$eta, 
-                                     combinations, t(post.stan.full$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  w2plot$gam$simple <- plot.compare(simple_adapt_gam, post.bart$eta, X, t(post.stan$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  # w2plot$interaction <- plot.compare(interaction_adapt, post.bart$eta, 
-  #                                    combinations, t(post.stan.full$theta), 
-  #                      "w2", c("mean"), parallel = TRUE) 
-  w2plot$gam$interaction <- plot.compare(interaction_adapt_gam, post.bart$eta, 
-                                     combinations, t(post.stan.full$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  w2plotData <- lapply(w2plot, function(i) lapply(i, function(j) j$data$mean))
-  saveRDS( w2plotData, "w2plot_bin.rds" )
-  w2plots <- lapply(w2plot, function(i) lapply(i, function(j) j$plot$mean))
+  w2plot$bart$simple <- distCompare(simple_adapt_bart, list(mean = post.bart$eta),
+                       method = "exact", quantity = c("mean"), parallel = TRUE) 
+  w2plot$bart$interaction <- distCompare(interaction_adapt_bart, list(mean = post.bart$eta),
+                       method = "exact", quantity = c("mean"), parallel = TRUE) 
+  w2plot$gam$simple <- distCompare(simple_adapt_gam, list(mean = post.gamm$eta),
+                       method = "exact", quantity = c("mean"), parallel = TRUE) 
+  w2plot$gam$interaction <- distCompare(interaction_adapt_gam, list(mean = post.gamm$eta),
+                       method = "exact", quantity = c("mean"), parallel = TRUE) 
+  saveRDS( w2plot, "w2plot_bin.rds" )
 } else {
-  w2plotData <- readRDS( w2_file )
-  w2plots <- lapply(w2plotData, function(ll) lapply(ll, function(ww) ggplot(ww, aes(x=nactive, y=dist, color = groups, group=groups )) +
-        geom_line() + scale_color_jama() + labs(color ="Method") +
-        xlab("Number of active coefficients") + ylab("2-Wasserstein Distance") + theme_bw() +
-        scale_x_continuous(expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0),
-                           limits = c(0, max(ww$dist)*1.1))))
+  w2plot <- readRDS( w2_file )
+  
 }
+w2plots <- lapply(w2plot, function(ll) lapply(ll, function(ww) plot(ww, ylab = "2-Wasserstein Distance")))
+w2plots$bart <- set_equal_y_limits(w2plots$bart)
+w2plots$gam <- set_equal_y_limits(w2plots$gam)
 ```
 ```{r mse distances, message=FALSE, echo=FALSE, warning=FALSE}
 names(interaction_adapt_bart) <- 
@@ -404,29 +347,25 @@ mseplot <- list(bart = list (simple=NULL, interaction = NULL),
                gam = list (simple=NULL, interaction = NULL))
 mse_file <- "mseplot_bin.rds"
 if (!file.exists(mse_file)) {
-  mseplot$bart$simple <- plot.compare(simple_adapt_bart, prob, X, t(post.stan$theta),
-                        "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplot$bart$interaction <- plot.compare(interaction_adapt_bart, prob, 
-                                           combinations, t(post.stan.full$theta), 
-                          "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplot$gam$simple <- plot.compare(simple_adapt_gam, prob, X, t(post.stan$theta),
-                        "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplot$gam$interaction <- plot.compare(interaction_adapt_gam, prob, 
-                                          combinations, t(post.stan.full$theta), 
-                          "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplotData <- lapply(mseplot, function(i) lapply(i, function(j) j$data$mean))
-  saveRDS( mseplotData, mse_file )
-  mseplots <- lapply(mseplot, function(i) lapply(i, function(j) j$plot$mean))
-  
+  mseplot$bart$simple <- distCompare(simple_adapt_bart, list(mean = prob),
+                       method = "mse", quantity = c("mean"), parallel = TRUE,
+                       transform = Y.list$invlink) 
+  mseplot$bart$interaction <- distCompare(interaction_adapt_bart,  list(mean = prob),
+                       method = "mse", quantity = c("mean"), parallel = TRUE,
+                       transform = Y.list$invlink) 
+  mseplot$gam$simple <- distCompare(simple_adapt_gam,  list(mean = prob),
+                       method = "mse", quantity = c("mean"), parallel = TRUE,
+                       transform = Y.list$invlink)  
+  mseplot$gam$interaction <- distCompare(interaction_adapt_gam,  list(mean = prob),
+                       method = "mse", quantity = c("mean"), parallel = TRUE,
+                       transform = Y.list$invlink) 
+  saveRDS( mseplot, mse_file )
 } else {
-  mseplotData <- readRDS( mse_file )
-  mseplots <- lapply(mseplotData, function(dd) lapply(dd, function(mm) ggplot(mm, aes(x=nactive, y=dist, color = groups, group=groups )) +
-        geom_line() + scale_color_jama() + labs(color ="Method") +
-        xlab("Number of active coefficients") + ylab("MSE") + theme_bw() +
-        scale_x_continuous(expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0), 
-                           limits = c(0,max(mm$dist)*1.1))))
+  mseplot <- readRDS( mse_file )
 }
+mseplots <- lapply(mseplot, function(dd) lapply(dd, function(mm) plot(mm, ylab= "MSE")))
+mseplots$bart <- set_equal_y_limits(mseplots$bart)
+mseplots$gam <- set_equal_y_limits(mseplots$gam)
 ```
 ```{r generate new pop param, echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
 gammXNew <- mgcv::predict.gam(post.gamm$model$jam, newdata=data.frame(Xnew[,-1]), type="lpmatrix")
@@ -563,33 +502,32 @@ w2plot_subset <- list(bart = list (simple=NULL, interaction = NULL),
                gam = list (simple=NULL, interaction = NULL))
 w2subset_file <- "w2plot_bin_subset.rds"
 if ( !file.exists(w2subset_file) ) {
-  w2plot_subset$bart$simple <- plot.compare(simple_adapt_subset_bart, 
-                                            bartetaNew, Xnew, t(post.stan$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  w2plot_subset$bart$interaction <- plot.compare(interaction_adapt_subset_bart, 
-                                                 bartetaNew, 
-                                     combinationsNew, t(post.stan.full$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  w2plot_subset$gam$simple <- plot.compare(simple_adapt_subset_gam, gametaNew, 
-                                           Xnew, t(post.stan$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  w2plot_subset$gam$interaction <- plot.compare(interaction_adapt_subset_gam, gametaNew, 
-                                     combinationsNew, t(post.stan.full$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  w2plotData_subset <- lapply(w2plot_subset, function(i) lapply(i, function(j) j$data$mean))
-  saveRDS( w2plotData_subset, w2subset_file )
-  w2plots_subset <- lapply(w2plot_subset, function(i) lapply(i, function(j) j$plot$mean))
+  w2plot_subset$bart$simple <- distCompare(simple_adapt_subset_bart, 
+                                           target = list(mean = bartetaNew), 
+                                           method = "exact", 
+                                           quantity = "mean", parallel = TRUE) 
+  w2plot_subset$bart$interaction <- distCompare(interaction_adapt_subset_bart, 
+                                           target = list(mean = bartetaNew), 
+                                           method = "exact", 
+                                           quantity = "mean", parallel = TRUE) 
+  w2plot_subset$gam$simple <- distCompare(simple_adapt_subset_gam,  
+                                           target = list(mean = gametaNew), 
+                                           method = "exact", 
+                                           quantity = "mean", parallel = TRUE) 
+  w2plot_subset$gam$interaction <- distCompare(interaction_adapt_subset_gam, 
+                                           target = list(mean = gametaNew), 
+                                           method = "exact", 
+                                           quantity = "mean", parallel = TRUE) 
+  saveRDS( w2plot_subset, w2subset_file )
 } else {
-  w2plotData_subset <- readRDS( w2subset_file )
-  w2plots_subset <- lapply(w2plotData_subset, 
-                           function(ll) lapply(ll, function(ww) 
-       ggplot(ww, aes(x=nactive, y=dist, color = groups, group=groups )) +
-        geom_line() + scale_color_jama() + labs(color ="Method") +
-        xlab("Number of active coefficients") + ylab("2-Wasserstein Distance") + theme_bw() +
-        scale_x_continuous(expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0),
-                           limits = c(0, max(ww$dist)*1.1))))
+  w2plot_subset <- readRDS( w2subset_file )
 }
+w2plots_subset <- lapply(w2plot_subset, 
+                           function(ll) lapply(ll, function(ww) 
+                           plot(ww, ylab = "2-Wasserstein Distance")))
+w2plots_subset$bart <- set_equal_y_limits(w2plots_subset$bart)
+w2plots_subset$gam <- set_equal_y_limits(w2plots_subset$gam)
+
 ```
 ```{r mse distances new, message=FALSE, echo=FALSE, warning=FALSE, echo = FALSE}
 names(interaction_adapt_subset_bart) <- 
@@ -605,31 +543,36 @@ mseplot_subset <- list(bart = list (simple=NULL, interaction = NULL),
                gam = list (simple=NULL, interaction = NULL))
 mse_subset_file <- "mseplot_bin_subset.rds"
 if (!file.exists(mse_subset_file)) {
-  mseplot_subset$bart$simple <- plot.compare(simple_adapt_subset_bart, probNew, Xnew, t(post.stan$theta),
-                        "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplot_subset$bart$interaction <- plot.compare(interaction_adapt_subset_bart, probNew, 
-                                           combinationsNew, t(post.stan.full$theta), 
-                          "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplot_subset$gam$simple <- plot.compare(simple_adapt_subset_gam, probNew, Xnew, t(post.stan$theta),
-                        "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplot_subset$gam$interaction <- plot.compare(interaction_adapt_subset_gam, probNew, 
-                                          combinationsNew, t(post.stan.full$theta), 
-                          "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplotData_subset <- lapply(mseplot_subset, function(i) lapply(i, function(j) j$data$mean))
-  saveRDS( mseplotData_subset, mse_subset_file)
-  mseplots_subset <- lapply(mseplot_subset, function(i) lapply(i, function(j) j$plot$mean))
-  
+  mseplot_subset$bart$simple <- distCompare(simple_adapt_subset_bart, 
+                                           target = list(mean = probNew), 
+                                           method = "mse", 
+                                           quantity = "mean", parallel = TRUE,
+                                           transform = Y.list$invlink) 
+  mseplot_subset$bart$interaction <- distCompare(interaction_adapt_subset_bart, 
+                                           target = list(mean = probNew), 
+                                           method = "mse", 
+                                           quantity = "mean", parallel = TRUE,
+                                           transform = Y.list$invlink) 
+  mseplot_subset$gam$simple <- distCompare(simple_adapt_subset_gam,  
+                                           target = list(mean = probNew), 
+                                           method = "mse", 
+                                           quantity = "mean", parallel = TRUE,
+                                           transform = Y.list$invlink) 
+  mseplot_subset$gam$interaction <- distCompare(interaction_adapt_subset_gam, 
+                                           target = list(mean = probNew), 
+                                           method = "mse", 
+                                           quantity = "mean", parallel = TRUE,
+                                           transform = Y.list$invlink) 
+  saveRDS( mseplot_subset, mse_subset_file )
 } else {
-  mseplotData_subset <- readRDS(mse_subset_file)
-  mseplots_subset <- lapply(mseplotData_subset, 
-                            function(dd) lapply(dd, function(mm) 
-      ggplot(mm, aes(x=nactive, y=dist, color = groups, group=groups )) +
-        geom_line() + scale_color_jama() + labs(color ="Method") +
-        xlab("Number of active coefficients") + ylab("MSE") + theme_bw() +
-        scale_x_continuous(expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0), 
-                           limits = c(0,max(mm$dist)*1.1))))
+  mseplot_subset <- readRDS(mse_subset_file)
 }
+mseplots_subset <- lapply(mseplot_subset, 
+                           function(ll) lapply(ll, function(ww) 
+                           plot(ww, ylab = "MSE")))
+mseplots_subset$bart <- set_equal_y_limits(mseplots_subset$bart)
+mseplots_subset$gam <- set_equal_y_limits(mseplots_subset$gam)
+
 ```
 ## Setup
 The method can also be used on binary data. We simulate data as follows. 
@@ -714,21 +657,28 @@ penalty.factor.gamm <- rep(1, ncol(post.gamm$theta))
  
   interaction_adapt_gam <- list(
                  selection = W2L1(X=combinations, Y = post.gamm$eta, 
-                        theta=post.stan.full$theta, penalty="selection.lasso",
+                        theta=post.stan.full$theta, 
+                        penalty="selection.lasso",
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1e4, maxit = 5e2, gamma = gamma,
                  mcp = W2L1(X=combinations, Y=post.gamm$eta, 
-                        theta=post.stan.full$theta, penalty="mcp", alpha=0.99,
+                        theta=post.stan.full$theta, 
+                        penalty="mcp", alpha=1,
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1, maxit = 1e5, gamma = gamma,
-                        pseudo_observations = pseudo.observations, display.progress = TRUE,
-                        penalty.factor = penalty.factor.full, method="projection",tol = 1e-3),
+                        pseudo_observations = pseudo.observations, 
+                        display.progress = TRUE,
+                        penalty.factor = penalty.factor.full, 
+                        method="projection",tol = 1e-3),
                  lasso = W2L1(X=combinations, Y=post.gamm$eta, 
-                        theta=post.stan.full$theta, penalty="lasso", alpha=1,
+                        theta=post.stan.full$theta, 
+                        penalty="lasso", alpha=1,
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1, maxit = 1e5, gamma = gamma,
-                        pseudo_observations = pseudo.observations, display.progress = TRUE,
-                        penalty.factor = penalty.factor.full, method="projection",tol = 1e-3)
+                        pseudo_observations = pseudo.observations, 
+                        display.progress = TRUE,
+                        penalty.factor = penalty.factor.full, 
+                        method="projection",tol = 1e-3)
                 )
 
   simple_adapt_bart <- list(
@@ -738,19 +688,24 @@ penalty.factor.gamm <- rep(1, ncol(post.gamm$theta))
                         infimum.maxit=1e4, maxit = 1e5, gamma = gamma,
                         pseudo_observations = pseudo.observations, 
                         display.progress = TRUE,
-                        penalty.factor = penalty.factor.simple, method="selection.variable"),
+                        penalty.factor = penalty.factor.simple,
+                        method="selection.variable"),
                      mcp = W2L1(X=X, Y=post.bart$eta, 
                         theta=post.stan$theta, penalty="mcp", alpha = 1,
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1, maxit = 1e5, gamma = gamma,
-                        pseudo_observations = pseudo.observations, display.progress = TRUE,
-                        penalty.factor = penalty.factor.simple, method="projection"),
+                        pseudo_observations = pseudo.observations, 
+                        display.progress = TRUE,
+                        penalty.factor = penalty.factor.simple, 
+                        method="projection"),
                      lasso = W2L1(X=X, Y=post.bart$eta, 
                         theta=post.stan$theta, penalty="lasso", alpha = 1,
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1, maxit = 1e5, gamma = gamma,
-                        pseudo_observations = pseudo.observations, display.progress = TRUE,
-                        penalty.factor = penalty.factor.simple, method="projection")
+                        pseudo_observations = pseudo.observations, 
+                        display.progress = TRUE,
+                        penalty.factor = penalty.factor.simple, 
+                        method="projection")
                     )
   
   simple_adapt_gam <- list(
@@ -793,21 +748,32 @@ names(interaction_adapt_bart) <-
 w2plot <- list(bart = list (simple=NULL, interaction = NULL),
                gam = list (simple=NULL, interaction = NULL))
 
-  w2plot$bart$simple <- plot.compare(simple_adapt_bart, 
-                                     post.bart$eta, X, t(post.stan$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  w2plot$bart$interaction <- plot.compare(interaction_adapt_bart, post.bart$eta, 
-                                     combinations, t(post.stan.full$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  w2plot$gam$simple <- plot.compare(simple_adapt_gam, 
-                                    post.bart$eta, X, t(post.stan$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  w2plot$gam$interaction <- plot.compare(interaction_adapt_gam, post.bart$eta, 
-                                     combinations, t(post.stan.full$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
+  w2plot$bart$simple <- distCompare(simple_adapt_bart, 
+                                    list(mean = post.bart$eta),
+                                    method = "exact", 
+                                    quantity = c("mean"),
+                                    parallel = TRUE) 
+  w2plot$bart$interaction <- distCompare(interaction_adapt_bart, 
+                                         list(mean = post.bart$eta),
+                                         method = "exact", 
+                                         quantity = c("mean"), 
+                                         parallel = TRUE) 
+  w2plot$gam$simple <- distCompare(simple_adapt_gam, 
+                                   list(mean = post.gamm$eta), 
+                                   method = "exact", 
+                                   quantity = c("mean"), 
+                                   parallel = TRUE) 
+  w2plot$gam$interaction <- distCompare(interaction_adapt_gam, 
+                                        list(mean = post.gamm$eta),
+                                        method = "exact", 
+                                        quantity = c("mean"), 
+                                        parallel = TRUE) 
 
-  w2plots <- lapply(w2plot, function(i) lapply(i, function(j) j$plot$mean))
-}
+  w2plots <- lapply(w2plot, function(ll) 
+      lapply(ll, function(ww) 
+      plot(ww, ylab = "2-Wasserstein Distance")))
+  w2plots$bart <- set_equal_y_limits(w2plots$bart)
+  w2plots$gam <- set_equal_y_limits(w2plots$gam)
 ```
 
 Further, we calculate the mean squared error (MSE) between the posterior predictive means and the true generating probabilities
@@ -1008,20 +974,27 @@ names(interaction_adapt_subset_bart) <-
 
 w2plot_subset <- list(bart = list (simple=NULL, interaction = NULL),
                gam = list (simple=NULL, interaction = NULL))
-  w2plot_subset$bart$simple <- plot.compare(simple_adapt_subset_bart, 
-                                            bartetaNew, Xnew, t(post.stan$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  w2plot_subset$bart$interaction <- plot.compare(interaction_adapt_subset_bart, 
-                                                 bartetaNew, 
-                                     combinationsNew, t(post.stan.full$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  w2plot_subset$gam$simple <- plot.compare(simple_adapt_subset_gam, gametaNew, 
-                                           Xnew, t(post.stan$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  w2plot_subset$gam$interaction <- plot.compare(interaction_adapt_subset_gam, gametaNew, 
-                                     combinationsNew, t(post.stan.full$theta), 
-                       "w2", c("mean"), parallel = TRUE) 
-  w2plots_subset <- lapply(w2plot_subset, function(i) lapply(i, function(j) j$plot$mean))
+  w2plot_subset$bart$simple <- distCompare(simple_adapt_subset_bart, 
+                                           target = list(mean = bartetaNew), 
+                                           method = "exact", 
+                                           quantity = "mean", parallel = TRUE) 
+  w2plot_subset$bart$interaction <- distCompare(interaction_adapt_subset_bart, 
+                                           target = list(mean = bartetaNew), 
+                                           method = "exact", 
+                                           quantity = "mean", parallel = TRUE) 
+  w2plot_subset$gam$simple <- distCompare(simple_adapt_subset_gam,  
+                                           target = list(mean = gametaNew), 
+                                           method = "exact", 
+                                           quantity = "mean", parallel = TRUE) 
+  w2plot_subset$gam$interaction <- distCompare(interaction_adapt_subset_gam, 
+                                           target = list(mean = gametaNew), 
+                                           method = "exact", 
+                                           quantity = "mean", parallel = TRUE) 
+  w2plots_subset <- lapply(w2plot_subset, 
+                           function(ll) lapply(ll, function(ww) 
+                           plot(ww, ylab = "2-Wasserstein Distance")))
+  w2plots_subset$bart <- set_equal_y_limits(w2plots_subset$bart)
+  w2plots_subset$gam <- set_equal_y_limits(w2plots_subset$gam)
 
 ```
 and the MSE between the true probabilities and the predicted probabililties from the coarsened posterior
@@ -1035,20 +1008,31 @@ names(interaction_adapt_subset_bart) <-
 
 mseplot_subset <- list(bart = list (simple=NULL, interaction = NULL),
                gam = list (simple=NULL, interaction = NULL))
-  mseplot_subset$bart$simple <- plot.compare(simple_adapt_subset_bart, 
-                                             probNew, Xnew, t(post.stan$theta),
-                        "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplot_subset$bart$interaction <- plot.compare(interaction_adapt_subset_bart, probNew, 
-                                           combinationsNew, t(post.stan.full$theta), 
-                          "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplot_subset$gam$simple <- plot.compare(simple_adapt_subset_gam, 
-                                            probNew, Xnew, t(post.stan$theta),
-                        "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplot_subset$gam$interaction <- plot.compare(interaction_adapt_subset_gam, probNew, 
-                                          combinationsNew, t(post.stan.full$theta), 
-                          "mse", c("mean"), parallel = TRUE, transform = plogis)
-  mseplots_subset <- lapply(mseplot_subset, function(i) 
-                              lapply(i, function(j) j$plot$mean))
+  mseplot_subset$bart$simple <- distCompare(simple_adapt_subset_bart, 
+                                           target = list(mean = probNew), 
+                                           method = "mse", 
+                                           quantity = "mean", parallel = TRUE,
+                                           transform = Y.list$invlink) 
+  mseplot_subset$bart$interaction <- distCompare(interaction_adapt_subset_bart, 
+                                           target = list(mean = probNew), 
+                                           method = "mse", 
+                                           quantity = "mean", parallel = TRUE,
+                                           transform = Y.list$invlink) 
+  mseplot_subset$gam$simple <- distCompare(simple_adapt_subset_gam,  
+                                           target = list(mean = probNew), 
+                                           method = "mse", 
+                                           quantity = "mean", parallel = TRUE,
+                                           transform = Y.list$invlink) 
+  mseplot_subset$gam$interaction <- distCompare(interaction_adapt_subset_gam, 
+                                           target = list(mean = probNew), 
+                                           method = "mse", 
+                                           quantity = "mean", parallel = TRUE,
+                                           transform = Y.list$invlink) 
+  mseplots_subset <- lapply(mseplot_subset, 
+                           function(ll) lapply(ll, function(ww) 
+                           plot(ww, ylab = "MSE")))
+  mseplots_subset$bart <- set_equal_y_limits(mseplots_subset$bart)
+  mseplots_subset$gam <- set_equal_y_limits(mseplots_subset$gam)
   
 ```
 

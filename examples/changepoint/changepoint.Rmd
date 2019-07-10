@@ -123,7 +123,7 @@ theta_selection <- W2L1(X=X[less0,], Y=cond_mu_full[less0,],
                         infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
                         pseudo_observations = pseudo.observations, display.progress = TRUE,
                  penalty.factor = penalty.factor, method="selection.variable")
-theta_adaptive <-W2L1(X=X[less0,], Y=cond_mu_full[less0,], 
+theta_adaptive <- W2L1(X=X[less0,], Y=cond_mu_full[less0,], 
                         theta=post.naive$theta, penalty="mcp",
                         nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                         infimum.maxit=1e4, maxit = 1e4, gamma = gamma,

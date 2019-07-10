@@ -79,7 +79,7 @@ get_normal_linear_model <- function() {
       theta <- t(conjFit$theta)
       sigma <- conjFit$sigma
       model <- "conjugate"
-      eta <- mu <- x %*% theta
+      eta <- mu <- tcrossprod(x , theta)
       if(!is.null(X.test)){
         testEta <- testMu <- tcrossprod(X.test, theta)
         test <- list(eta = testEta, mu = testMu)
