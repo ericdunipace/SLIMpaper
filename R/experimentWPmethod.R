@@ -175,6 +175,9 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   # }
   # trajAnneal <- anneal$theta
     cat(anneal$message)
+    if(anneal$message != "converged") {
+      annealTime <- paste0(">", annealTime)
+    }
 
   if (not.only.timing) {
     #### new X variable ####
