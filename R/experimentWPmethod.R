@@ -174,6 +174,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     annealTime <- proc.time() - time
   # }
   # trajAnneal <- anneal$theta
+    cat(anneal$message)
 
   if (not.only.timing) {
     #### new X variable ####
@@ -238,6 +239,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                       transport.method = transport.method,
                                       cooling.schedule="exponential"),
                        display.progress = TRUE)
+      cat(annealN$message)
+      cat("\n")
     # }
     # trajAnnealN <- annealCoef(annealN, t_theta)
 
@@ -299,6 +302,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                       transport.method = transport.method,
                                       cooling.schedule="exponential"),
                        display.progress = TRUE )
+      cat(annealO$message)
+      cat("\n")
     # }
 
     # trajAnnealO <- annealCoef(annealO, t_theta)
@@ -478,8 +483,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     #                perm_E = newX_msePermE, hc=newX_mseHC, step = newX_mseStep),
     # singleNewMu = list(sel = singleMu_mseSel, dist_E = singleMu_mseSelE, perm = singleMu_msePerm,
     # perm_E = singleMu_msePermE, hc=singleMu_mseHC, step = singleMu_mseStep),
-    time = list(selection = selTime, projection = projTime, HC = hcTime,
-                step = stepTime, anneal = annealTime)#,
+    time = list(selection = selTime[3], projection = projTime[3], HC = hcTime[3],
+                step = stepTime[3], anneal = annealTime[3])#,
     # W2_dist_post = list(sel = postW2_Sel, perm = postW2_Perm,
     #                     step = postW2_Step, anneal = postW2_Anneal,
     #                     HC = postW2_HC)
