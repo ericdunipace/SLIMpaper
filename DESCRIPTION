@@ -7,6 +7,6 @@ Author: Eric Dunipace
 Maintainer: Eric Dunipace <eduniapce@g.harvard.edu>
 Description: More about what it does (maybe more than one line)
 License: What license is it under?
-Imports: Rcpp (>= 1.0.0), ggplot2, transport, SparsePosterior, mvtnorm, ggridges, parallel, doParallel
+Imports: Rcpp (>= 1.0.0), ggplot2, transport, SparsePosterior, mvtnorm, ggridges, parallel, doParallel, dbarts, BART
 LinkingTo: Rcpp (>= 1.0.0), RcppEigen (>= 0.3.3.4.0), BH, RcppProgress, transport
 Suggests: ggsci, xtable, doParallel, BART, dbarts, rjags, rstanarm, rstan

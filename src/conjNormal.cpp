@@ -22,7 +22,8 @@ List bayesConjRegNormal(int n_samp, const List & hyperparameters,
   vector post_mu = post_prec_beta.selfadjointView<Eigen::Lower>().ldlt().solve(X.transpose() * Y + Lambda * m);
 
   double post_a = a + double(n) * 0.5;
-  double post_b = b + 0.5 * (Y.squaredNorm() - post_mu.transpose() * post_prec_beta * post_mu );
+  double post_b = b + 0.5 * (Y.squaredNorm() - post_mu.transpose() * post_prec_beta * post_mu +
+                             m.transpose() * Lambda * m);
 
   vector post_sigma(n_samp);
   for(int i = 0; i < n_samp; i++) post_sigma(i) = 1/R::rgamma(post_a, 1/post_b);
