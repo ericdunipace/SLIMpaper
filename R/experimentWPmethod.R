@@ -180,6 +180,38 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     }
 
   if (not.only.timing) {
+    inSampModels <- list("Selection" = lassoSel,
+                         "Simulated Annealing" = anneal,
+                         "Stepwise" = step,
+                         "Projection" = lassoProj,
+                         "H.C." = lassoHC)
+    cat("\nCalculating W2 distances")
+    if( calc_w2_post){
+      W2_insamp <- distCompare(inSampModels, target = list(posterior = theta,
+                                                           mean = cond_mu),
+                               method = "sinkhorn",
+                               quantity=c("posterior","mean"),
+                               parallel=FALSE,
+                               transform = data$invlink)
+    }
+    else {
+      W2_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
+                                                           mean = cond_mu),
+                               method = "sinkhorn",
+                               quantity=c("mean"),
+                               parallel=FALSE,
+                               transform = data$invlink)
+    }
+    cat("\nCalculating MSEs")
+    mse_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
+                                                          mean = true_mu),
+                              method = "mse",
+                              quantity="mean",
+                              parallel=FALSE,
+                              transform = data$invlink)
+    rm(inSampModels)
+    rm(c("lassoSel", "anneal","step","lassoProj","lassoHC"))
+
     #### new X variable ####
     #mse on new outcome data from same paramters and different X
     #new method
@@ -246,6 +278,40 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
       cat("\n")
     # }
     # trajAnnealN <- annealCoef(annealN, t_theta)
+      newXModels <- list("Selection" = lassoSelN,
+                         "Simulated Annealing" = annealN,
+                         "Stepwise" = stepN,
+                         "Projection" = lassoProjN,
+                         "H.C." = lassoHCN)
+
+      cat("\nCalculating W2 distances")
+      if( calc_w2_post){
+        W2_newX <- distCompare(newXModels, target = list(posterior = theta,
+                                                         mean = cond_mu_new),
+                               method = "sinkhorn",
+                               quantity=c("posterior","mean"),
+                               parallel=FALSE,
+                               transform = data$invlink)
+      }
+      else {
+        W2_newX <- distCompare(newXModels, target = list(posterior = NULL,
+                                                         mean = cond_mu_new),
+                               method = "sinkhorn",
+                               quantity=c("mean"),
+                               parallel=FALSE,
+                               transform = data$invlink)
+      }
+      cat("\nCalculating MSEs")
+      mse_newX <- distCompare(newXModels, target = list(posterior = NULL,
+                                                        mean = new_mu),
+                              method = "mse",
+                              quantity="mean",
+                              parallel=FALSE,
+                              transform = data$invlink)
+
+      rm(newXModels)
+      rm(c("lassoSelN", "annealN","stepN","lassoProjN","lassoHCN"))
+
 
     #new method, single datapoint
     # augDatO <- augPseudo(X_sing, cond_mu_sing, t_theta, theta_norm, pseudo.obs, n, same=TRUE)
@@ -308,91 +374,122 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
       cat(annealO$message)
       cat("\n")
     # }
+      singleModels <- list("Selection" = lassoSelO,
+                           "Simulated Annealing" = annealO,
+                           "Stepwise" = stepO#,
+                           # "Projection" = lassoProjO,
+                           # "H.C." = lassoHCO
+      )
 
+      cat("\nCalculating W2 distances")
+      if( calc_w2_post){
+        W2_single <- distCompare(singleModels, target = list(posterior = theta,
+                                                             mean = cond_mu_sing),
+                                 method = "sinkhorn",
+                                 quantity=c("posterior","mean"),
+                                 parallel=FALSE,
+                                 transform = data$invlink)
+      }
+      else {
+
+        W2_single <- distCompare(singleModels, target = list(posterior = NULL,
+                                                             mean = cond_mu_sing),
+                                 method = "sinkhorn",
+                                 quantity=c("mean"),
+                                 parallel=FALSE,
+                                 transform = data$invlink)
+      }
+      cat("\nCalculating MSEs")
+      mse_single <- distCompare(singleModels, target = list(posterior = NULL,
+                                                            mean = new_mu_sing),
+                                method = "mse",
+                                quantity="mean",
+                                parallel=FALSE,
+                                transform = data$invlink)
+      rm(singleModels)
+      rm(c("lassoSelO", "annealO","stepO"))
     # trajAnnealO <- annealCoef(annealO, t_theta)
 
     # list of models
-    inSampModels <- list("Selection" = lassoSel,
-                         "Simulated Annealing" = anneal,
-                         "Stepwise" = step,
-                         "Projection" = lassoProj,
-                         "H.C." = lassoHC)
-    newXModels <- list("Selection" = lassoSelN,
-                       "Simulated Annealing" = annealN,
-                       "Stepwise" = stepN,
-                       "Projection" = lassoProjN,
-                       "H.C." = lassoHCN)
-    singleModels <- list("Selection" = lassoSelO,
-                         "Simulated Annealing" = annealO,
-                         "Stepwise" = stepO#,
-                         # "Projection" = lassoProjO,
-                         # "H.C." = lassoHCO
-    )
-
-    #w2 from "true" posterior mean
-    cat("\nCalculating W2 distances")
-    if( calc_w2_post){
-      W2_insamp <- distCompare(inSampModels, target = list(posterior = theta,
-                                                           mean = cond_mu),
-                               method = "sinkhorn",
-                               quantity=c("posterior","mean"),
-                               parallel=FALSE,
-                               transform = data$invlink)
-      W2_newX <- distCompare(newXModels, target = list(posterior = theta,
-                                                       mean = cond_mu_new),
-                             method = "sinkhorn",
-                             quantity=c("posterior","mean"),
-                             parallel=FALSE,
-                             transform = data$invlink)
-      W2_single <- distCompare(singleModels, target = list(posterior = theta,
-                                                           mean = cond_mu_sing),
-                               method = "sinkhorn",
-                               quantity=c("posterior","mean"),
-                               parallel=FALSE,
-                               transform = data$invlink)
-    } else {
-      W2_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
-                                                           mean = cond_mu),
-                               method = "sinkhorn",
-                               quantity=c("mean"),
-                               parallel=FALSE,
-                               transform = data$invlink)
-      W2_newX <- distCompare(newXModels, target = list(posterior = NULL,
-                                                       mean = cond_mu_new),
-                             method = "sinkhorn",
-                             quantity=c("mean"),
-                             parallel=FALSE,
-                             transform = data$invlink)
-      W2_single <- distCompare(singleModels, target = list(posterior = NULL,
-                                                           mean = cond_mu_sing),
-                               method = "sinkhorn",
-                               quantity=c("mean"),
-                               parallel=FALSE,
-                               transform = data$invlink)
-    }
-
-    #mse from true mean
-    cat("\nCalculating MSEs")
-    target_list_mse <- list(posterior = NULL,
-                            mean = true_mu)
-    mse_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
-                                                          mean = true_mu),
-                              method = "mse",
-                              quantity="mean",
-                              parallel=FALSE,
-                              transform = data$invlink)
-    mse_newX <- distCompare(newXModels, target = list(posterior = NULL,
-                                                      mean = new_mu),
-                            method = "mse",
-                            quantity="mean",
-                            parallel=FALSE,
-                            transform = data$invlink)
-    mse_single <- distCompare(singleModels, target = list(posterior = NULL,
-                                                          mean = new_mu_sing),
-                              method = "mse",
-                              quantity="mean",
-                              parallel=FALSE,
-                              transform = data$invlink)
+    # inSampModels <- list("Selection" = lassoSel,
+    #                      "Simulated Annealing" = anneal,
+    #                      "Stepwise" = step,
+    #                      "Projection" = lassoProj,
+    #                      "H.C." = lassoHC)
+    # newXModels <- list("Selection" = lassoSelN,
+    #                    "Simulated Annealing" = annealN,
+    #                    "Stepwise" = stepN,
+    #                    "Projection" = lassoProjN,
+    #                    "H.C." = lassoHCN)
+    # singleModels <- list("Selection" = lassoSelO,
+    #                      "Simulated Annealing" = annealO,
+    #                      "Stepwise" = stepO#,
+    #                      # "Projection" = lassoProjO,
+    #                      # "H.C." = lassoHCO
+    # )
+    #
+    # #w2 from "true" posterior mean
+    # cat("\nCalculating W2 distances")
+    # if( calc_w2_post){
+    #   W2_insamp <- distCompare(inSampModels, target = list(posterior = theta,
+    #                                                        mean = cond_mu),
+    #                            method = "sinkhorn",
+    #                            quantity=c("posterior","mean"),
+    #                            parallel=FALSE,
+    #                            transform = data$invlink)
+    #   W2_newX <- distCompare(newXModels, target = list(posterior = theta,
+    #                                                    mean = cond_mu_new),
+    #                          method = "sinkhorn",
+    #                          quantity=c("posterior","mean"),
+    #                          parallel=FALSE,
+    #                          transform = data$invlink)
+    #   W2_single <- distCompare(singleModels, target = list(posterior = theta,
+    #                                                        mean = cond_mu_sing),
+    #                            method = "sinkhorn",
+    #                            quantity=c("posterior","mean"),
+    #                            parallel=FALSE,
+    #                            transform = data$invlink)
+    # } else {
+    #   W2_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
+    #                                                        mean = cond_mu),
+    #                            method = "sinkhorn",
+    #                            quantity=c("mean"),
+    #                            parallel=FALSE,
+    #                            transform = data$invlink)
+    #   W2_newX <- distCompare(newXModels, target = list(posterior = NULL,
+    #                                                    mean = cond_mu_new),
+    #                          method = "sinkhorn",
+    #                          quantity=c("mean"),
+    #                          parallel=FALSE,
+    #                          transform = data$invlink)
+    #   W2_single <- distCompare(singleModels, target = list(posterior = NULL,
+    #                                                        mean = cond_mu_sing),
+    #                            method = "sinkhorn",
+    #                            quantity=c("mean"),
+    #                            parallel=FALSE,
+    #                            transform = data$invlink)
+    # }
+    #
+    # #mse from true mean
+    # cat("\nCalculating MSEs")
+    # mse_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
+    #                                                       mean = true_mu),
+    #                           method = "mse",
+    #                           quantity="mean",
+    #                           parallel=FALSE,
+    #                           transform = data$invlink)
+    # mse_newX <- distCompare(newXModels, target = list(posterior = NULL,
+    #                                                   mean = new_mu),
+    #                         method = "mse",
+    #                         quantity="mean",
+    #                         parallel=FALSE,
+    #                         transform = data$invlink)
+    # mse_single <- distCompare(singleModels, target = list(posterior = NULL,
+    #                                                       mean = new_mu_sing),
+    #                           method = "mse",
+    #                           quantity="mean",
+    #                           parallel=FALSE,
+    #                           transform = data$invlink)
 
     #mse on means of original data
     # mean_mseSel <- mse_idx_dist(trajSel$coefs, X, t_theta, true_mu, trajSel$nzero,p)
