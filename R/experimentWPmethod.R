@@ -210,7 +210,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                               parallel=FALSE,
                               transform = data$invlink)
     rm(inSampModels)
-    rm(c("lassoSel", "anneal","step","lassoProj","lassoHC"))
+    rm("lassoSel", "anneal","step","lassoProj","lassoHC")
 
     #### new X variable ####
     #mse on new outcome data from same paramters and different X
@@ -310,7 +310,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                               transform = data$invlink)
 
       rm(newXModels)
-      rm(c("lassoSelN", "annealN","stepN","lassoProjN","lassoHCN"))
+      rm("lassoSelN", "annealN","stepN","lassoProjN","lassoHCN")
 
 
     #new method, single datapoint
@@ -407,7 +407,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                 parallel=FALSE,
                                 transform = data$invlink)
       rm(singleModels)
-      rm(c("lassoSelO", "annealO","stepO"))
+      rm("lassoSelO", "annealO","stepO")
     # trajAnnealO <- annealCoef(annealO, t_theta)
 
     # list of models
