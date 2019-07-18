@@ -71,15 +71,26 @@ get_survival_linear_model <- function() {
   rpost_sigma <- function(x){NULL}
 
   rpost <- function(n.samp, x, y, hyperparameters,...) { #uses RJAGS
-    require(rjags)
+    # require(rjags)
     dots <- list(...)
     id <- dots$id
     follow.up <- y
+    fail <- dots$fail
+    if (is.matrix(follow.up)) {
+      if(ncol(follow.up) == 2 & is.null(fail)) {
+        fail <- follow.up[,2]
+        follow.up <- follow.up[,1]
+      } else if (ncol(follow.up) == 2 & !is.null(fail) ){
+        stop("if fail is null, then follow.up must be a two column matrix with the first column the failure times and the second column the event indicator. Do not specify both fail and make follow.up a matrix")
+      }
+    }
     jags_dir <- dots$jags_dir
     thin <- dots$thin
     model <- dots$model
     nchain <- dots$nchain
     X.test <- dots$X.test
+    method <- dots$method
+    if(is.null(method)) method <- "ss-jags"
 
     test <- list(eta = NULL, mu = NULL)
 
@@ -87,6 +98,7 @@ get_survival_linear_model <- function() {
     if(all(x[,1]==1)) x <- x[,-1]
     if(is.null(nchain)) nchain <- 1
     if(is.null(id)) id <- 1:length(y)
+
 
     # a <- hyperparameters$alpha
     # b <- hyperparameters$beta
@@ -115,65 +127,81 @@ get_survival_linear_model <- function() {
 
     # if(any(follow.up > dots$time)) follow.up[follow.up > dots$time] <- max(dots$time)
     times <- sort(c(0,unique(follow.up)))
+    mu <- eta <- alpha <- theta <- NULL
 
 
     # obs.time <- tapply(dots$time, id, max)
     obs.time <- follow.up
-    fail <- rep(1, length(unique(id))) # ifelse(obs.time < 5, 1, 0)
-
-    jags_data <-
-      list(
-      N = length(unique(id)),
-      T = length(times)-1,
-      P = ncol(x),
-      obs.time = obs.time,
-      time = times,
-      eps = 0.0001,
-      X = x,
-      fail = fail,
-      mu_0 = as.double(m),
-      prec_0 = as.double(lambda),
-      prior_frac = prior_frac,
-      spike_a = spike_a,
-      spike_b = spike_b
-    )
-    if (is.null(model)) {
-      model <- jags.model(file=jags_dir,data = jags_data, n.chains = nchain, n.adapt = n.samp*thin*.1)
-    } else {
-      model$recompile()
+    if (is.null(fail )) {
+      fail <- rep(1, length(unique(id))) # ifelse(obs.time < 5, 1, 0)
     }
-    samples <- jags.samples(model,
-                            variable.names = c("beta","alpha","prob"),
-                            n.iter = n.samp*2*thin, thin = thin)
-    remove_burnin.idx <- round(seq(nsamp+1, nsamp*2, length.out = nsamp))
-    final_nsamp <- length(remove_burnin.idx)
-    nsamp_portion <- floor(final_nsamp/nchain)
-    adjust_remove.idx <- remove_burnin.idx[((nsamp - nsamp_portion + 1):nsamp)]
-
-
-    theta_samp <- samples$beta[ , adjust_remove.idx, ]
-    alpha_samp <- samples$alpha[, adjust_remove.idx, ]
-
-    if(nchain > 1) {
-      theta <- matrix(NA, nrow=final_nsamp, ncol = dim(theta_samp)[1])
-      alpha <- matrix(NA, nrow=final_nsamp, ncol = dim(alpha_samp)[1])
-      for(i in 1:nchain){
-        get_rows <- (i-1)*nsamp_portion + (1:nsamp_portion)
-        theta[get_rows,] <- t(theta_samp[,,i])
-        alpha[get_rows,] <- t(alpha_samp[,,i])
+    if(method == "ss-jags") {
+      jags_data <-
+        list(
+          N = length(unique(id)),
+          T = length(times)-1,
+          P = ncol(x),
+          obs.time = obs.time,
+          time = times,
+          eps = 0.0001,
+          X = x,
+          fail = fail,
+          mu_0 = as.double(m),
+          prec_0 = as.double(lambda),
+          prior_frac = prior_frac,
+          spike_a = spike_a,
+          spike_b = spike_b
+        )
+      if (is.null(model)) {
+        model <- rjags::jags.model(file=jags_dir,data = jags_data, n.chains = nchain, n.adapt = n.samp*thin*.1)
+      } else {
+        model$recompile()
       }
-    } else {
-      theta <- t(theta_samp)
-      alpha <- t(alpha_samp)
+      samples <- rjags::jags.samples(model,
+                                     variable.names = c("beta","alpha","prob"),
+                                     n.iter = n.samp*2*thin, thin = thin)
+      remove_burnin.idx <- round(seq(nsamp+1, nsamp*2, length.out = nsamp))
+      final_nsamp <- length(remove_burnin.idx)
+      nsamp_portion <- floor(final_nsamp/nchain)
+      adjust_remove.idx <- remove_burnin.idx[((nsamp - nsamp_portion + 1):nsamp)]
+
+
+      theta_samp <- samples$beta[ , adjust_remove.idx, ]
+      alpha_samp <- samples$alpha[, adjust_remove.idx, ]
+
+      if(nchain > 1) {
+        theta <- matrix(NA, nrow=final_nsamp, ncol = dim(theta_samp)[1])
+        alpha <- matrix(NA, nrow=final_nsamp, ncol = dim(alpha_samp)[1])
+        for(i in 1:nchain){
+          get_rows <- (i-1)*nsamp_portion + (1:nsamp_portion)
+          theta[get_rows,] <- t(theta_samp[,,i])
+          alpha[get_rows,] <- t(alpha_samp[,,i])
+        }
+      } else {
+        theta <- t(theta_samp)
+        alpha <- t(alpha_samp)
+      }
+
+      eta <- tcrossprod(cbind(1,x), theta)
+      if(!is.null(X.test)){
+        if(!(all(X.test[,1]==1))) X.test <- cbind(1,X.test)
+        test$eta <- tcrossprod(X.test, theta)
+      }
+    } else if (method == "ss-special") {
+      # require(BVSNLP)
+      resp <- cbind(follow.up, fail)
+      df <- as.data.frame(x[,1:10])
+      fit <- BVSNLP::bvs(X = df, resp = resp, family = "survival",
+                         niter = n.samp, prep = TRUE, mod_prior = "unif", logT = FALSE)
+      eta <- BVSNLP::predBMA(fit, X=df, resp = resp, prep=TRUE, logT=FALSE, family = "survival")
+      eta <- fit$des_mat %*% fit$beta_hat
+      alpha <- fit$inc_probs
+
+      test$eta <- X.test[,colnames(fit$des_mat)] %*% fit$beta_hat
     }
 
-    eta <- tcrossprod(cbind(1,x), theta)
-    if(!is.null(X.test)){
-      if(!(all(X.test[,1]==1))) X.test <- cbind(1,X.test)
-      test$eta <- tcrossprod(X.test, theta)
-    }
 
-    return(list(theta=theta, alpha = alpha, eta = eta, model=model))
+    return(list(theta=theta, alpha = alpha, mu = mu, eta = eta, test = test, model=model))
 
 
   }
