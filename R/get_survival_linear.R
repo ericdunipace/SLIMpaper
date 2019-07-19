@@ -1,4 +1,3 @@
-
 get_survival_linear_model <- function() {
   #### Prior Function ####
   rprior_coef <- function(n, mu, sigma){
@@ -90,6 +89,8 @@ get_survival_linear_model <- function() {
     nchain <- dots$nchain
     X.test <- dots$X.test
     method <- dots$method
+    seed <- dots$seed
+    parallel <- dots$parallel
     if(is.null(method)) method <- "ss-jags"
 
     test <- list(eta = NULL, mu = NULL)
@@ -135,6 +136,33 @@ get_survival_linear_model <- function() {
     if (is.null(fail )) {
       fail <- rep(1, length(unique(id))) # ifelse(obs.time < 5, 1, 0)
     }
+
+    surv.calc <- function(eta, fit) {
+      n <- nrow(eta)
+      max.t <- max(fit$Surv[, 1], na.rm = T)
+      last.d <- nrow(fit$d.scaled)
+      d.scaled <- fit$d.scaled
+      d.scaled[last.d,] <- max.t
+      length.int <- apply(d.scaled, 2, diff)
+      H <- apply(length.int * fit$h.scaled[-1,], 2, cumsum)
+      mu <- lapply(1:n, function(i) exp(-H * exp(eta[i,])))
+      for(i in 1:n) rownames(mu[[i]]) <- paste0("(",format(d.scaled[1:(last.d-1),1]),", ", format(d.scaled[2:last.d,1]),"]")
+      return(mu)
+    }
+
+    if(!is.null(parallel)) {
+      if( parallel ) {
+        parallel.MPI <- TRUE
+        ncpu <- parallel::detectCores()-1
+      } else {
+        parallel.MPI <- FALSE
+        ncpu <- 1
+      }
+    } else {
+      parallel.MPI <- FALSE
+      ncpu <- 1
+    }
+
     if(method == "ss-jags") {
       jags_data <-
         list(
@@ -189,19 +217,54 @@ get_survival_linear_model <- function() {
       }
     } else if (method == "ss-special") {
       # require(BVSNLP)
+      # select median prob model first so don't have to run all 13000+ covariates in bayesian regression
+      cat("Selecting median probability model (MPM)")
       resp <- cbind(follow.up, fail)
-      df <- as.data.frame(x[,1:10])
-      fit <- BVSNLP::bvs(X = df, resp = resp, family = "survival",
-                         niter = n.samp, prep = TRUE, mod_prior = "unif", logT = FALSE)
-      eta <- BVSNLP::predBMA(fit, X=df, resp = resp, prep=TRUE, logT=FALSE, family = "survival")
-      eta <- fit$des_mat %*% fit$beta_hat
-      alpha <- fit$inc_probs
+      xdf <- as.data.frame(log(x))
+      sel <- BVSNLP::bvs(X = xdf, resp = resp, family = "survival",
+                         niter = n.samp*10, prep = TRUE, mod_prior = "unif", logT = FALSE,
+                         inseed = seed, ncpu = ncpu, parallel.MPI = parallel.MPI)
+      mpm <- sel$MPM
+      if(length(mpm)==0) mpm <- sel$HPM
+      # eta <- BVSNLP::predBMA(fit, X=df, resp = resp, prep=TRUE, logT=FALSE, family = "survival")
+      # eta <- fit$des_mat %*% fit$beta_hat
+      # alpha <- fit$inc_probs
+      #
+      # test$eta <- X.test[,colnames(fit$des_mat)] %*% fit$beta_hat
+      survform <- formula(survival::Surv(time = follow.up, event = fail) ~ .)
+      # x_sc <- scale(log(x))
+      # xt_sc <- NULL
+      # if(!is.null(X.test)) {
+      #   xt_sc <- scale(log(X.test), center = attr(x_sc,"scaled:center"), scale = attr(x_sc, "scaled:scale"))
+      # }
+      x_sc <- xdf[,mpm, drop=FALSE]
+      df <- as.data.frame(cbind(follow.up, fail, x_sc))
+      colnames(df) <- c("follow.up","fail", colnames(x_sc))
+      pred <- list(xpred = x_sc)
+      if(!is.null(X.test)) {
+        xt_sc <- scale(log(X.test[,mpm,drop=FALSE]), center = colMeans(x_sc), scale = colSD(x_sc))
+        pred <- list(xpred = rbind(scale(x_sc), xt_sc))
+      }
+      cat("Running Bayesian cox on MPM")
+      fit <- spBayesSurv::indeptCoxph(survform, data = df, prediction = NULL,
+                                      mcmc = list(nburn = n.samp, nsave = n.samp, nskip = 0, ndisplay = 1),
+                                      prior = NULL, state = NULL, scale.designX = TRUE)
 
-      test$eta <- X.test[,colnames(fit$des_mat)] %*% fit$beta_hat
+      eta <- fit$X.scaled %*% fit$beta.scaled
+      mu <- list(time = NULL, S = NULL)
+      mu$time <- fit$Tpred[1:n,,drop=FALSE]
+      mu$S <- surv.calc(eta, fit)
+      if(!is.null(X.test)) {
+        test$eta <- xt_sc %*% fit$beta.scaled
+        test$mu <- list(time = NULL, S = NULL)
+        test$mu$time <- fit$Tpred[(n+1):nrow(fit$Tpred),,drop=FALSE]
+        test$mu$S <- surv.calc(test$eta, fit)
+      }
+      model <- fit
     }
 
 
-    return(list(theta=theta, alpha = alpha, mu = mu, eta = eta, test = test, model=model))
+    return(list(theta=theta, alpha = alpha, mu = mu, eta = eta, test = test, model = model, surv.calc = surv.calc))
 
 
   }

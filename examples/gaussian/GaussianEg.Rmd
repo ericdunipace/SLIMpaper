@@ -7,16 +7,16 @@ output:
   # html_document: default
 header-includes: \usepackage{float}
 ---
-<style>
-p.caption {
-  font-size: 0.9em;
-  font-style: italic;
-  color: grey;
-  margin-right: 10%;
-  margin-left: 10%;  
-  text-align: justify;
-}
-</style>
+<!-- <style> -->
+<!-- p.caption { -->
+<!--   font-size: 0.9em; -->
+<!--   font-style: italic; -->
+<!--   color: grey; -->
+<!--   margin-right: 10%; -->
+<!--   margin-left: 10%;   -->
+<!--   text-align: justify; -->
+<!-- } -->
+<!-- </style> -->
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(fig.pos = 'H')
@@ -99,31 +99,32 @@ if(!file.exists(adapt_file)){
                           theta=posterior$theta, penalty="selection.lasso",
                           nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                           infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
-                          pseudo_observations = 0, display.progress = TRUE,
+                          display.progress = TRUE,
                    penalty.factor = penalty.factor, method="selection.variable")
   
   theta_proj <- W2L1(X=X, Y=cond_mu_full, 
                           theta=posterior$theta, penalty="mcp",
                           nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                           infimum.maxit=1, maxit = 1e3, gamma = gamma,
-                          pseudo_observations = pseudo.observations, display.progress = TRUE,
+                          display.progress = TRUE,
                    penalty.factor = penalty.factor, method="projection")
   
   theta_SA <- WPSA(X=X, Y=cond_mu_full, 
                         theta=posterior$theta, force = force,
                  p = 2, model.size = c(1:p),
                  iter=10, temps = 10,
-                 pseudo.obs = 0,
                  proposal = proposal.fun,
                  options = list(method = c("selection.variable"),
                                 energy.distribution = "boltzman",
+                                transport.method = "univariate.approximation.pwr",
                                 cooling.schedule = "exponential"),
                  display.progress = TRUE
                   )
   theta_SW <- WPSW(X=X, Y=cond_mu_full, 
-                          theta=posterior$theta, force = force, p = 2,
+                          theta=posterior$theta, force = force, p = 2, 
                           direction = "backward", 
                           method="selection.variable",
+                          transport.method = "univariate.approximation.pwr",
                    display.progress = TRUE
                   )
   save(theta_proj, theta_selection, theta_SA, theta_SW, file=adapt_file)
@@ -141,7 +142,7 @@ gauss_plot_file <- "w2plot.rds"
 if ( !file.exists(gauss_plot_file) ) { #only run if file doesn't exist
   w2plot <- distCompare(models, list(posterior = posterior$theta, 
                                      mean = cond_mu_full),
-                       method = c("exact", "exact"),
+                       method = c("sinkhorn", "sinkhorn"),
                        quantity = c("posterior","mean"), 
                        parallel = TRUE) # this can take a LONG time
   saveRDS( w2plot, gauss_plot_file )
@@ -243,7 +244,7 @@ theta_selection <- W2L1(X=X, Y = cond_mu_full,
                     theta=posterior$theta, penalty="selection.lasso",
                     nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                     infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
-                    pseudo_observations = 0, display.progress = TRUE,
+                    display.progress = TRUE,
                     penalty.factor = penalty.factor, 
                     method="selection.variable")
 
@@ -251,7 +252,7 @@ theta_proj <- W2L1(X=X, Y=cond_mu_full,
                     theta=posterior$theta, penalty="mcp",
                     nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
                     infimum.maxit=1, maxit = 1e3, gamma = gamma,
-                    pseudo_observations = pseudo.observations, 
+                    
                     display.progress = TRUE,
                     penalty.factor = penalty.factor, method="projection")
 
@@ -259,7 +260,6 @@ theta_SA <- WPSA(X=X, Y=cond_mu_full,
                     theta=posterior$theta, force = force,
                     p = 2, model.size = c(1:p),
                     iter=10, temps = 10,
-                    pseudo.obs = 0,
                     proposal = proposal.fun,
                     options = list(method = c("selection.variable"),
                                   energy.distribution = "boltzman",

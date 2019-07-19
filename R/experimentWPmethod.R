@@ -185,7 +185,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                          "Stepwise" = step,
                          "Projection" = lassoProj,
                          "H.C." = lassoHC)
-    cat("\nCalculating W2 distances")
+    cat("\nCalculating distances")
     if( calc_w2_post){
       W2_insamp <- distCompare(inSampModels, target = list(posterior = theta,
                                                            mean = cond_mu),
@@ -193,6 +193,12 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                quantity=c("posterior","mean"),
                                parallel=FALSE,
                                transform = data$invlink)
+      mse_insamp <- distCompare(inSampModels, target = list(posterior = param$theta,
+                                                            mean = true_mu),
+                                method = "mse",
+                                quantity="mean",
+                                parallel=FALSE,
+                                transform = data$invlink)
     }
     else {
       W2_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
@@ -201,14 +207,14 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                quantity=c("mean"),
                                parallel=FALSE,
                                transform = data$invlink)
+      mse_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
+                                                            mean = true_mu),
+                                method = "mse",
+                                quantity="mean",
+                                parallel=FALSE,
+                                transform = data$invlink)
     }
-    cat("\nCalculating MSEs")
-    mse_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
-                                                          mean = true_mu),
-                              method = "mse",
-                              quantity="mean",
-                              parallel=FALSE,
-                              transform = data$invlink)
+
     rm(inSampModels)
     rm("lassoSel", "anneal","step","lassoProj","lassoHC")
 
@@ -292,6 +298,12 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                quantity=c("posterior","mean"),
                                parallel=FALSE,
                                transform = data$invlink)
+        mse_newX <- distCompare(newXModels, target = list(posterior = param$theta,
+                                                          mean = new_mu),
+                                method = "mse",
+                                quantity="mean",
+                                parallel=FALSE,
+                                transform = data$invlink)
       }
       else {
         W2_newX <- distCompare(newXModels, target = list(posterior = NULL,
@@ -300,14 +312,14 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                quantity=c("mean"),
                                parallel=FALSE,
                                transform = data$invlink)
+        mse_newX <- distCompare(newXModels, target = list(posterior = NULL,
+                                                          mean = new_mu),
+                                method = "mse",
+                                quantity="mean",
+                                parallel=FALSE,
+                                transform = data$invlink)
       }
-      cat("\nCalculating MSEs")
-      mse_newX <- distCompare(newXModels, target = list(posterior = NULL,
-                                                        mean = new_mu),
-                              method = "mse",
-                              quantity="mean",
-                              parallel=FALSE,
-                              transform = data$invlink)
+
 
       rm(newXModels)
       rm("lassoSelN", "annealN","stepN","lassoProjN","lassoHCN")
@@ -381,7 +393,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                            # "H.C." = lassoHCO
       )
 
-      cat("\nCalculating W2 distances")
+      cat("\nCalculating distances")
       if( calc_w2_post){
         W2_single <- distCompare(singleModels, target = list(posterior = theta,
                                                              mean = cond_mu_sing),
@@ -389,6 +401,12 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                  quantity=c("posterior","mean"),
                                  parallel=FALSE,
                                  transform = data$invlink)
+        mse_single <- distCompare(singleModels, target = list(posterior = param$theta,
+                                                              mean = new_mu_sing),
+                                  method = "mse",
+                                  quantity="mean",
+                                  parallel=FALSE,
+                                  transform = data$invlink)
       }
       else {
 
@@ -398,14 +416,14 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                  quantity=c("mean"),
                                  parallel=FALSE,
                                  transform = data$invlink)
+        mse_single <- distCompare(singleModels, target = list(posterior = NULL,
+                                                              mean = new_mu_sing),
+                                  method = "mse",
+                                  quantity="mean",
+                                  parallel=FALSE,
+                                  transform = data$invlink)
       }
-      cat("\nCalculating MSEs")
-      mse_single <- distCompare(singleModels, target = list(posterior = NULL,
-                                                            mean = new_mu_sing),
-                                method = "mse",
-                                quantity="mean",
-                                parallel=FALSE,
-                                transform = data$invlink)
+
       rm(singleModels)
       rm("lassoSelO", "annealO","stepO")
     # trajAnnealO <- annealCoef(annealO, t_theta)
