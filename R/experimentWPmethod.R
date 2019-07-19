@@ -71,7 +71,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
 
   #penalty terms
   penalty_fact <- set_penalty_factor(theta, penalty_method)
-  proj_penalty_fact <- set_penalty_factor(theta, "projection")
+  proj_penalty_fact <- set_penalty_factor(theta, "distance")
   HC_penalty_fact <- set_penalty_factor(theta, "expectation")
 
   #conditional and marginal natural parameter means
