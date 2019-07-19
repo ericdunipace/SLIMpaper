@@ -215,7 +215,7 @@ get_survival_linear_model <- function() {
         if(!(all(X.test[,1]==1))) X.test <- cbind(1,X.test)
         test$eta <- tcrossprod(X.test, theta)
       }
-    } else if (method == "ss-special") {
+    } else if (method == "bvs-cox") {
       # require(BVSNLP)
       # select median prob model first so don't have to run all 13000+ covariates in bayesian regression
       cat("Selecting median probability model (MPM)")
@@ -225,7 +225,9 @@ get_survival_linear_model <- function() {
                          niter = n.samp*10, prep = TRUE, mod_prior = "unif", logT = FALSE,
                          inseed = seed, ncpu = ncpu, parallel.MPI = parallel.MPI)
       mpm <- sel$MPM
-      if(length(mpm)==0) mpm <- sel$HPM
+      if(length(mpm)==0) {
+        mpm <- sort(unique(unlist(sel$max_models[sel$max_prob_vec > (log(0.01) + sel$max_prob)])))
+      }
       # eta <- BVSNLP::predBMA(fit, X=df, resp = resp, prep=TRUE, logT=FALSE, family = "survival")
       # eta <- fit$des_mat %*% fit$beta_hat
       # alpha <- fit$inc_probs
@@ -246,8 +248,8 @@ get_survival_linear_model <- function() {
         pred <- list(xpred = rbind(scale(x_sc), xt_sc))
       }
       cat("Running Bayesian cox on MPM")
-      fit <- spBayesSurv::indeptCoxph(survform, data = df, prediction = NULL,
-                                      mcmc = list(nburn = n.samp, nsave = n.samp, nskip = 0, ndisplay = 1),
+      fit <- spBayesSurv::indeptCoxph(survform, data = df, prediction = pred,
+                                      mcmc = list(nburn = n.samp, nsave = n.samp, nskip = 0, ndisplay = 100),
                                       prior = NULL, state = NULL, scale.designX = TRUE)
 
       eta <- fit$X.scaled %*% fit$beta.scaled
@@ -261,6 +263,42 @@ get_survival_linear_model <- function() {
         test$mu$S <- surv.calc(test$eta, fit)
       }
       model <- fit
+    } else if (method == "cox") {
+
+      x_sc <- log(x)
+      df <- as.data.frame(cbind(follow.up, fail, x_sc))
+      colnames(df) <- c("follow.up","fail", colnames(x_sc))
+      pred <- list(xpred = x_sc)
+      if(!is.null(X.test)) {
+        xt_sc <- scale(log(X.test[,mpm,drop=FALSE]), center = colMeans(x_sc), scale = colSD(x_sc))
+        pred <- list(xpred = rbind(scale(x_sc), xt_sc))
+      }
+      fit <- spBayesSurv::indeptCoxph(survform, data = df, prediction = pred,
+                                      mcmc = list(nburn = n.samp, nsave = n.samp, nskip = 0, ndisplay = 100),
+                                      prior = NULL, state = NULL, scale.designX = TRUE)
+
+      eta <- fit$X.scaled %*% fit$beta.scaled
+      mu <- list(time = NULL, S = NULL)
+      mu$time <- fit$Tpred[1:n,,drop=FALSE]
+      mu$S <- surv.calc(eta, fit)
+      if(!is.null(X.test)) {
+        test$eta <- xt_sc %*% fit$beta.scaled
+        test$mu <- list(time = NULL, S = NULL)
+        test$mu$time <- fit$Tpred[(n+1):nrow(fit$Tpred),,drop=FALSE]
+        test$mu$S <- surv.calc(test$eta, fit)
+      }
+      model <- fit
+    } else if (method == "bvs") {
+      theta <- NULL
+      alpha <- NULL
+      mu <- NULL
+      eta <- NULL
+
+      resp <- cbind(follow.up, fail)
+      xdf <- as.data.frame(log(x))
+      model <- BVSNLP::bvs(X = xdf, resp = resp, family = "survival",
+                         niter = n.samp*10, prep = TRUE, mod_prior = "unif", logT = FALSE,
+                         inseed = seed, ncpu = ncpu, parallel.MPI = parallel.MPI)
     }
 
 
