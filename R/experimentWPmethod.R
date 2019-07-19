@@ -71,6 +71,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
 
   #penalty terms
   penalty_fact <- set_penalty_factor(theta, penalty_method)
+  proj_penalty_fact <- set_penalty_factor(theta, "projection")
   HC_penalty_fact <- set_penalty_factor(theta, "expectation")
 
   #conditional and marginal natural parameter means
@@ -117,7 +118,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   #projection
   time <- proc.time()
   lassoProj <- W2L1(X, cond_eta, t_theta, family="gaussian", penalty=penalty,
-                    penalty.factor=penalty_fact, nlambda = n.lambda,
+                    penalty.factor=proj_penalty_fact, nlambda = n.lambda,
                     lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
                     maxit = 1e5,
                     display.progress=TRUE,
@@ -247,7 +248,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
 
     #permutation
     lassoProjN <- W2L1(X_new, cond_eta_new, theta, family="gaussian", penalty=penalty,
-                       penalty.factor=penalty_fact, nlambda = n.lambda,
+                       penalty.factor=proj_penalty_fact, nlambda = n.lambda,
                        lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
                        maxit=1e5,
                        transport.method = transport.method,
@@ -290,7 +291,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                          "Projection" = lassoProjN,
                          "H.C." = lassoHCN)
 
-      cat("\nCalculating W2 distances")
+      cat("\nCalculating distances")
       if( calc_w2_post){
         W2_newX <- distCompare(newXModels, target = list(posterior = theta,
                                                          mean = cond_mu_new),
