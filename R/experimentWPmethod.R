@@ -105,7 +105,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   #### In sample ####
   #selection variable
   time <- proc.time()
-  lassoSel <- W2L1(X, cond_eta, r_theta, family="gaussian", penalty="selection.lasso",
+  lassoSel <- W2L1(X, cond_eta, t_theta, family="gaussian", penalty="selection.lasso",
                    penalty.factor=penalty_fact, nlambda = n.lambda,
                    lambda.min.ratio = lambda.min.ratio, infimum.maxit=10000,
                    maxit = 1e5,
