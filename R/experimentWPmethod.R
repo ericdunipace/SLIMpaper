@@ -105,7 +105,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   #### In sample ####
   #selection variable
   time <- proc.time()
-  lassoSel <- W2L1(X, cond_eta, theta, family="gaussian", penalty="selection.lasso",
+  lassoSel <- W2L1(X, cond_eta, r_theta, family="gaussian", penalty="selection.lasso",
                    penalty.factor=penalty_fact, nlambda = n.lambda,
                    lambda.min.ratio = lambda.min.ratio, infimum.maxit=10000,
                    maxit = 1e5,
@@ -197,7 +197,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
       mse_insamp <- distCompare(inSampModels, target = list(posterior = param$theta,
                                                             mean = true_mu),
                                 method = "mse",
-                                quantity="mean",
+                                quantity=c("posterior","mean"),
                                 parallel=FALSE,
                                 transform = data$invlink)
     }
@@ -302,7 +302,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
         mse_newX <- distCompare(newXModels, target = list(posterior = param$theta,
                                                           mean = new_mu),
                                 method = "mse",
-                                quantity="mean",
+                                quantity=c("posterior","mean"),
                                 parallel=FALSE,
                                 transform = data$invlink)
       }
@@ -405,7 +405,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
         mse_single <- distCompare(singleModels, target = list(posterior = param$theta,
                                                               mean = new_mu_sing),
                                   method = "mse",
-                                  quantity="mean",
+                                  quantity=c("posterior","mean"),
                                   parallel=FALSE,
                                   transform = data$invlink)
       }
