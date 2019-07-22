@@ -109,7 +109,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                    penalty.factor=penalty_fact, nlambda = n.lambda,
                    lambda.min.ratio = lambda.min.ratio, infimum.maxit=10000,
                    maxit = 1e5,
-                   display.progress=TRUE,
+                   display.progress=FALSE,
                    transport.method = transport.method,
                    gamma = 1, method = "selection.variable")
   selTime <- proc.time() - time
@@ -121,7 +121,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                     penalty.factor=proj_penalty_fact, nlambda = n.lambda,
                     lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
                     maxit = 1e5,
-                    display.progress=TRUE,
+                    display.progress=FALSE,
                     transport.method = transport.method,
                     gamma = 1, method = "projection")
   projTime <- proc.time() - time
@@ -147,7 +147,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   step <- WPSW(X, Y = cond_eta, t_theta, force=1, p=2,
                direction = "backward", method = "selection.variable",
                transport.method = transport.method,
-               display.progress = TRUE)
+               display.progress = FALSE)
   stepTime <- proc.time() - time
   # trajStep <- step$theta
 
@@ -171,7 +171,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                   energy.distribution = "boltzman",
                                   transport.method = transport.method,
                                   cooling.schedule="exponential"),
-                   display.progress=TRUE)
+                   display.progress=FALSE)
     annealTime <- proc.time() - time
   # }
   # trajAnneal <- anneal$theta
