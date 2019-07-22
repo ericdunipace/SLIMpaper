@@ -296,7 +296,7 @@ get_survival_linear_model <- function() {
 
       resp <- cbind(follow.up, fail)
       xdf <- as.data.frame(log(x))
-      model <- BVSNLP::bvs(X = xdf, resp = resp, family = "survival",
+      model <- bvsmod(X = xdf, resp = resp, family = "survival",
                          niter = n.samp*10, prep = TRUE, mod_prior = "unif", logT = FALSE,
                          inseed = seed, ncpu = ncpu, parallel.MPI = parallel.MPI)
     }
