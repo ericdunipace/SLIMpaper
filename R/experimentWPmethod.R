@@ -32,6 +32,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   param <- target$rparam()
   p_star <- min(length(param$theta),p)
   param$theta <- param$theta[1:p_star]
+  full_param <- c(param$theta, rep(0, p-p_star))
 
   #set up data
   X <- target$X$rX(n, target$X$corr, p)
@@ -60,7 +61,9 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   } else {
     post_interp <- target$rpost(n.samps, X, Y, NULL, method = "logistic", stan_dir = stan_dir,
                                 X.test = rbind(X_sing, X_new))
+    calc_w2_post <- FALSE
   }
+
   theta <- post_interp$theta #regression coef
   t_theta <- t(theta)
   sigma <- post_interp$sigma #variance (if it exists for model)
@@ -194,7 +197,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                quantity=c("posterior","mean"),
                                parallel=FALSE,
                                transform = data$invlink)
-      mse_insamp <- distCompare(inSampModels, target = list(posterior = param$theta,
+      mse_insamp <- distCompare(inSampModels, target = list(posterior = full_param,
                                                             mean = true_mu),
                                 method = "mse",
                                 quantity=c("posterior","mean"),
@@ -299,7 +302,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                quantity=c("posterior","mean"),
                                parallel=FALSE,
                                transform = data$invlink)
-        mse_newX <- distCompare(newXModels, target = list(posterior = param$theta,
+        mse_newX <- distCompare(newXModels, target = list(posterior = full_param,
                                                           mean = new_mu),
                                 method = "mse",
                                 quantity=c("posterior","mean"),
@@ -402,7 +405,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                  quantity=c("posterior","mean"),
                                  parallel=FALSE,
                                  transform = data$invlink)
-        mse_single <- distCompare(singleModels, target = list(posterior = param$theta,
+        mse_single <- distCompare(singleModels, target = list(posterior = full_param,
                                                               mean = new_mu_sing),
                                   method = "mse",
                                   quantity=c("posterior","mean"),
