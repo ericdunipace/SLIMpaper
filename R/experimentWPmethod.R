@@ -179,7 +179,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   # }
   # trajAnneal <- anneal$theta
     cat(anneal$message)
-    if(anneal$message != "converged") {
+    if(anneal$message != "completed") {
       annealTime <- paste0(">", annealTime)
     }
 
@@ -238,7 +238,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     # trajSelN <- extractCoef(lassoSelN)
 
     #carvalho method
-    lassoHCN <- HC(X_new, marg_eta_new, theta = theta,
+    lassoHCN <- HC(X_new, marg_eta_new, theta = t_theta,
                    family=family, penalty=penalty,
                    penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                    lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
@@ -250,7 +250,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     # trajHCNdist$coefs[HCN_non_zero_idx] <- 1
 
     #permutation
-    lassoProjN <- W2L1(X_new, cond_eta_new, theta, family="gaussian", penalty=penalty,
+    lassoProjN <- W2L1(X_new, cond_eta_new, t_theta, family="gaussian", penalty=penalty,
                        penalty.factor=proj_penalty_fact, nlambda = n.lambda,
                        lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
                        maxit=1e5,
