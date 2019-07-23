@@ -16,10 +16,18 @@ Imports:
   parallel,
   Rcpp (>= 1.0.0),
   RcppEigen (>= 0.3.3.4.0),
-  transport
+  transport,
+  BVSNLP,
+  foreach
 LinkingTo: 
   Rcpp (>= 1.0.0), 
   RcppEigen (>= 0.3.3.4.0)
 Depends:
   SparsePosterior
-Suggests: xtable, BART, dbarts, rjags, rstanarm, rstan
+Suggests: 
+  xtable, 
+  BART, 
+  dbarts, 
+  rjags, 
+  rstanarm, 
+  rstan
