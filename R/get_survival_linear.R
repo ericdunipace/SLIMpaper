@@ -293,6 +293,9 @@ get_survival_linear_model <- function() {
       alpha <- NULL
       mu <- NULL
       eta <- NULL
+      # require(BVSNLP)
+      # require(doParallel)
+      # require(foreach)
 
       resp <- cbind(follow.up, fail)
       xdf <- as.data.frame(log(x))
