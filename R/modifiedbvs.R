@@ -327,6 +327,7 @@ bvsmod <- function (X, resp, prep = TRUE, logT = FALSE, fixed_cols = NULL,
                 max_prob_vec = MaxMargs, max_models = MaxModels,
                 inc_probs = inc_probs, nlptype = nlptype, des_mat = X,
                 start_models = CurModel, r = r, tau = tau, gene_names = gnames,
-                all_probs = all_probs, vis_mod = list_vis_covs))
+                all_probs = all_probs, vis_mod = list_vis_covs,
+                Hash_Key = Hash_Key[uinds]))
   }
 }
