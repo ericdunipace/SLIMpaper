@@ -273,11 +273,13 @@ get_survival_linear_model <- function() {
         xt_sc <- scale(log(X.test[,mpm,drop=FALSE]), center = colMeans(x_sc), scale = colSD(x_sc))
         pred <- list(xpred = rbind(scale(x_sc), xt_sc))
       }
+      survform <- formula(survival::Surv(time = follow.up, event = fail) ~ .)
       fit <- spBayesSurv::indeptCoxph(survform, data = df, prediction = pred,
-                                      mcmc = list(nburn = n.samp, nsave = n.samp, nskip = 0, ndisplay = 100),
+                                      mcmc = list(nburn = n.samp, nsave = n.samp, nskip = 0, ndisplay = n.samp/10),
                                       prior = NULL, state = NULL, scale.designX = TRUE)
 
       eta <- fit$X.scaled %*% fit$beta.scaled
+      theta <- fit$beta.scaled
       mu <- list(time = NULL, S = NULL)
       mu$time <- fit$Tpred[1:n,,drop=FALSE]
       mu$S <- surv.calc(eta, fit)
@@ -302,6 +304,35 @@ get_survival_linear_model <- function() {
       model <- bvsmod(X = xdf, resp = resp, family = "survival",
                          niter = n.samp, prep = TRUE, mod_prior = "unif", logT = FALSE,
                          inseed = seed, ncpu = ncpu, parallel.MPI = parallel.MPI)
+    } else if (method == "inla") {
+      xdf <- as.data.frame(x)
+      pred.names <- colnames(xdf)
+      colnames(xdf) <- paste0("x",1:ncol(xdf))
+      df <- cbind(data.frame(time = follow.up, event = fail), xdf)
+      hc <- "expression:
+              lambda = 0.4712777;
+              precision = exp(log_precision);
+              logdens = -1.5*log_precision-log(pi*lambda)-log(1+1/(precision*lambda^2));
+              log_jacobian = log_precision;
+              return(logdens+log_jacobian);"
+      hcprior <- list(prec = list(prior = halfcauchy))
+      fs <- paste0("f(index, ", colnames(xdf)[1:4998],", model = 'iid', hyper = hcprior)")
+      survform <- formula(paste(c("inla.surv(time, event) ~ ", fs, collapse = " + ")))
+      cox.call <- inla.coxph(survform, df[,1:5000])
+      timings <- proc.time()
+      # model <- inla(survform, family = "coxph",
+      #               data = df, control.fixed=list(mean=m[1], prec=1/(s[1])),
+      #               debug = TRUE, verbose=FALSE)
+      model <- inla(cox.call$formula, family = cox.call$family,
+                    data = c(as.list(cox.call$data), cox.call$data.list),
+                    E = cox.call$E,
+                    control.inla = list(strategy = "gaussian")
+                    )
+      model <- inla(cox.call$formula, family = cox.call$family,
+                    data = c(as.list(cox.call$data), cox.call$data.list),
+                    E = cox.call$E, control.fixed=list(mean=m[1], prec=1/(s[1]))
+      )
+      print(proc.time() - timings)
     }
 
 
