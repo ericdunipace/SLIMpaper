@@ -40,10 +40,10 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   X_new <- target$X$rX(n, target$X$corr, p)
 
   data <- target$rdata(n, X[,1:p_star,drop=FALSE], c(param$theta),
-                       param$sigma2, method = "modified.friedman")
+                       param$sigma2, method = "modified.friedman", corr = target$X$corr)
   single_data <- target$rdata(1, X_sing[,1:p_star,drop=FALSE], c(param$theta),
-                              param$sigma2, method = "modified.friedman")
-  new_data <- target$rdata(n, X_new[,1:p_star,drop=FALSE], c(param$theta), param$sigma2, method = "modified.friedman")
+                              param$sigma2, method = "modified.friedman", corr = target$X$corr)
+  new_data <- target$rdata(n, X_new[,1:p_star,drop=FALSE], c(param$theta), param$sigma2, method = "modified.friedman", corr = target$X$corr)
 
   Y <- data$Y
   single_Y <- single_data$Y

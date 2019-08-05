@@ -13,9 +13,13 @@ get_param <- function() {
                     -1.7, -1.2, -1.4, -1.8, -1.5,
                     0.2, 0.5, 0.09, .18, .1,
                     .29, .4, .05, .4, .06)
-    sigma_star <- 1
-
-    return(list(theta= theta_star, sigma2=sigma_star))
+    theta_not_intercept <- theta_star[-1]
+    theta_norm <- sum(theta_not_intercept^2 )
+    theta_star[-1] <-  sqrt(3) * theta_not_intercept / sqrt( theta_norm )
+    sigma2_star <- 1
+    # gives sigma^2/var(y) = 0.25
+    return( list( theta = theta_star,
+                  sigma2 = sigma2_star) )
 
   }
 

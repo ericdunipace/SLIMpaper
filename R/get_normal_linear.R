@@ -29,12 +29,32 @@ get_normal_linear_model <- function() {
 
   #### Y Data ####
   rdata <- function(n, x, theta, sigma2, ...) {
+    dots <- list(...)
+    corr.x <- dots$corr
+    if(is.null(corr.x)) corr.x <- 0
+
     if(ncol(x) > length(theta)) {
       x <- x[, 1: length(theta)]
       warning("Ncol X > length(theta). Only using first length(theta) columns of X.")
     }
-    mu <- x%*% theta
+    is.intercept <- all(x[,1] == 1)
+    if(is.intercept) {
+      intercept <- theta[1]
+      theta <- theta[-1]
+      x <- x[,-1]
+    } else {
+      intercept <- 0
+    }
+
+    p <- ncol(x)
+    corr.mat <- corr_mat_construct(corr.x, p)
+    diag(corr.mat) <- 1
+    theta_norm <- c(t(theta) %*% corr.mat %*% theta)
+    theta_scale <- theta/sqrt(theta_norm) * sqrt(3 * sigma2)
+    mu <- x %*% theta_scale + intercept
     Y <- rnorm(n, mu, sqrt(sigma2))
+    theta <- c(intercept, theta_scale)
+
     return(list(Y = Y, mu = mu, eta = mu, link = gaussian()$linkfun, invlink = gaussian()$linkinv, theta = theta))
   }
 
