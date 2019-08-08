@@ -275,7 +275,8 @@ get_survival_linear_model <- function() {
       }
       survform <- formula(survival::Surv(time = follow.up, event = fail) ~ .)
       fit <- spBayesSurv::indeptCoxph(survform, data = df, prediction = pred,
-                                      mcmc = list(nburn = n.samp, nsave = n.samp, nskip = 0, ndisplay = n.samp/10),
+                                      mcmc = list(nburn = n.samp, nsave = n.samp, nskip = thin,
+                                                  ndisplay = n.samp/10),
                                       prior = NULL, state = NULL, scale.designX = TRUE)
 
       eta <- fit$X.scaled %*% fit$beta.scaled
@@ -305,40 +306,115 @@ get_survival_linear_model <- function() {
                          niter = n.samp, prep = TRUE, mod_prior = "unif", logT = FALSE,
                          inseed = seed, ncpu = ncpu, parallel.MPI = parallel.MPI)
     } else if (method == "inla") {
-      xdf <- as.data.frame(x)
+      xdf <- as.data.frame(scale(x))
       pred.names <- colnames(xdf)
       colnames(xdf) <- paste0("x",1:ncol(xdf))
-      df <- cbind(data.frame(time = follow.up, event = fail), xdf)
+      index_df <- matrix(1,nrow=n, ncol=ncol(xdf))
+      index_names <- paste0("index_", colnames(xdf))
+      colnames(index_df) <- index_names
+      df <- cbind(data.frame(time = follow.up, event = fail), xdf, index_df)
       hc <- "expression:
               lambda = 0.4712777;
               precision = exp(log_precision);
               logdens = -1.5*log_precision-log(pi*lambda)-log(1+1/(precision*lambda^2));
               log_jacobian = log_precision;
               return(logdens+log_jacobian);"
-      hcprior <- list(prec = list(prior = halfcauchy))
-      fs <- paste0("f(index, ", colnames(xdf)[1:4998],", model = 'iid', hyper = hcprior)")
-      survform <- formula(paste(c("inla.surv(time, event) ~ ", fs, collapse = " + ")))
-      cox.call <- inla.coxph(survform, df[,1:5000])
+      hcprior <- list(prec = list(prior = hc))
+
+      fs <- paste0("f(", index_names,",", colnames(xdf), ", model = 'iid', hyper = hcprior)")
+      survform <- formula(paste(c("inla.surv(time, event) ~ 1 ", fs), collapse = " + "))
+      cox.call <- inla.coxph(survform, df)
       timings <- proc.time()
       # model <- inla(survform, family = "coxph",
       #               data = df, control.fixed=list(mean=m[1], prec=1/(s[1])),
       #               debug = TRUE, verbose=FALSE)
-      model <- inla(cox.call$formula, family = cox.call$family,
+      model.gauss <- inla(cox.call$formula, family = cox.call$family,
                     data = c(as.list(cox.call$data), cox.call$data.list),
                     E = cox.call$E,
                     control.inla = list(strategy = "gaussian")
                     )
       model <- inla(cox.call$formula, family = cox.call$family,
                     data = c(as.list(cox.call$data), cox.call$data.list),
-                    E = cox.call$E, control.fixed=list(mean=m[1], prec=1/(s[1]))
-      )
+                    E = cox.call$E,
+                    control.inla = list(strategy = "laplace", fast = FALSE),
+                    control.mode = list(result = model.gauss, restart = TRUE) )
       print(proc.time() - timings)
     }
 
 
     return(list(theta=theta, alpha = alpha, mu = mu, eta = eta, test = test, model = model, surv.calc = surv.calc))
 
+  }
 
+  cindex <- function(times, event, surv, cens = NULL) {
+    ot <- order(times)
+
+    times_mat  <- sapply(times[ot], function(tt) as.integer(tt < times[ot]))
+    risk_array <- array(NA, dim = dim(surv))
+    nsamp <- dim(surv)[3]
+    ntimes <- length(times)
+    n <- dim(surv)[2]
+
+    stopifnot(n == lenth(event))
+
+    for(samp in 1:nsamp) {
+      for(tt in 1:ntimes){
+        for(i in 1:n){
+          for(j in 1:n) {
+            risk_array[tt,i,samp] <- as.integer(surv[tt,j,samp] < surv[tt,i,samp]) * event[j]
+          }
+        }
+      }
+    }
+    times_mat <- times_mat * matrix(event, n,n, byrow = TRUE)
+    denom <- sum(times_mat)
+    cstat <- apply(risk_array, 3, sum)/denom
+    output <- list(mean = rowMeans(cstat), low = apply(cstat, 1, quantile, 0.025),
+                   high = apply(cstat,1, quantile, 0.975, cindex = cstat))
+    return(output)
+  }
+
+  brier.score <- function(times, event, surv, cens_prob) {
+    stopifnot(all(dim(event) == dim(probs) ))
+
+    ot <- order(times)
+    times <- times[ot]
+    event <- event[ot]
+    readTime <- unique(times)
+    n <- dim(surv)[2]
+    ncens <- dim(cens)[3]
+    ntimes <- length(times)
+    nsamp <- dim(surv)[3]
+
+    for (samp in dim(surv)[3]) {
+      for ( curTime in times ) {
+        eventHappen <- as.integer( (times <= curTime) & (event == 1) )
+        eventNotHappen <- as.integer(times > curTime)
+        idx_time <- which(times == curTime)
+        cens_mat <- vector("list", ncens)
+        for(cc in 1:ncens) {
+          cens_mat[[cc]] <-  ((0 - surv[,,samp] )^2 /cens_prob[,,cc] * eventHappen +
+          ( 1 - surv[,,samp] )^2 /cens_prob[idx_time,,cc] * eventNotHappen)/ncens
+        }
+        int_cens <- Reduce("+", cens_mat)
+        bs[idx_time, samp] <- mean( int_cens )
+      }
+    }
+
+    output <- list(mean = rowMeans(bs), low = apply(bs, 1, quantile, 0.025),
+                   high = apply(bs,1, quantile, 0.975, bscore = bs))
+
+    return(output)
+
+  }
+
+  evalfit <- function(times, event, fit, cens, method = c("c-index","brier")) {
+    meth <- match.arg(method)
+    efun <- switch(meth, "c-index" = cindex,
+           "brier" = brier.score)
+    stat <- efun(times, event, fit, cens)
+
+    return(stat)
   }
 
   return(list(rprior=rprior,
@@ -348,5 +424,6 @@ get_survival_linear_model <- function() {
               data_gen_function = NULL,
               rparam = rparam,
               link = Gamma(link = log)$linkfun,
-              invlink = Gamma(link = log)$linkinv))
+              invlink = Gamma(link = log)$linkinv,
+              evalfit = evalfit))
 }
