@@ -34,14 +34,14 @@ get_normal_linear_model <- function() {
     if(is.null(corr.x)) corr.x <- 0
 
     if(ncol(x) > length(theta)) {
-      x <- x[, 1: length(theta)]
+      x <- x[, 1: length(theta), drop=FALSE]
       warning("Ncol X > length(theta). Only using first length(theta) columns of X.")
     }
     is.intercept <- all(x[,1] == 1)
     if(is.intercept) {
       intercept <- theta[1]
       theta <- theta[-1]
-      x <- x[,-1]
+      x <- x[,-1, drop=FALSE]
     } else {
       intercept <- 0
     }
