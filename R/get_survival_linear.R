@@ -489,8 +489,8 @@ get_survival_linear_model <- function() {
       if(event[j] == 0) next
           risk_array[tt,samp,j] <- sum(as.integer( surv[tt,samp,j] < surv[tt,samp,-j] )) * event[j]
         }
-      }
-    }
+    #   }
+    # }
     times_mat <- times_mat * matrix(event, n,n, byrow = TRUE)
     denom <- sum(times_mat)
     cstat <- apply(risk_array, 2, sum)/denom
