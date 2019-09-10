@@ -470,30 +470,68 @@ get_survival_linear_model <- function() {
 
   cindex <- function(times, event, surv, surv.times=NULL, cens = NULL) {
 
-    ntimes <- length(surv.times) - 1
+    ntimes <- length(surv.times)
     if (is.null(surv.times)) {
       surv.times <- as.numeric(sapply(strsplit(dimnames(surv)[[1]],":"), function(x) x[2]))
       ntimes <- length(surv.times) - 1
+      surv.times <- surv.times[-1]
     }
     cut.times <- cut(times, surv.times, include.lowest = TRUE)
 
     n <- dim(surv)[3]
+    nsamp <- dim(surv)[2]
 
     stopifnot(n == length(event))
-    risk_array <- array(0, dim = dim(surv))
-    risk_mat <- matrix(NA, nrow=n, ncol=n)
-    cut.num <- as.numeric(cut.times)
-    risk_mat <- t(sapply(1:dim(surv)[3], function(nn) surv[cut.num[nn],,nn]))
-#only need risk at time of failure vs others since using coxph
-    for(j in 1:n){
-      if(event[j] == 0) next
-          risk_array[tt,samp,j] <- sum(as.integer( surv[tt,samp,j] < surv[tt,samp,-j] )) * event[j]
-        }
-    #   }
-    # }
-    times_mat <- times_mat * matrix(event, n,n, byrow = TRUE)
-    denom <- sum(times_mat)
-    cstat <- apply(risk_array, 2, sum)/denom
+
+    # sort times if using rank method
+    # ordtime <- order(times)
+    # event <- event[ordtime]
+    # times <- times[ordtime]
+
+    # indicator of event times
+    eventbycol <- matrix(event, ncol=n, nrow=n)
+    eventbyrow <- matrix(event, ncol=n,nrow=n, byrow = TRUE)
+    timeless <- sapply(times, function(tt) as.integer(tt < times))
+    timeequal <- sapply(times, function(tt) as.integer(tt == times))
+    K <- (timeless  + timeequal * eventbycol) * eventbyrow
+    # diag(K) <- 0 #don't care for same person
+
+    # ranks
+    # timgings <- proc.time()
+      # rank_fun <- function(i, n, surv) {
+      #   ranks <- apply(surv[,i:n], 1, rank)
+      #   avg_rank <- colMeans(ranks)
+      #   return(2*(ranks[1,] - avg_rank))
+      # }
+      # U <- D <- matrix(NA, nrow= ntimes , ncol = nsamp)
+      # for(tt in seq_along(surv.times)) {
+      #   timetrue <- times <= surv.times[tt]
+      #   idx.dead <- which(timetrue & event == 1)
+      #   idx.time <- which(timetrue)
+      #
+      #   U[tt, ] <- rowSums(sapply(idx.dead, rank_fun, n = n, surv = surv[tt,,]))
+      #   D[tt, ] <- Reduce("+", sapply(idx.time, function(i) if(i < n) {sum(K[(i+1):n,i])} else {0}))
+      # }
+      # 0.5*(U/D + 1)
+      # print(proc.time() - timgings)
+    #risk of predictors over time and over posterior samples
+    # risk_array <- sapply(1:n, function(i) K[i,-i] * (as.numeric(surv[,,-i] < surv[,,i]) +
+                               # as.numeric(surv[,,-i] == surv[,,i])/2))
+      # timgings <- proc.time()
+    risk_mat <- matrix(NA, nrow=ntimes, ncol=nsamp)
+    cuts <- cut()
+
+    for (tt in seq_along(surv.times)) {
+      idx <- which(times <= surv.times[tt] & event == 1)
+      # not.idx <- which(times > surv.times[tt])
+      compare <- lapply(idx, function(i) matrix(K[-i,i], nrow=nsamp, ncol=n-1, byrow=TRUE) *
+                          (surv[cut.times[i],,i] > surv[cut.times[i],,-i] + (surv[cut.times[i],,i] == surv[cut.times[i],,-i])/2))
+      risk_mat[tt,] <- rowSums(Reduce("+", compare))
+    }
+
+    denoms <- sapply(surv.times, function(ss) sum(K[,times < ss]))
+    cstat <- risk_mat/matrix(denoms, nrow=ntimes, ncol=nsamp)
+    # print(proc.time() - timgings)
     output <- list(mean = rowMeans(cstat), low = apply(cstat, 1, quantile, 0.025),
                    high = apply(cstat,1, quantile, 0.975, cindex = cstat))
     return(output)
@@ -533,11 +571,11 @@ get_survival_linear_model <- function() {
 
   }
 
-  evalfit <- function(times, event, fit, cens, surv.times, method = c("c-index","brier")) {
+  evalfit <- function(times, event, fit, cens=NULL, surv.times= NULL, method = c("c-index","brier")) {
     meth <- match.arg(method)
     efun <- switch(meth, "c-index" = cindex,
            "brier" = brier.score)
-    stat <- efun(times, event, fit, cens)
+    stat <- efun(times, event, fit, surv.times, cens)
 
     return(stat)
   }
