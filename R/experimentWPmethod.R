@@ -104,7 +104,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
 
   # augDat <- augPseudo(X, cond_eta, t_theta, theta_norm, pseudo.obs, n, same=TRUE)
   # lambdas <- calc.lambdas(augDat, lambda.min.ratio, penalty_fact, n.lambda)
-  cat("\nRunning methods")
+  cat(paste0("\nRunning methods, same data: ", date()))
+
   #### In sample ####
   #selection variable
   time <- proc.time()
@@ -227,7 +228,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     #new method
     # augDatN <- augPseudo(X_new, cond_mu_new, t_theta, theta_norm, pseudo.obs, n, same=TRUE)
     # lambdas <- calc.lambdas(augDatN, lambda.min.ratio, penalty_fact, n.lambda)
-
+    cat(paste0("\nRunning methods, new X variable: ", date()))
     lassoSelN <- W2L1(X_new, cond_eta_new, t_theta, family="gaussian",
                       penalty="selection.lasso",
                       penalty.factor=penalty_fact, nlambda = n.lambda,
@@ -332,7 +333,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     #new method, single datapoint
     # augDatO <- augPseudo(X_sing, cond_mu_sing, t_theta, theta_norm, pseudo.obs, n, same=TRUE)
     # lambdas <- calc.lambdas(augDatO, lambda.min.ratio, penalty_fact, n.lambda)
-
+    cat(paste0("\nRunning methods, single data point: ", date()))
     lassoSelO <- W2L1(X_sing, cond_eta_sing, t_theta, family="gaussian", penalty="selection.lasso",
                       penalty.factor=penalty_fact, nlambda = n.lambda,
                       lambda.min.ratio = lambda.min.ratio, infimum.maxit=10000,
