@@ -283,7 +283,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                       energy.distribution = "boltzman",
                                       transport.method = transport.method,
                                       cooling.schedule="exponential"),
-                       display.progress = TRUE)
+                       display.progress = TRUE, max.time=1800)
       cat(annealN$message)
       cat("\n")
     # }
@@ -386,7 +386,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                       energy.distribution = "boltzman",
                                       transport.method = transport.method,
                                       cooling.schedule="exponential"),
-                       display.progress = TRUE )
+                       display.progress = TRUE , max.time=1800)
       cat(annealO$message)
       cat("\n")
     # }
