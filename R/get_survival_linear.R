@@ -519,7 +519,6 @@ get_survival_linear_model <- function() {
                                # as.numeric(surv[,,-i] == surv[,,i])/2))
       # timgings <- proc.time()
     risk_mat <- matrix(NA, nrow=ntimes, ncol=nsamp)
-    cuts <- cut()
 
     for (tt in seq_along(surv.times)) {
       idx <- which(times <= surv.times[tt] & event == 1)
