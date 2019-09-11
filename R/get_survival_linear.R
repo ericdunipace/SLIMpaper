@@ -468,18 +468,31 @@ get_survival_linear_model <- function() {
 
   }
 
-  cindex <- function(times, event, surv, surv.times=NULL, cens = NULL) {
+  cindex <- function(times, event, risk = NULL, surv = NULL, surv.times=NULL, cens = NULL) {
 
+
+
+    if (is.null(risk) & is.null(surv) ) {
+      stop("Must provide either survival data or risk data")
+    } else if (is.null(surv)) {
+
+      pred <- array(risk, dim = c(ntimes, dim(risk)))
+
+    } else if (is.null(risk)) {
+      pred <- 1 - surv
+    } else {
+      pred <- array(risk, dim = c(ntimes, dim(risk)))
+    }
     ntimes <- length(surv.times)
     if (is.null(surv.times)) {
       surv.times <- as.numeric(sapply(strsplit(dimnames(surv)[[1]],":"), function(x) x[2]))
       ntimes <- length(surv.times) - 1
       surv.times <- surv.times[-1]
     }
-    cut.times <- cut(times, surv.times, include.lowest = TRUE)
+    cut.times <- cut(times, c(0,surv.times), include.lowest = TRUE)
 
-    n <- dim(surv)[3]
-    nsamp <- dim(surv)[2]
+    n <- dim(pred)[3]
+    nsamp <- dim(pred)[2]
 
     stopifnot(n == length(event))
 
@@ -509,34 +522,43 @@ get_survival_linear_model <- function() {
       #   idx.dead <- which(timetrue & event == 1)
       #   idx.time <- which(timetrue)
       #
-      #   U[tt, ] <- rowSums(sapply(idx.dead, rank_fun, n = n, surv = surv[tt,,]))
+      #   U[tt, ] <- rowSums(sapply(idx.dead, rank_fun, n = n, surv = pred[tt,,]))
       #   D[tt, ] <- Reduce("+", sapply(idx.time, function(i) if(i < n) {sum(K[(i+1):n,i])} else {0}))
       # }
       # 0.5*(U/D + 1)
       # print(proc.time() - timgings)
     #risk of predictors over time and over posterior samples
-    # risk_array <- sapply(1:n, function(i) K[i,-i] * (as.numeric(surv[,,-i] < surv[,,i]) +
-                               # as.numeric(surv[,,-i] == surv[,,i])/2))
+    # risk_array <- sapply(1:n, function(i) K[i,-i] * (as.numeric(pred[,,-i] < pred[,,i]) +
+                               # as.numeric(pred[,,-i] == pred[,,i])/2))
       # timgings <- proc.time()
     risk_mat <- matrix(NA, nrow=ntimes, ncol=nsamp)
+    compare <- lapply(1:n, function(i) matrix(K[-i,i], nrow=nsamp, ncol=n-1, byrow=TRUE) *
+                        (pred[cut.times[i],,i] > pred[cut.times[i],,-i] + (pred[cut.times[i],,i] == pred[cut.times[i],,-i])/2))
+    oldidx <- idx <- newidx <- prev <- NULL
 
     for (tt in seq_along(surv.times)) {
       idx <- which(times <= surv.times[tt] & event == 1)
+      newidx <- idx[!(idx %in% oldidx)]
       # not.idx <- which(times > surv.times[tt])
-      compare <- lapply(idx, function(i) matrix(K[-i,i], nrow=nsamp, ncol=n-1, byrow=TRUE) *
-                          (surv[cut.times[i],,i] > surv[cut.times[i],,-i] + (surv[cut.times[i],,i] == surv[cut.times[i],,-i])/2))
-      risk_mat[tt,] <- rowSums(Reduce("+", compare))
+      if(tt>1) {
+        prev <- risk_mat[tt-1,]
+      } else {
+        prev <- 0
+      }
+      risk_mat[tt,] <- prev + rowSums(Reduce("+", compare[newidx]))
+      oldidx <- idx
     }
 
-    denoms <- sapply(surv.times, function(ss) sum(K[,times < ss]))
+    denoms <- sapply(surv.times, function(ss) sum(K[,times <= ss]))
     cstat <- risk_mat/matrix(denoms, nrow=ntimes, ncol=nsamp)
     # print(proc.time() - timgings)
     output <- list(mean = rowMeans(cstat), low = apply(cstat, 1, quantile, 0.025),
-                   high = apply(cstat,1, quantile, 0.975, cindex = cstat))
+                   high = apply(cstat,1, quantile, 0.975, cindex = cstat),
+                   times = surv.times)
     return(output)
   }
 
-  brier.score <- function(times, event, surv, surv.times, cens_prob) {
+  brier.score <- function(times, event, risk = NULL, surv = NULL, surv.times, cens_prob) {
     stopifnot(all(dim(event) == dim(probs) ))
 
     ot <- order(times)
@@ -570,11 +592,11 @@ get_survival_linear_model <- function() {
 
   }
 
-  evalfit <- function(times, event, fit, cens=NULL, surv.times= NULL, method = c("c-index","brier")) {
+  evalfit <- function(times, event, risk = NULL, surv = NULL, cens=NULL, surv.times= NULL, method = c("c-index","brier")) {
     meth <- match.arg(method)
     efun <- switch(meth, "c-index" = cindex,
            "brier" = brier.score)
-    stat <- efun(times, event, fit, surv.times, cens)
+    stat <- efun(times, event, risk, surv, surv.times, cens)
 
     return(stat)
   }
