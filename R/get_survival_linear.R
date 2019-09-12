@@ -426,9 +426,13 @@ get_survival_linear_model <- function() {
                                      use.improved.mean = TRUE,
                                      add.names = FALSE, seed = -1L, num.threads = 1L)
       fe.names <- model$names.fixed
-      which.fe <- which(rownames(samples[[1]]$latent) %in% fe.names)
-      which.not.pred <- which(!grepl("Predictor", rownames(samples[[1]]$latent)))
+      st.names <- rownames(samples[[1]]$latent)
+      pred.exclude <- !grepl("Predictor", st.names)
+      bh.exclude <- !grepl("baseline.hazard", st.names)
+      which.fe <- which(pred.exclude & bh.exclude)
+      which.not.pred <- which(pred.exclude)
       theta <- matrix(sapply(samples, function(ss) ss$latent[which.fe,]), ncol=n.samp)
+      rownames(theta) <- fe.names
       save.samples <- sapply(samples, function(ss) ss$latent[which.not.pred,])
 
       model$samples <- save.samples
