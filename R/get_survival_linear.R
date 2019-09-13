@@ -475,7 +475,7 @@ get_survival_linear_model <- function() {
   cindex <- function(times, event, risk = NULL, surv = NULL, surv.times=NULL, cens = NULL) {
 
 
-
+    ntimes <- length(surv.times)
     if (is.null(risk) & is.null(surv) ) {
       stop("Must provide either survival data or risk data")
     } else if (is.null(surv)) {
@@ -487,7 +487,7 @@ get_survival_linear_model <- function() {
     } else {
       pred <- array(risk, dim = c(ntimes, dim(risk)))
     }
-    ntimes <- length(surv.times)
+
     if (is.null(surv.times)) {
       surv.times <- as.numeric(sapply(strsplit(dimnames(surv)[[1]],":"), function(x) x[2]))
       ntimes <- length(surv.times) - 1
@@ -515,21 +515,22 @@ get_survival_linear_model <- function() {
 
     # ranks
     # timgings <- proc.time()
-      # rank_fun <- function(i, n, surv) {
-      #   ranks <- apply(surv[,i:n], 1, rank)
-      #   avg_rank <- colMeans(ranks)
-      #   return(2*(ranks[1,] - avg_rank))
-      # }
-      # U <- D <- matrix(NA, nrow= ntimes , ncol = nsamp)
-      # for(tt in seq_along(surv.times)) {
-      #   timetrue <- times <= surv.times[tt]
-      #   idx.dead <- which(timetrue & event == 1)
-      #   idx.time <- which(timetrue)
-      #
-      #   U[tt, ] <- rowSums(sapply(idx.dead, rank_fun, n = n, surv = pred[tt,,]))
-      #   D[tt, ] <- Reduce("+", sapply(idx.time, function(i) if(i < n) {sum(K[(i+1):n,i])} else {0}))
-      # }
-      # 0.5*(U/D + 1)
+      rank_fun <- function(i, n, surv) {
+        ranks <- apply(surv[,i:n, drop=FALSE], 1, rank)
+        avg_rank <- colMeans(ranks)
+        return(2*(ranks[1,] - avg_rank))
+      }
+      U <- D <- matrix(NA, nrow= ntimes , ncol = nsamp)
+      for(tt in seq_along(surv.times)) {
+        timetrue <- times <= surv.times[tt]
+        idx.dead <- which(timetrue & event == 1)
+        idx.time <- which(timetrue)
+
+        U[tt, ] <- rowSums(sapply(idx.dead, rank_fun, n = n, surv = pred[tt,,]))
+        D[tt, ] <- Reduce("+", sapply(idx.time, function(i) if(i < n) {sum(K[(i+1):n,i])} else {0}))
+      }
+      cstat <- 0.5*(U/D + 1)
+      rowMeans(cstat)
       # print(proc.time() - timgings)
     #risk of predictors over time and over posterior samples
     # risk_array <- sapply(1:n, function(i) K[i,-i] * (as.numeric(pred[,,-i] < pred[,,i]) +
