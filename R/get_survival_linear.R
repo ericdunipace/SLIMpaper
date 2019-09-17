@@ -475,91 +475,103 @@ get_survival_linear_model <- function() {
   cindex <- function(times, event, risk = NULL, surv = NULL, surv.times=NULL, cens = NULL) {
 
 
-    ntimes <- length(surv.times)
+    # ntimes <- length(surv.times)
+    # if (is.null(risk) & is.null(surv) ) {
+    #   stop("Must provide either survival data or risk data")
+    # } else if (is.null(surv)) {
+    #
+    #   pred <- array(risk, dim = c(ntimes, dim(risk)[2:1]))
+    #
+    # } else if (is.null(risk)) {
+    #   pred <- 1 - surv
+    # } else {
+    #   pred <- array(risk, dim = c(ntimes, dim(risk)))
+    # }
+    #
+    # if (is.null(surv.times)) {
+    #   surv.times <- as.numeric(sapply(strsplit(dimnames(surv)[[1]],":"), function(x) x[2]))
+    #   ntimes <- length(surv.times) - 1
+    #   surv.times <- surv.times[-1]
+    # }
+    # cut.times <- cut(times, c(0,surv.times), include.lowest = TRUE)
+    #
+    # n <- dim(pred)[3]
     if (is.null(risk) & is.null(surv) ) {
       stop("Must provide either survival data or risk data")
     } else if (is.null(surv)) {
 
-      pred <- array(risk, dim = c(ntimes, dim(risk)))
+      pred <- risk
 
     } else if (is.null(risk)) {
       pred <- 1 - surv
     } else {
-      pred <- array(risk, dim = c(ntimes, dim(risk)))
+      pred <- risk
     }
-
-    if (is.null(surv.times)) {
-      surv.times <- as.numeric(sapply(strsplit(dimnames(surv)[[1]],":"), function(x) x[2]))
-      ntimes <- length(surv.times) - 1
-      surv.times <- surv.times[-1]
-    }
-    cut.times <- cut(times, c(0,surv.times), include.lowest = TRUE)
-
-    n <- dim(pred)[3]
     nsamp <- dim(pred)[2]
+    #
+    # stopifnot(n == length(event))
+    #
+    # # sort times if using rank method
+    # # ordtime <- order(times)
+    # # event <- event[ordtime]
+    # # times <- times[ordtime]
+    #
+    # # indicator of event times
+    # eventbycol <- matrix(event, ncol=n, nrow=n)
+    # eventbyrow <- matrix(event, ncol=n,nrow=n, byrow = TRUE)
+    # timeless <- sapply(times, function(tt) as.integer(tt < times))
+    # timeequal <- sapply(times, function(tt) as.integer(tt == times))
+    # K <- (timeless  + timeequal * eventbycol) * eventbyrow
+    # # diag(K) <- 0 #don't care for same person
+    #
+    # # ranks
+    # # timgings <- proc.time()
+    #   rank_fun <- function(i, n, surv) {
+    #     ranks <- apply(surv[,i:n, drop=FALSE], 1, rank)
+    #     avg_rank <- colMeans(ranks)
+    #     return(2*(ranks[1,] - avg_rank))
+    #   }
+    #   # U <- D <- matrix(NA, nrow= ntimes , ncol = nsamp)
+    #   # for(tt in seq_along(surv.times)) {
+    #   #   timetrue <- times <= surv.times[tt]
+    #   #   idx.dead <- which(timetrue & event == 1)
+    #   #   idx.time <- which(timetrue)
+    #   #
+    #   #   U[tt, ] <- rowSums(sapply(idx.dead, rank_fun, n = n, surv = pred[tt,,]))
+    #   #   D[tt, ] <- Reduce("+", sapply(idx.time, function(i) if(i < n) {sum(K[(i+1):n,i])} else {0}))
+    #   # }
+    #   # cstat <- 0.5*(U/D + 1)
+    #   # rowMeans(cstat)
+    #   # print(proc.time() - timgings)
+    # #risk of predictors over time and over posterior samples
+    # # risk_array <- sapply(1:n, function(i) K[i,-i] * (as.numeric(pred[,,-i] < pred[,,i]) +
+    #                            # as.numeric(pred[,,-i] == pred[,,i])/2))
+    #   # timgings <- proc.time()
+    # risk_mat <- matrix(NA, nrow=ntimes, ncol=nsamp)
+    # compare <- lapply(1:n, function(i) matrix(K[-i,i], nrow=nsamp, ncol=n-1, byrow=TRUE) *
+    #                     (pred[cut.times[i],,i] > pred[cut.times[i],,-i] + (pred[cut.times[i],,i] == pred[cut.times[i],,-i])/2))
+    # oldidx <- idx <- newidx <- prev <- NULL
+    #
+    # for (tt in seq_along(surv.times)) {
+    #   idx <- which(times <= surv.times[tt] & event == 1)
+    #   newidx <- idx[!(idx %in% oldidx)]
+    #   # not.idx <- which(times > surv.times[tt])
+    #   if(tt>1) {
+    #     prev <- risk_mat[tt-1,]
+    #   } else {
+    #     prev <- 0
+    #   }
+    #   risk_mat[tt,] <- prev + rowSums(Reduce("+", compare[newidx]))
+    #   oldidx <- idx
+    # }
+    #
+    # denoms <- sapply(surv.times, function(ss) sum(K[,times <= ss]))
+    # cstat <- risk_mat/matrix(denoms, nrow=ntimes, ncol=nsamp)
 
-    stopifnot(n == length(event))
-
-    # sort times if using rank method
-    # ordtime <- order(times)
-    # event <- event[ordtime]
-    # times <- times[ordtime]
-
-    # indicator of event times
-    eventbycol <- matrix(event, ncol=n, nrow=n)
-    eventbyrow <- matrix(event, ncol=n,nrow=n, byrow = TRUE)
-    timeless <- sapply(times, function(tt) as.integer(tt < times))
-    timeequal <- sapply(times, function(tt) as.integer(tt == times))
-    K <- (timeless  + timeequal * eventbycol) * eventbyrow
-    # diag(K) <- 0 #don't care for same person
-
-    # ranks
-    # timgings <- proc.time()
-      rank_fun <- function(i, n, surv) {
-        ranks <- apply(surv[,i:n, drop=FALSE], 1, rank)
-        avg_rank <- colMeans(ranks)
-        return(2*(ranks[1,] - avg_rank))
-      }
-      U <- D <- matrix(NA, nrow= ntimes , ncol = nsamp)
-      for(tt in seq_along(surv.times)) {
-        timetrue <- times <= surv.times[tt]
-        idx.dead <- which(timetrue & event == 1)
-        idx.time <- which(timetrue)
-
-        U[tt, ] <- rowSums(sapply(idx.dead, rank_fun, n = n, surv = pred[tt,,]))
-        D[tt, ] <- Reduce("+", sapply(idx.time, function(i) if(i < n) {sum(K[(i+1):n,i])} else {0}))
-      }
-      cstat <- 0.5*(U/D + 1)
-      rowMeans(cstat)
-      # print(proc.time() - timgings)
-    #risk of predictors over time and over posterior samples
-    # risk_array <- sapply(1:n, function(i) K[i,-i] * (as.numeric(pred[,,-i] < pred[,,i]) +
-                               # as.numeric(pred[,,-i] == pred[,,i])/2))
-      # timgings <- proc.time()
-    risk_mat <- matrix(NA, nrow=ntimes, ncol=nsamp)
-    compare <- lapply(1:n, function(i) matrix(K[-i,i], nrow=nsamp, ncol=n-1, byrow=TRUE) *
-                        (pred[cut.times[i],,i] > pred[cut.times[i],,-i] + (pred[cut.times[i],,i] == pred[cut.times[i],,-i])/2))
-    oldidx <- idx <- newidx <- prev <- NULL
-
-    for (tt in seq_along(surv.times)) {
-      idx <- which(times <= surv.times[tt] & event == 1)
-      newidx <- idx[!(idx %in% oldidx)]
-      # not.idx <- which(times > surv.times[tt])
-      if(tt>1) {
-        prev <- risk_mat[tt-1,]
-      } else {
-        prev <- 0
-      }
-      risk_mat[tt,] <- prev + rowSums(Reduce("+", compare[newidx]))
-      oldidx <- idx
-    }
-
-    denoms <- sapply(surv.times, function(ss) sum(K[,times <= ss]))
-    cstat <- risk_mat/matrix(denoms, nrow=ntimes, ncol=nsamp)
+    cstat <- sapply(1:nsamp, function(i) survcomp::concordance.index(pred[,i], times, event)$c.index)
     # print(proc.time() - timgings)
-    output <- list(mean = rowMeans(cstat), low = apply(cstat, 1, quantile, 0.025),
-                   high = apply(cstat,1, quantile, 0.975, cindex = cstat),
-                   times = surv.times)
+    output <- list(mean = mean(cstat), low = quantile(cstat, 0.025),
+                   high = quantile(cstat, 0.975), cindex = cstat)
     return(output)
   }
 
