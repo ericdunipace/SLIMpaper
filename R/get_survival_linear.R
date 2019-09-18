@@ -500,12 +500,12 @@ get_survival_linear_model <- function() {
       stop("Must provide either survival data or risk data")
     } else if (is.null(surv)) {
 
-      pred <- risk
+      pred <- -risk
 
     } else if (is.null(risk)) {
-      pred <- 1 - surv
+      pred <- surv
     } else {
-      pred <- risk
+      pred <- -risk
     }
     nsamp <- dim(pred)[2]
     #
@@ -567,8 +567,9 @@ get_survival_linear_model <- function() {
     #
     # denoms <- sapply(surv.times, function(ss) sum(K[,times <= ss]))
     # cstat <- risk_mat/matrix(denoms, nrow=ntimes, ncol=nsamp)
-
-    cstat <- sapply(1:nsamp, function(i) survcomp::concordance.index(pred[,i], times, event)$c.index)
+    survobj <- survival::Surv(time - times, event = event)
+    cstat <- sapply(1:nsamp, function(i) survival::concordancefit(y = survobj, x = pred[,i],
+                                                                  timefix = TRUE)$concordance)
     # print(proc.time() - timgings)
     output <- list(mean = mean(cstat), low = quantile(cstat, 0.025),
                    high = quantile(cstat, 0.975), cindex = cstat)

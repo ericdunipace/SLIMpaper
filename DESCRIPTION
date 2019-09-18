@@ -30,4 +30,5 @@ Suggests:
   dbarts, 
   rjags, 
   rstanarm, 
-  rstan
+  rstan,
+  survival
