@@ -20,7 +20,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   not.only.timing <- conditions$not.only.timing
   if(is.null(not.only.timing)) not.only.timing <- FALSE
 
-  sa_seq <- c(2,floor(seq(21,p,20)))
+  sa_seq <- c(2,floor(seq(ceiling(p/5),p,floor(p/5))))
 
   # FSAiter <- 10*1:ceiling(p/2)
   # RSAiter <- if( p %% 2) { rev(FSAiter)[-1] } else { rev(FSAiter) }
