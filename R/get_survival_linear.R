@@ -448,12 +448,12 @@ get_survival_linear_model <- function() {
         nT <- nrow(log_BH)
         nS <- ncol(theta)
         log_BH <- log_BH + matrix(intercept, nT, nS, byrow=TRUE)
-        cutTimes <- cut(times, haz.times, include.lowest = TRUE)
+        # cutTimes <- cut(times, haz.times, include.lowest = TRUE)
         BH <- exp(log_BH) * diff(c(haz.times, Inf))
         # BH_times <- BH
         cumHaz <- apply(BH,2,cumsum)
         baseSurv <- exp(-cumHaz)
-
+        rownames(baseSurv) <- haz.times
 
         Surv <- simplify2array(lapply(1:n, function(i) baseSurv^matrix(exp(eta[i,]), nT, nS, byrow=TRUE)))
 
@@ -472,7 +472,7 @@ get_survival_linear_model <- function() {
 
   }
 
-  cindex <- function(times, event, risk = NULL, surv = NULL, surv.times=NULL, cens = NULL) {
+  cindex <- function(times, event, risk = NULL, surv = NULL, surv.times=NULL, cens = NULL,...) {
 
 
     # ntimes <- length(surv.times)
@@ -576,35 +576,63 @@ get_survival_linear_model <- function() {
     return(output)
   }
 
-  brier.score <- function(times, event, risk = NULL, surv = NULL, surv.times, cens_prob) {
-    stopifnot(all(dim(event) == dim(probs) ))
+  brier.score <- function(times, event, surv, surv.times, cens_prob, ...) {
+    # stopifnot(all(dim(event) == dim(probs) ))
+    readTime <- sort(unique(times))
+    nst <- length(surv.times)
+    ntimes <- length(readTime)
+    # nct <- length(cens.times)
 
+    if (nst != ntimes) {
+        surv <- expandPred(readTime, surv, surv.times)
+        cens_prob <- expandPred(readTime, cens_prob, surv.times)
+    }
+    # if (nct != ntimes) {
+    #   cens_prob <- expandPred(readTime, cens, surv.times)
+    # }
     ot <- order(times)
     times <- times[ot]
     event <- event[ot]
-    readTime <- unique(times)
-    n <- dim(surv)[2]
-    ncens <- dim(cens)[2]
-    ntimes <- length(times)
+    n <- dim(surv)[3]
+    ncens <- dim(cens_prob)[3]
     nsamp <- dim(surv)[2]
 
-    for (samp in dim(surv)[2]) {
-      for ( curTime in times ) {
-        eventHappen <- as.integer( (times <= curTime) & (event == 1) )
-        eventNotHappen <- as.integer( times > curTime )
-        idx_time <- which( times == curTime )
-        cens_mat <- vector("list", ncens)
-        for(cc in 1:ncens) {
-          cens_mat[[cc]] <-  ((0 - surv[,samp,] )^2 /cens_prob[,cc,] * eventHappen +
-          ( 1 - surv[,samp,] )^2 /cens_prob[idx_time,cc,] * eventNotHappen)/ncens
-        }
-        int_cens <- Reduce("+", cens_mat)
-        bs[idx_time, samp] <- mean( int_cens )
-      }
-    }
+    eventHappen <- t(sapply(readTime, function(curTime)
+      as.integer( (times <= curTime) & (event == 1) )))
+    eventNotHappen <- t(sapply(readTime, function(curTime)
+      as.integer( times > curTime )))
+    # cens_mat <- vector("list", ncens)
 
-    output <- list(mean = rowMeans(bs), low = apply(bs, 1, quantile, 0.025),
-                   high = apply(bs,1, quantile, 0.975, bscore = bs))
+    for ( curTime in readTime ) {
+      idx_time <- which(readTime == curTime)
+      eh <- matrix(as.integer(eventHappen[idx_time,] == 1), nrow = nsamp, ncol = n)
+      enh <- matrix(as.integer(eventNotHappen[idx_time,] == 1), nrow = nsamp, ncol = n)
+      bs[idx_time, ] <- ((0 - surv[idx_time,,] )^2 * eh / cens_prob[idx_time,,] +
+          ( 1 - surv[idx_time,,]  )^2 * enh / cens_prob[curTime,,] )
+      # for (samp in nsamp) {
+      #   for(cc in 1:ncens) {
+      #     cens_mat[[cc]] <-  ((0 - surv[,samp,] )^2 /cens_prob[,cc,] * eventHappen +
+      #     ( 1 - surv[,samp,] )^2 /cens_prob[idx_time,cc,] * eventNotHappen)/ncens
+      #   }
+      #   int_cens <- Reduce("+", cens_mat)
+      #   bs[idx_time, samp] <- mean( int_cens )
+      # }
+    }
+    idx <- 2:ntimes
+    intbs <- diff(readTime) %*% ( ( bs[idx -1,] + bs[idx,]) / 2 )
+    intbs <- intbs/diff(range(redTime))
+
+
+    output <- list(brier.score = list(
+      mean = rowMeans(bs), low = apply(bs, 1, quantile, 0.025),
+                   high = apply(bs,1, quantile, 0.975, bscore = bs)
+      ),
+                   int.BS = list(
+                     rowMeans(intbs), low = apply(intbs, 1, quantile, 0.025),
+                     high = apply(intbs,1, quantile, 0.975,
+                                  intBS = intBS)
+                   )
+    )
 
     return(output)
 
@@ -614,9 +642,23 @@ get_survival_linear_model <- function() {
     meth <- match.arg(method)
     efun <- switch(meth, "c-index" = cindex,
            "brier" = brier.score)
-    stat <- efun(times, event, risk, surv, surv.times, cens)
+    stat <- efun(times = times, event = event, risk=risk, surv=surv, surv.times=surv.times, cens = cens)
 
     return(stat)
+  }
+
+  expandPred <- function(times, pred, predTimes) {
+    dims <- if (length(dim(pred)) > 1) {
+      dim(pred)
+    } else {
+      length(pred)
+    }
+    stopifnot(dims[1] == length(predTimes))
+    st <- sort(unique(times))
+    dict <- cut(st, predTimes, include.lowest = TRUE)
+    idx <- as.numeric(dict)
+    predExp <- pred[idx,,]
+    return(predExp)
   }
 
   return(list(rprior=rprior,
@@ -627,5 +669,6 @@ get_survival_linear_model <- function() {
               rparam = rparam,
               link = Gamma(link = log)$linkfun,
               invlink = Gamma(link = log)$linkinv,
-              evalfit = evalfit))
+              evalfit = evalfit,
+              expandPred = expandPred))
 }
