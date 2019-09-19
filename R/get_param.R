@@ -14,13 +14,13 @@ get_param <- function() {
                                .29, .4, .05, .4, .06)
     theta_not_intercept <- theta_star[-1]
     theta_norm <- sum(theta_not_intercept^2 )
-    theta_star[-1] <-  sqrt(0.75) * theta_not_intercept / sqrt( theta_norm )
+    theta_star[-1] <-  theta_not_intercept / sqrt( theta_norm )
     return(theta_star)
   }
   gaussian_param <- function() {
 
     theta_star <- theta_gen()
-    sigma2_star <- 0.25
+    sigma2_star <- 1
     # gives sigma^2/var(y) = 0.25
     return( list( theta = theta_star,
                   sigma2 = sigma2_star) )

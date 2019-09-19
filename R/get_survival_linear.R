@@ -376,7 +376,7 @@ get_survival_linear_model <- function() {
                          niter = n.samp, prep = TRUE, mod_prior = "unif", logT = FALSE,
                          inseed = seed, ncpu = ncpu, parallel.MPI = parallel.MPI)
     } else if (method == "inla") {
-      if(all(x[,1]==1) || all(x[,1]==0)) x <- x[,-1]
+      # if(all(x[,1]==1) || all(x[,1]==0)) x <- x[,-1]
       xdf <- as.data.frame(scale(x))
       pred.names <- colnames(xdf)
       colnames(xdf) <- paste0("x",1:ncol(xdf))
@@ -465,6 +465,97 @@ get_survival_linear_model <- function() {
       # mu$time
 
       eta <- x %*% theta[-1,]
+
+    } else if (method == "inla.cens") {
+      # if(all(x[,1]==1) || all(x[,1]==0)) x <- x[,-1]
+      # xdf <- as.data.frame(scale(x))
+      # pred.names <- colnames(xdf)
+      # colnames(xdf) <- paste0("x",1:ncol(xdf))
+      intercept1 <- rep(1,n)
+      # index_df <- matrix(1,nrow=n, ncol=ncol(xdf))
+      # index_names <- paste0("index_", colnames(xdf))
+      # colnames(index_df) <- index_names
+      # df <- cbind(data.frame(time = follow.up, event = fail), xdf, index_df)
+      #lambda = 0.4712777
+      # hc <- "expression:
+      #         lambda = 0.01;
+      #         precision = exp(log_precision);
+      #         logdens = -1.5*log_precision-log(pi*lambda)-log(1+1/(precision*lambda^2));
+      #         log_jacobian = log_precision;
+      #         return(logdens+log_jacobian);"
+      # hcprior <- list(prec = list(prior = hc))
+
+      # fs <- paste0("f(", index_names,",", colnames(xdf), ", model = 'iid', hyper = hcprior)")
+      # survform <- formula(paste(c("inla.surv(time, event) ~ 1 ", fs), collapse = " + "))
+      df <- cbind(data.frame(time = follow.up, event = fail), intercept1)
+      survform <- formula(inla.surv(time, event) ~ 0 + intercept1)
+      # if(is.null(cutpoints)) cutpoints <- NULL
+      if(is.null(n.intervals)) n.intervals <- 15
+      cox.call <- inla.coxph(survform, df, control.hazard = list(model = "rw1",
+                                                                 n.intervals = n.intervals,
+                                                                 cutpoints = cutpoints,
+                                                                 constr = TRUE))
+      # timings <- proc.time()
+      # model <- inla(survform, family = "coxph",
+      #               data = df, control.fixed=list(mean=m[1], prec=1/(s[1])),
+      #               debug = TRUE, verbose=FALSE)
+      model.gauss <- inla(cox.call$formula, family = cox.call$family,
+                          data = c(as.list(cox.call$data), cox.call$data.list),
+                          E = cox.call$E,
+                          control.fixed=list(mean=m[1], prec=lambda[1]),
+                          control.inla = list(strategy = "gaussian")
+      )
+      model <- inla(cox.call$formula, family = cox.call$family,
+                    data = c(as.list(cox.call$data), cox.call$data.list),
+                    E = cox.call$E,
+                    control.fixed=list(mean=m[1], prec=lambda[1]),
+                    control.inla = list(strategy = "laplace", fast = FALSE),
+                    control.mode = list(result = model.gauss, restart = TRUE),
+                    control.compute=list(config=TRUE))
+      # print(proc.time() - timings)
+      samples <- inla.posterior.sample(n = n.samp, result = model, intern = FALSE,
+                                       use.improved.mean = TRUE,
+                                       add.names = FALSE, seed = -1L, num.threads = 1L)
+      fe.names <- model$names.fixed
+      st.names <- rownames(samples[[1]]$latent)
+      pred.exclude <- !grepl("Predictor", st.names)
+      bh.exclude <- !grepl("baseline.hazard", st.names)
+      which.fe <- which(pred.exclude & bh.exclude)
+      which.not.pred <- which(pred.exclude)
+      theta <- matrix(sapply(samples, function(ss) ss$latent[which.fe,]), ncol=n.samp)
+      rownames(theta) <- fe.names
+      save.samples <- sapply(samples, function(ss) ss$latent[which.not.pred,])
+
+      model$samples <- save.samples
+      surv.calc <- function(model, theta) {
+        n <- nrow(x)
+        intercept <- theta[1,]
+        # theta_reg <- theta[-1,]
+        # eta <- x %*% theta_reg
+        haz.times <- model$.args$data$baseline.hazard.values
+        # if(is.null(times)) times <- haz.times
+
+        log_BH <- model$samples[grep("baseline.hazard", rownames(model$samples)),]
+        nT <- nrow(log_BH)
+        nS <- ncol(theta)
+        log_BH <- log_BH + matrix(intercept, nT, nS, byrow=TRUE)
+        # cutTimes <- cut(times, haz.times, include.lowest = TRUE)
+        BH <- exp(log_BH) * diff(c(haz.times, Inf))
+        # BH_times <- BH
+        cumHaz <- apply(BH,2,cumsum)
+        baseSurv <- exp(-cumHaz)
+        rownames(baseSurv) <- haz.times
+
+        # Surv <- simplify2array(lapply(1:n, function(i) baseSurv^matrix(exp(eta[i,]), nT, nS, byrow=TRUE)))
+        Surv <- baseSurv
+        return(list(surv = Surv, base = baseSurv))
+      }
+
+      survlist <- surv.calc(model, theta)
+      mu$S <- survlist
+      # mu$time
+
+      # eta <- x %*% theta[-1,]
     }
 
 
@@ -602,12 +693,13 @@ get_survival_linear_model <- function() {
     eventNotHappen <- t(sapply(readTime, function(curTime)
       as.integer( times > curTime )))
     # cens_mat <- vector("list", ncens)
+    bs <- matrix(NA, nrow=ntimes, ncol=nsamp)
 
     for ( curTime in readTime ) {
       idx_time <- which(readTime == curTime)
       eh <- matrix(as.integer(eventHappen[idx_time,] == 1), nrow = nsamp, ncol = n)
       enh <- matrix(as.integer(eventNotHappen[idx_time,] == 1), nrow = nsamp, ncol = n)
-      bs[idx_time, ] <- ((0 - surv[idx_time,,] )^2 * eh / cens_prob[idx_time,,] +
+      bs[idx_time, ] <- rowMeans((0 - surv[idx_time,,] )^2 * eh / cens_prob[idx_time,,] +
           ( 1 - surv[idx_time,,]  )^2 * enh / cens_prob[curTime,,] )
       # for (samp in nsamp) {
       #   for(cc in 1:ncens) {

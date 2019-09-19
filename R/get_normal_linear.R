@@ -50,7 +50,7 @@ get_normal_linear_model <- function() {
     corr.mat <- corr_mat_construct(corr.x, p)
     diag(corr.mat) <- 1
     theta_norm <- c(t(theta) %*% corr.mat %*% theta)
-    theta_scale <- theta/sqrt(theta_norm) * sqrt(3 * sigma2)
+    theta_scale <- theta/sqrt(theta_norm) * sqrt(sigma2)
     mu <- x %*% theta_scale + intercept
     Y <- rnorm(n, mu, sqrt(sigma2))
     theta <- c(intercept, theta_scale)

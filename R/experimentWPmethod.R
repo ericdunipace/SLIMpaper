@@ -20,6 +20,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   not.only.timing <- conditions$not.only.timing
   if(is.null(not.only.timing)) not.only.timing <- FALSE
 
+  sa_seq <- c(2,floor(seq(21,p,20)))
+
   # FSAiter <- 10*1:ceiling(p/2)
   # RSAiter <- if( p %% 2) { rev(FSAiter)[-1] } else { rev(FSAiter) }
   # SAiter <- c(FSAiter, RSAiter)
@@ -170,12 +172,12 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   # else {
     time <- proc.time()
     anneal <- WPSA(X=X, Y=cond_eta, theta=t_theta,
-                   force = 1, p=2, model.size = 2:p, iter = SAiter, temps = SAtemps,
+                   force = 1, p=2, model.size = sa_seq, iter = SAiter, temps = SAtemps,
                    options = list(method = "selection.variable",
                                   energy.distribution = "boltzman",
                                   transport.method = transport.method,
                                   cooling.schedule="exponential"),
-                   display.progress=FALSE, max.time=1800)
+                   display.progress=FALSE, max.time=3600)
     annealTime <- proc.time() - time
   # }
   # trajAnneal <- anneal$theta
@@ -278,7 +280,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     #                    display.progress = TRUE)
     # } else {
       annealN <-  WPSA(X=X_new, Y=cond_eta_new, theta=t_theta,
-                       force = 1, p=2, model.size = 2:p, iter = SAiter,
+                       force = 1, p=2, model.size = sa_seq, iter = SAiter,
                        temps = SAtemps,
                        options = list(method = "selection.variable",
                                       energy.distribution = "boltzman",
@@ -382,7 +384,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     #                    display.progress = TRUE )
     # } else {
       annealO <- WPSA( X = X_sing, Y = cond_eta_sing, theta = t_theta,
-                       force = 1, p=2, model.size = 2:p, iter = SAiter, temps = SAtemps,
+                       force = 1, p=2, model.size = sa_seq, iter = SAiter, temps = SAtemps,
                        options = list(method = "selection.variable",
                                       energy.distribution = "boltzman",
                                       transport.method = transport.method,
