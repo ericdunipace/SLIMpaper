@@ -1,2 +1,2 @@
-.checkINLA()
+# .checkINLA()
 .checkSP()
