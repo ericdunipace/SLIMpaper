@@ -681,9 +681,9 @@ get_survival_linear_model <- function() {
     # if (nct != ntimes) {
     #   cens_prob <- expandPred(readTime, cens, surv.times)
     # }
-    ot <- order(times)
-    times <- times[ot]
-    event <- event[ot]
+    # ot <- order(times)
+    # times <- times[ot]
+    # event <- event[ot]
     n <- dim(surv)[3]
     ncens <- dim(cens_prob)[3]
     nsamp <- dim(surv)[2]
@@ -693,14 +693,28 @@ get_survival_linear_model <- function() {
     eventNotHappen <- t(sapply(readTime, function(curTime)
       as.integer( times > curTime )))
     # cens_mat <- vector("list", ncens)
-    bs <- matrix(NA, nrow=ntimes, ncol=nsamp)
+    bs <- matrix(0, nrow=ntimes, ncol=nsamp)
+    time.idx <- as.numeric(cut(times, readTime, include.lowest = TRUE))
+    cens_prob_at_event <- matrix(NA, nrow = nsamp, ncol=n)
+    for(i in 1:n) cens_prob_at_event[,i] <- cens_prob[time.idx[i],,i]
+
+    for ( curTime in readTime ) {
+      idx_time <- which(readTime == curTime)
+     for(s in 1:nsamp){
+       for(i in 1:n) {
+         bs[idx_time, s] <- bs[idx_time, s] + (0 - surv[idx_time,s,i])^2 *eventHappen[idx_time, i]/cens_prob[time.idx[i],s,i]/n +
+           (1 - surv[idx_time,s,i])^2 * eventNotHappen[idx_time,i]/cens_prob[idx_time,s,i]/n
+       }
+     }
+      # bs[idx_time, ] <- bs[idx_time, ]
+    }
 
     for ( curTime in readTime ) {
       idx_time <- which(readTime == curTime)
       eh <- matrix(as.integer(eventHappen[idx_time,] == 1), nrow = nsamp, ncol = n)
       enh <- matrix(as.integer(eventNotHappen[idx_time,] == 1), nrow = nsamp, ncol = n)
-      bs[idx_time, ] <- rowMeans((0 - surv[idx_time,,] )^2 * eh / cens_prob[idx_time,,] +
-          ( 1 - surv[idx_time,,]  )^2 * enh / cens_prob[curTime,,] )
+      bs[idx_time, ] <- rowMeans((0 - surv[idx_time,,] )^2 * eh / cens_prob_at_event +
+          ( 1 - surv[idx_time,,]  )^2 * enh / cens_prob[idx_time,,] )
       # for (samp in nsamp) {
       #   for(cc in 1:ncens) {
       #     cens_mat[[cc]] <-  ((0 - surv[,samp,] )^2 /cens_prob[,cc,] * eventHappen +
@@ -712,7 +726,7 @@ get_survival_linear_model <- function() {
     }
     idx <- 2:ntimes
     intbs <- diff(readTime) %*% ( ( bs[idx -1,] + bs[idx,]) / 2 )
-    intbs <- intbs/diff(range(redTime))
+    intbs <- intbs/diff(range(readTime))
 
 
     output <- list(brier.score = list(
@@ -720,11 +734,10 @@ get_survival_linear_model <- function() {
                    high = apply(bs,1, quantile, 0.975, bscore = bs)
       ),
                    int.BS = list(
-                     rowMeans(intbs), low = apply(intbs, 1, quantile, 0.025),
-                     high = apply(intbs,1, quantile, 0.975,
-                                  intBS = intBS)
+                     mean = mean(intbs), low = apply(intbs, 1, quantile, 0.025),
+                     high = apply(intbs,1, quantile, 0.975),
+                                  intBS = c(intbs))
                    )
-    )
 
     return(output)
 

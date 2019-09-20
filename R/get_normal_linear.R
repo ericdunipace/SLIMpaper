@@ -53,7 +53,7 @@ get_normal_linear_model <- function() {
     theta_scaled <- theta/sqrt(theta_norm) #* sqrt(sigma2)
     mu <- x %*% theta_scaled + intercept
     Y <- rnorm(n, mu, sqrt(sigma2))
-    theta <- c(intercept, theta_scale)
+    theta <- c(intercept, theta_scaled)
 
     return(list(Y = Y, mu = mu, eta = mu, link = gaussian()$linkfun, invlink = gaussian()$linkinv, theta = theta))
   }
