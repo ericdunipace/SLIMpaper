@@ -658,7 +658,7 @@ get_survival_linear_model <- function() {
     #
     # denoms <- sapply(surv.times, function(ss) sum(K[,times <= ss]))
     # cstat <- risk_mat/matrix(denoms, nrow=ntimes, ncol=nsamp)
-    survobj <- survival::Surv(time - times, event = event)
+    survobj <- survival::Surv(time = times, event = event)
     cstat <- sapply(1:nsamp, function(i) survival::concordancefit(y = survobj, x = pred[,i],
                                                                   timefix = TRUE)$concordance)
     # print(proc.time() - timgings)
@@ -675,8 +675,15 @@ get_survival_linear_model <- function() {
     # nct <- length(cens.times)
 
     if (nst != ntimes) {
-        surv <- expandPred(readTime, surv, surv.times)
-        cens_prob <- expandPred(readTime, cens_prob, surv.times)
+      if(dim(surv)[1] != nst) stop("surv.times must match first dimension of surv probs")
+        # surv <- expandPred(readTime, surv, surv.times)
+    }
+    if(dim(cens_prob)[1] != ntimes) {
+      if(dim(cens_prob)[1] != nst) stop("first dimension of censoring probabilities must match length of surv.times or number of unique times in data")
+      # cens_prob <- expandPred(readTime, cens_prob, surv.times)
+      cens.times <- surv.times
+    } else {
+      cens.times <- sort(unique(c(0,readTime)))
     }
     # if (nct != ntimes) {
     #   cens_prob <- expandPred(readTime, cens, surv.times)
@@ -696,25 +703,53 @@ get_survival_linear_model <- function() {
     bs <- matrix(0, nrow=ntimes, ncol=nsamp)
     time.idx <- as.numeric(cut(times, readTime, include.lowest = TRUE))
     cens_prob_at_event <- matrix(NA, nrow = nsamp, ncol=n)
-    for(i in 1:n) cens_prob_at_event[,i] <- cens_prob[time.idx[i],,i]
-
-    for ( curTime in readTime ) {
-      idx_time <- which(readTime == curTime)
-     for(s in 1:nsamp){
-       for(i in 1:n) {
-         bs[idx_time, s] <- bs[idx_time, s] + (0 - surv[idx_time,s,i])^2 *eventHappen[idx_time, i]/cens_prob[time.idx[i],s,i]/n +
-           (1 - surv[idx_time,s,i])^2 * eventNotHappen[idx_time,i]/cens_prob[idx_time,s,i]/n
-       }
-     }
-      # bs[idx_time, ] <- bs[idx_time, ]
+    if(any(is.na(cens_prob))) {
+      repl_idx <- which(is.na(cens_prob),arr.ind=TRUE)
+      cens_prob[repl_idx] <- min(cens_prob, na.rm=TRUE)
+    }
+    if(any(cens_prob == 0)) {
+      repl_idx <- which(cens_prob == 0, arr.ind=TRUE)
+      cens_prob[repl_idx] <- Inf
     }
 
+    for(i in 1:n) cens_prob_at_event[,i] <- cens_prob[time.idx[i],,i]
+
+    # for ( curTime in readTime ) {
+    #   idx_time <- which(readTime == curTime)
+    #  for(s in 1:nsamp){
+    #    for(i in 1:n) {
+    #      bs[idx_time, s] <- bs[idx_time, s] + (0 - surv[idx_time,s,i])^2 *eventHappen[idx_time, i]/cens_prob[time.idx[i],s,i]/n +
+    #        (1 - surv[idx_time,s,i])^2 * eventNotHappen[idx_time,i]/cens_prob[idx_time,s,i]/n
+    #    }
+    #  }
+    #   # bs[idx_time, ] <- bs[idx_time, ]
+    # }
+    # lcpe <- log(cens_prob_at_event)
+    # lcp <- log(cens_prob)
+    # l_eventHappen <- log(eventHappen)
+    # l_eventNotHappen <- log(eventNotHappen)
+    l_normalize <- log_uwt1 <- log_uwt2 <- eh <- enh <- lterm1 <- lterm2 <- lsum1 <- lsum2 <-
+      surv_at_time <- cnes_at_time <- normalize <- NULL
+    # ttt <- proc.time()
     for ( curTime in readTime ) {
       idx_time <- which(readTime == curTime)
-      eh <- matrix(as.integer(eventHappen[idx_time,] == 1), nrow = nsamp, ncol = n)
-      enh <- matrix(as.integer(eventNotHappen[idx_time,] == 1), nrow = nsamp, ncol = n)
-      bs[idx_time, ] <- rowMeans((0 - surv[idx_time,,] )^2 * eh / cens_prob_at_event +
-          ( 1 - surv[idx_time,,]  )^2 * enh / cens_prob[idx_time,,] )
+      eh <- matrix(eventHappen[idx_time,], nrow = nsamp, ncol = n, byrow = TRUE)
+      enh <- matrix(eventNotHappen[idx_time,], nrow = nsamp, ncol = n, byrow=TRUE)
+      # l_eh <- matrix(l_eventHappen[idx_time,], nrow = nsamp, ncol = n, byrow = TRUE)
+      # l_enh <- matrix(l_eventNotHappen[idx_time,], nrow = nsamp, ncol = n, byrow = TRUE)
+      # log_uwt1 <- apply(l_eh - lcpe, 1, log_sum_exp)
+      # log_uwt2 <- apply(l_enh - lcp[idx_time,,], 1, log_sum_exp)
+      # l_normalize <- log_sum_exp2(log_uwt1, log_uwt2)
+      # lterm1 <- 2 * log(abs(0 - surv[idx_time,,])) + l_eh - lcpe - l_normalize
+      # lterm2 <- 2 * log(1 - surv[idx_time,,]) + l_enh - lcp[idx_time,,] - l_normalize
+      # lsum1 <- apply(lterm1, 1, log_sum_exp)
+      # lsum2 <- apply(lterm2, 1, log_sum_exp)
+      # bs[idx_time, ] <- exp(log_sum_exp2(lsum1, lsum2))
+      surv_at_time <- predAtTime(curTime, surv, surv.times)
+      cens_at_time <- predAtTime(curTime, cens_prob, cens.times)
+      normalize <- rowSums(eh / cens_prob_at_event + enh / cens_at_time)
+      bs[idx_time, ] <- rowSums((0 -  surv_at_time)^2 * eh / cens_prob_at_event / normalize +
+      ( 1 - surv_at_time  )^2 * enh / cens_at_time/ normalize )
       # for (samp in nsamp) {
       #   for(cc in 1:ncens) {
       #     cens_mat[[cc]] <-  ((0 - surv[,samp,] )^2 /cens_prob[,cc,] * eventHappen +
@@ -724,20 +759,28 @@ get_survival_linear_model <- function() {
       #   bs[idx_time, samp] <- mean( int_cens )
       # }
     }
-    idx <- 2:ntimes
-    intbs <- diff(readTime) %*% ( ( bs[idx -1,] + bs[idx,]) / 2 )
-    intbs <- intbs/diff(range(readTime))
+    # print(proc.time() - ttt)
+    # idx <- 2:ntimes
+    # intbs <- diff(readTime) %*% ( ( bs[idx -1,] + bs[idx,]) / 2 )
+    # intbs <- intbs/diff(range(readTime))
+    intbs <- (diff(c(0,readTime)) %*% bs)/max(readTime)
 
 
-    output <- list(brier.score = list(
-      mean = rowMeans(bs), low = apply(bs, 1, quantile, 0.025),
-                   high = apply(bs,1, quantile, 0.975, bscore = bs)
-      ),
-                   int.BS = list(
-                     mean = mean(intbs), low = apply(intbs, 1, quantile, 0.025),
-                     high = apply(intbs,1, quantile, 0.975),
-                                  intBS = c(intbs))
-                   )
+    output <- list(
+        brier.score = list(
+          mean = rowMeans(bs),
+          low = apply(bs, 1, quantile, 0.025),
+          high = apply(bs,1, quantile, 0.975),
+          median = apply(bs,1, median),
+          bscore = bs
+          ),
+        int.BS = list(
+         mean = mean(intbs),
+         low = quantile(intbs, 0.025),
+         high = quantile(intbs, 0.975),
+         median = median(intbs),
+                      intBS = c(intbs))
+     )
 
     return(output)
 
@@ -750,6 +793,13 @@ get_survival_linear_model <- function() {
     stat <- efun(times = times, event = event, risk=risk, surv=surv, surv.times=surv.times, cens = cens)
 
     return(stat)
+  }
+
+  predAtTime <- function(time, pred, predTimes) {
+    dict <- cut(time, predTimes, include.lowest = TRUE)
+    idx <- as.numeric(dict)
+    predTime <- pred[idx,,]
+    return(predTime)
   }
 
   expandPred <- function(times, pred, predTimes) {
