@@ -22,6 +22,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
 
   sa_seq <- sort(unique(c(2,5,floor(seq(ceiling(p/5),p,floor(p/5))))))
   sa_max_time <- 10800
+  sa_prop <- "random"
   # FSAiter <- 10*1:ceiling(p/2)
   # RSAiter <- if( p %% 2) { rev(FSAiter)[-1] } else { rev(FSAiter) }
   # SAiter <- c(FSAiter, RSAiter)
@@ -176,7 +177,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                    options = list(method = "selection.variable",
                                   energy.distribution = "boltzman",
                                   transport.method = transport.method,
-                                  cooling.schedule="exponential"),
+                                  cooling.schedule="exponential",
+                                  proposal.mehod = sa_prop),
                    display.progress=FALSE, max.time=5400)
     annealTime <- proc.time() - time
   # }
@@ -285,7 +287,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                        options = list(method = "selection.variable",
                                       energy.distribution = "boltzman",
                                       transport.method = transport.method,
-                                      cooling.schedule="exponential"),
+                                      cooling.schedule="exponential",
+                                      proposal.method = sa_prop),
                        display.progress = TRUE, max.time=sa_max_time)
       cat(annealN$message)
       cat("\n")
@@ -388,7 +391,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                        options = list(method = "selection.variable",
                                       energy.distribution = "boltzman",
                                       transport.method = transport.method,
-                                      cooling.schedule="exponential"),
+                                      cooling.schedule="exponential",
+                                      proposal.method = sa_prop),
                        display.progress = TRUE , max.time=sa_max_time)
       cat(annealO$message)
       cat("\n")
