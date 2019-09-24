@@ -21,7 +21,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   if(is.null(not.only.timing)) not.only.timing <- FALSE
 
   sa_seq <- sort(unique(c(2,5,floor(seq(ceiling(p/5),p,floor(p/5))))))
-  sa_max_time <- 5400
+  sa_max_time <- 10800
   # FSAiter <- 10*1:ceiling(p/2)
   # RSAiter <- if( p %% 2) { rev(FSAiter)[-1] } else { rev(FSAiter) }
   # SAiter <- c(FSAiter, RSAiter)
