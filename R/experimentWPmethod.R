@@ -178,7 +178,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                   energy.distribution = "boltzman",
                                   transport.method = transport.method,
                                   cooling.schedule="exponential",
-                                  proposal.mehod = sa_prop),
+                                  proposal.method = sa_prop),
                    display.progress=FALSE, max.time=5400)
     annealTime <- proc.time() - time
   # }
