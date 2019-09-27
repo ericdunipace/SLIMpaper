@@ -171,22 +171,22 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   #   annealTime <- NULL
   # }
   # else {
-    time <- proc.time()
-    anneal <- WPSA(X=X, Y=cond_eta, theta=t_theta,
-                   force = 1, p=2, model.size = sa_seq, iter = SAiter, temps = SAtemps,
-                   options = list(method = "selection.variable",
-                                  energy.distribution = "boltzman",
-                                  transport.method = transport.method,
-                                  cooling.schedule="exponential",
-                                  proposal.method = sa_prop),
-                   display.progress=FALSE, max.time=5400)
-    annealTime <- proc.time() - time
+  time <- proc.time()
+  anneal <- WPSA(X=X, Y=cond_eta, theta=t_theta,
+                 force = 1, p=2, model.size = sa_seq, iter = SAiter, temps = SAtemps,
+                 options = list(method = "selection.variable",
+                                energy.distribution = "boltzman",
+                                transport.method = transport.method,
+                                cooling.schedule="exponential",
+                                proposal.method = sa_prop),
+                 display.progress=FALSE, max.time=5400)
+  annealTime <- proc.time() - time
   # }
   # trajAnneal <- anneal$theta
-    cat(anneal$message)
-    if(anneal$message != "completed") {
-      annealTime <- paste0(">", annealTime)
-    }
+  cat(anneal$message)
+  if(anneal$message != "completed") {
+    annealTime <- paste0(">", annealTime)
+  }
 
   if (not.only.timing) {
     inSampModels <- list("Selection" = lassoSel,
@@ -281,58 +281,58 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     #                                   cooling.schedule="exponential"),
     #                    display.progress = TRUE)
     # } else {
-      annealN <-  WPSA(X=X_new, Y=cond_eta_new, theta=t_theta,
-                       force = 1, p=2, model.size = sa_seq, iter = SAiter,
-                       temps = SAtemps,
-                       options = list(method = "selection.variable",
-                                      energy.distribution = "boltzman",
-                                      transport.method = transport.method,
-                                      cooling.schedule="exponential",
-                                      proposal.method = sa_prop),
-                       display.progress = TRUE, max.time=sa_max_time)
-      cat(annealN$message)
-      cat("\n")
+    annealN <-  WPSA(X=X_new, Y=cond_eta_new, theta=t_theta,
+                     force = 1, p=2, model.size = sa_seq, iter = SAiter,
+                     temps = SAtemps,
+                     options = list(method = "selection.variable",
+                                    energy.distribution = "boltzman",
+                                    transport.method = transport.method,
+                                    cooling.schedule="exponential",
+                                    proposal.method = sa_prop),
+                     display.progress = TRUE, max.time=sa_max_time)
+    cat(annealN$message)
+    cat("\n")
     # }
     # trajAnnealN <- annealCoef(annealN, t_theta)
-      newXModels <- list("Selection" = lassoSelN,
-                         "Simulated Annealing" = annealN,
-                         "Stepwise" = stepN,
-                         "Projection" = lassoProjN,
-                         "H.C." = lassoHCN)
+    newXModels <- list("Selection" = lassoSelN,
+                       "Simulated Annealing" = annealN,
+                       "Stepwise" = stepN,
+                       "Projection" = lassoProjN,
+                       "H.C." = lassoHCN)
 
-      cat("\nCalculating distances")
-      if( calc_w2_post){
-        W2_newX <- distCompare(newXModels, target = list(posterior = theta,
-                                                         mean = cond_mu_new),
-                               method = "sinkhorn",
-                               quantity=c("posterior","mean"),
-                               parallel=FALSE,
-                               transform = data$invlink)
-        mse_newX <- distCompare(newXModels, target = list(posterior = full_param,
-                                                          mean = new_mu),
-                                method = "mse",
-                                quantity=c("posterior","mean"),
-                                parallel=FALSE,
-                                transform = data$invlink)
-      }
-      else {
-        W2_newX <- distCompare(newXModels, target = list(posterior = NULL,
-                                                         mean = cond_mu_new),
-                               method = "sinkhorn",
-                               quantity=c("mean"),
-                               parallel=FALSE,
-                               transform = data$invlink)
-        mse_newX <- distCompare(newXModels, target = list(posterior = NULL,
-                                                          mean = new_mu),
-                                method = "mse",
-                                quantity="mean",
-                                parallel=FALSE,
-                                transform = data$invlink)
-      }
+    cat("\nCalculating distances")
+    if( calc_w2_post){
+      W2_newX <- distCompare(newXModels, target = list(posterior = theta,
+                                                       mean = cond_mu_new),
+                             method = "sinkhorn",
+                             quantity=c("posterior","mean"),
+                             parallel=FALSE,
+                             transform = data$invlink)
+      mse_newX <- distCompare(newXModels, target = list(posterior = full_param,
+                                                        mean = new_mu),
+                              method = "mse",
+                              quantity=c("posterior","mean"),
+                              parallel=FALSE,
+                              transform = data$invlink)
+    }
+    else {
+      W2_newX <- distCompare(newXModels, target = list(posterior = NULL,
+                                                       mean = cond_mu_new),
+                             method = "sinkhorn",
+                             quantity=c("mean"),
+                             parallel=FALSE,
+                             transform = data$invlink)
+      mse_newX <- distCompare(newXModels, target = list(posterior = NULL,
+                                                        mean = new_mu),
+                              method = "mse",
+                              quantity="mean",
+                              parallel=FALSE,
+                              transform = data$invlink)
+    }
 
 
-      rm(newXModels)
-      rm("lassoSelN", "annealN","stepN","lassoProjN","lassoHCN")
+    rm(newXModels)
+    rm("lassoSelN", "annealN","stepN","lassoProjN","lassoHCN")
 
 
     #new method, single datapoint
@@ -386,57 +386,57 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     #                                   cooling.schedule="exponential"),
     #                    display.progress = TRUE )
     # } else {
-      annealO <- WPSA( X = X_sing, Y = cond_eta_sing, theta = t_theta,
-                       force = 1, p=2, model.size = sa_seq, iter = SAiter, temps = SAtemps,
-                       options = list(method = "selection.variable",
-                                      energy.distribution = "boltzman",
-                                      transport.method = transport.method,
-                                      cooling.schedule="exponential",
-                                      proposal.method = sa_prop),
-                       display.progress = TRUE , max.time=sa_max_time)
-      cat(annealO$message)
-      cat("\n")
+    annealO <- WPSA( X = X_sing, Y = cond_eta_sing, theta = t_theta,
+                     force = 1, p=2, model.size = sa_seq, iter = SAiter, temps = SAtemps,
+                     options = list(method = "selection.variable",
+                                    energy.distribution = "boltzman",
+                                    transport.method = transport.method,
+                                    cooling.schedule="exponential",
+                                    proposal.method = sa_prop),
+                     display.progress = TRUE , max.time=sa_max_time)
+    cat(annealO$message)
+    cat("\n")
     # }
-      singleModels <- list("Selection" = lassoSelO,
-                           "Simulated Annealing" = annealO,
-                           "Stepwise" = stepO#,
-                           # "Projection" = lassoProjO,
-                           # "H.C." = lassoHCO
-      )
+    singleModels <- list("Selection" = lassoSelO,
+                         "Simulated Annealing" = annealO,
+                         "Stepwise" = stepO#,
+                         # "Projection" = lassoProjO,
+                         # "H.C." = lassoHCO
+    )
 
-      cat("\nCalculating distances")
-      if( calc_w2_post){
-        W2_single <- distCompare(singleModels, target = list(posterior = theta,
-                                                             mean = cond_mu_sing),
-                                 method = "sinkhorn",
-                                 quantity=c("posterior","mean"),
-                                 parallel=FALSE,
-                                 transform = data$invlink)
-        mse_single <- distCompare(singleModels, target = list(posterior = full_param,
-                                                              mean = new_mu_sing),
-                                  method = "mse",
-                                  quantity=c("posterior","mean"),
-                                  parallel=FALSE,
-                                  transform = data$invlink)
-      }
-      else {
+    cat("\nCalculating distances")
+    if( calc_w2_post){
+      W2_single <- distCompare(singleModels, target = list(posterior = theta,
+                                                           mean = cond_mu_sing),
+                               method = "sinkhorn",
+                               quantity=c("posterior","mean"),
+                               parallel=FALSE,
+                               transform = data$invlink)
+      mse_single <- distCompare(singleModels, target = list(posterior = full_param,
+                                                            mean = new_mu_sing),
+                                method = "mse",
+                                quantity=c("posterior","mean"),
+                                parallel=FALSE,
+                                transform = data$invlink)
+    }
+    else {
 
-        W2_single <- distCompare(singleModels, target = list(posterior = NULL,
-                                                             mean = cond_mu_sing),
-                                 method = "sinkhorn",
-                                 quantity=c("mean"),
-                                 parallel=FALSE,
-                                 transform = data$invlink)
-        mse_single <- distCompare(singleModels, target = list(posterior = NULL,
-                                                              mean = new_mu_sing),
-                                  method = "mse",
-                                  quantity="mean",
-                                  parallel=FALSE,
-                                  transform = data$invlink)
-      }
+      W2_single <- distCompare(singleModels, target = list(posterior = NULL,
+                                                           mean = cond_mu_sing),
+                               method = "sinkhorn",
+                               quantity=c("mean"),
+                               parallel=FALSE,
+                               transform = data$invlink)
+      mse_single <- distCompare(singleModels, target = list(posterior = NULL,
+                                                            mean = new_mu_sing),
+                                method = "mse",
+                                quantity="mean",
+                                parallel=FALSE,
+                                transform = data$invlink)
+    }
 
-      rm(singleModels)
-      rm("lassoSelO", "annealO","stepO")
+    rm(singleModels)
+    rm("lassoSelO", "annealO","stepO")
     # trajAnnealO <- annealCoef(annealO, t_theta)
 
     # list of models
