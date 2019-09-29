@@ -179,7 +179,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                 transport.method = transport.method,
                                 cooling.schedule="exponential",
                                 proposal.method = sa_prop),
-                 display.progress=FALSE, max.time=5400)
+                 display.progress=FALSE, max.time = sa_max_time)
   annealTime <- proc.time() - time
   # }
   # trajAnneal <- anneal$theta
@@ -289,7 +289,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                     transport.method = transport.method,
                                     cooling.schedule="exponential",
                                     proposal.method = sa_prop),
-                     display.progress = TRUE, max.time=sa_max_time)
+                     display.progress = TRUE, max.time = sa_max_time)
     cat(annealN$message)
     cat("\n")
     # }
@@ -393,7 +393,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                     transport.method = transport.method,
                                     cooling.schedule="exponential",
                                     proposal.method = sa_prop),
-                     display.progress = TRUE , max.time=sa_max_time)
+                     display.progress = TRUE , max.time = sa_max_time)
     cat(annealO$message)
     cat("\n")
     # }
