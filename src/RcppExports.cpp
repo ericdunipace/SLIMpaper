@@ -75,6 +75,32 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// rmvnorm
+NumericMatrix rmvnorm(int nsamples, const NumericVector& mean, const NumericMatrix& covariance);
+RcppExport SEXP _CoarsePosteriorSummary_rmvnorm(SEXP nsamplesSEXP, SEXP meanSEXP, SEXP covarianceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type nsamples(nsamplesSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type mean(meanSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type covariance(covarianceSEXP);
+    rcpp_result_gen = Rcpp::wrap(rmvnorm(nsamples, mean, covariance));
+    return rcpp_result_gen;
+END_RCPP
+}
+// dmvnorm
+NumericVector dmvnorm(const NumericMatrix& x, const NumericVector& mean, const NumericMatrix& covariance);
+RcppExport SEXP _CoarsePosteriorSummary_dmvnorm(SEXP xSEXP, SEXP meanSEXP, SEXP covarianceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type mean(meanSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type covariance(covarianceSEXP);
+    rcpp_result_gen = Rcpp::wrap(dmvnorm(x, mean, covariance));
+    return rcpp_result_gen;
+END_RCPP
+}
 // mse_C
 double mse_C(vector& mu, matrix& est);
 RcppExport SEXP _CoarsePosteriorSummary_mse_C(SEXP muSEXP, SEXP estSEXP) {
@@ -141,6 +167,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_CoarsePosteriorSummary_W2_idx", (DL_FUNC) &_CoarsePosteriorSummary_W2_idx, 6},
     {"_CoarsePosteriorSummary_bayesConjRegNormal", (DL_FUNC) &_CoarsePosteriorSummary_bayesConjRegNormal, 4},
     {"_CoarsePosteriorSummary_distance", (DL_FUNC) &_CoarsePosteriorSummary_distance, 2},
+    {"_CoarsePosteriorSummary_rmvnorm", (DL_FUNC) &_CoarsePosteriorSummary_rmvnorm, 3},
+    {"_CoarsePosteriorSummary_dmvnorm", (DL_FUNC) &_CoarsePosteriorSummary_dmvnorm, 3},
     {"_CoarsePosteriorSummary_mse_C", (DL_FUNC) &_CoarsePosteriorSummary_mse_C, 2},
     {"_CoarsePosteriorSummary_mse_idx_dist", (DL_FUNC) &_CoarsePosteriorSummary_mse_idx_dist, 6},
     {"_CoarsePosteriorSummary_mse_idx_expect", (DL_FUNC) &_CoarsePosteriorSummary_mse_idx_expect, 6},
