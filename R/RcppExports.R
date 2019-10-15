@@ -21,6 +21,14 @@ distance <- function(A_, B_) {
     .Call(`_CoarsePosteriorSummary_distance`, A_, B_)
 }
 
+rmvnorm <- function(nsamples, mean, covariance) {
+    .Call(`_CoarsePosteriorSummary_rmvnorm`, nsamples, mean, covariance)
+}
+
+dmvnorm <- function(x, mean, covariance) {
+    .Call(`_CoarsePosteriorSummary_dmvnorm`, x, mean, covariance)
+}
+
 mse_C <- function(mu, est) {
     .Call(`_CoarsePosteriorSummary_mse_C`, mu, est)
 }
