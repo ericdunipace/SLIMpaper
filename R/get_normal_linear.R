@@ -93,7 +93,7 @@ get_normal_linear_model <- function() {
       if ( !("Lambda" %in% names(hyperparameters) ) ) {
         hyperparameters$Lambda <- solve(hyperparameters$sigma)
       }
-
+      if(dim(hyperparameters$Lambda)[2] != ncol(x)) stop("dimensions of priors must equal ncol of x")
       conjFit <- bayesConjRegNormal(n.samp, hyperparameters,
                               y, x)
       theta <- t(conjFit$theta)
