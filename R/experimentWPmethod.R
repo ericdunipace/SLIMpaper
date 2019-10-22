@@ -31,6 +31,13 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   # SAiter <- 1
   # SAtemps <- 1
 
+  #IP sequence
+  if( p < 200 ) {
+    ip_seq <- 1:p
+  } else {
+    ip_seq <- sa_seq
+  }
+
   # SETUP PARAMETERS
   param <- target$rparam()
   p_star <- min(length(param$theta),p)
@@ -110,6 +117,17 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   cat(paste0("\nRunning methods, same data: ", date()))
 
   #### In sample ####
+  #IP
+  time <- proc.time()
+  ip <- W2IP(X = X, Y = cond_eta, theta = t_theta,
+                   display.progress=FALSE,
+                   transport.method = transport.method,
+                   model.size = ip_seq,
+                   infimum.maxit = 100, solution.method = "cone",
+                   parallel = NULL)
+  ipTime <- proc.time() - time
+  # trajSel <- selDist$theta
+
   #selection variable
   time <- proc.time()
   lassoSel <- W2L1(X, cond_eta, t_theta, family="gaussian", penalty="selection.lasso",
@@ -189,7 +207,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   }
 
   if (not.only.timing) {
-    inSampModels <- list("Selection" = lassoSel,
+    inSampModels <- list("I.P." = ip,
+                         "Selection" = lassoSel,
                          "Simulated Annealing" = anneal,
                          "Stepwise" = step,
                          "Projection" = lassoProj,
@@ -198,7 +217,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     if( calc_w2_post){
       W2_insamp <- distCompare(inSampModels, target = list(posterior = theta,
                                                            mean = cond_mu),
-                               method = "sinkhorn",
+                               method = "exact",
                                quantity=c("posterior","mean"),
                                parallel=FALSE,
                                transform = data$invlink)
@@ -212,7 +231,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     else {
       W2_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
                                                            mean = cond_mu),
-                               method = "sinkhorn",
+                               method = "exact",
                                quantity=c("mean"),
                                parallel=FALSE,
                                transform = data$invlink)
@@ -225,7 +244,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     }
 
     rm(inSampModels)
-    rm("lassoSel", "anneal","step","lassoProj","lassoHC")
+    rm("ip","lassoSel", "anneal","step","lassoProj","lassoHC")
 
     #### new X variable ####
     #mse on new outcome data from same paramters and different X
@@ -233,6 +252,13 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     # augDatN <- augPseudo(X_new, cond_mu_new, t_theta, theta_norm, pseudo.obs, n, same=TRUE)
     # lambdas <- calc.lambdas(augDatN, lambda.min.ratio, penalty_fact, n.lambda)
     cat(paste0("\nRunning methods, new X variable: ", date()))
+    ipN <- W2IP(X = X_new, Y = cond_eta_new, theta = t_theta,
+                display.progress=FALSE,
+                transport.method = transport.method,
+                model.size = ip_seq,
+                infimum.maxit = 100, solution.method = "cone",
+                parallel = NULL)
+
     lassoSelN <- W2L1(X_new, cond_eta_new, t_theta, family="gaussian",
                       penalty="selection.lasso",
                       penalty.factor=penalty_fact, nlambda = n.lambda,
@@ -294,7 +320,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     cat("\n")
     # }
     # trajAnnealN <- annealCoef(annealN, t_theta)
-    newXModels <- list("Selection" = lassoSelN,
+    newXModels <- list("I.P." = ipN,
+                       "Selection" = lassoSelN,
                        "Simulated Annealing" = annealN,
                        "Stepwise" = stepN,
                        "Projection" = lassoProjN,
@@ -304,7 +331,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     if( calc_w2_post){
       W2_newX <- distCompare(newXModels, target = list(posterior = theta,
                                                        mean = cond_mu_new),
-                             method = "sinkhorn",
+                             method = "exact",
                              quantity=c("posterior","mean"),
                              parallel=FALSE,
                              transform = data$invlink)
@@ -318,7 +345,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     else {
       W2_newX <- distCompare(newXModels, target = list(posterior = NULL,
                                                        mean = cond_mu_new),
-                             method = "sinkhorn",
+                             method = "exact",
                              quantity=c("mean"),
                              parallel=FALSE,
                              transform = data$invlink)
@@ -332,13 +359,20 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
 
 
     rm(newXModels)
-    rm("lassoSelN", "annealN","stepN","lassoProjN","lassoHCN")
+    rm("ipN","lassoSelN", "annealN","stepN","lassoProjN","lassoHCN")
 
 
     #new method, single datapoint
     # augDatO <- augPseudo(X_sing, cond_mu_sing, t_theta, theta_norm, pseudo.obs, n, same=TRUE)
     # lambdas <- calc.lambdas(augDatO, lambda.min.ratio, penalty_fact, n.lambda)
     cat(paste0("\nRunning methods, single data point: ", date()))
+    ipO <- W2IP(X = X_sing, Y = cond_eta_sing, theta = t_theta,
+               display.progress=FALSE,
+               transport.method = transport.method,
+               model.size = ip_seq,
+               infimum.maxit = 100, solution.method = "cone",
+               parallel = NULL)
+
     lassoSelO <- W2L1(X_sing, cond_eta_sing, t_theta, family="gaussian", penalty="selection.lasso",
                       penalty.factor=penalty_fact, nlambda = n.lambda,
                       lambda.min.ratio = lambda.min.ratio, infimum.maxit=10000,
@@ -397,7 +431,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     cat(annealO$message)
     cat("\n")
     # }
-    singleModels <- list("Selection" = lassoSelO,
+    singleModels <- list("I.P." = ipO,
+                         "Selection" = lassoSelO,
                          "Simulated Annealing" = annealO,
                          "Stepwise" = stepO#,
                          # "Projection" = lassoProjO,
@@ -408,7 +443,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     if( calc_w2_post){
       W2_single <- distCompare(singleModels, target = list(posterior = theta,
                                                            mean = cond_mu_sing),
-                               method = "sinkhorn",
+                               method = "exact",
                                quantity=c("posterior","mean"),
                                parallel=FALSE,
                                transform = data$invlink)
@@ -423,7 +458,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
 
       W2_single <- distCompare(singleModels, target = list(posterior = NULL,
                                                            mean = cond_mu_sing),
-                               method = "sinkhorn",
+                               method = "exact",
                                quantity=c("mean"),
                                parallel=FALSE,
                                transform = data$invlink)
@@ -436,7 +471,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     }
 
     rm(singleModels)
-    rm("lassoSelO", "annealO","stepO")
+    rm("ipO", "lassoSelO", "annealO","stepO")
     # trajAnnealO <- annealCoef(annealO, t_theta)
 
     # list of models
@@ -612,7 +647,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     #                perm_E = newX_msePermE, hc=newX_mseHC, step = newX_mseStep),
     # singleNewMu = list(sel = singleMu_mseSel, dist_E = singleMu_mseSelE, perm = singleMu_msePerm,
     # perm_E = singleMu_msePermE, hc=singleMu_mseHC, step = singleMu_mseStep),
-    time = list(selection = selTime[3], projection = projTime[3], HC = hcTime[3],
+    time = list(ip = ipTime[3], selection = selTime[3],
+                projection = projTime[3], HC = hcTime[3],
                 step = stepTime[3], anneal = annealTime[3])#,
     # W2_dist_post = list(sel = postW2_Sel, perm = postW2_Perm,
     #                     step = postW2_Step, anneal = postW2_Anneal,
