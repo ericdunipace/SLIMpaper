@@ -325,7 +325,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                        "Simulated Annealing" = annealN,
                        "Stepwise" = stepN,
                        "Projection" = lassoProjN,
-                       "H.C." = lassoHCN)
+                       "Hahn-Carvalho" = lassoHCN)
 
     cat("\nCalculating distances")
     if( calc_w2_post){
@@ -436,7 +436,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                          "Simulated Annealing" = annealO,
                          "Stepwise" = stepO#,
                          # "Projection" = lassoProjO,
-                         # "H.C." = lassoHCO
+                         # "Hahn-Carvalho" = lassoHCO
     )
 
     cat("\nCalculating distances")
@@ -479,17 +479,17 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     #                      "Simulated Annealing" = anneal,
     #                      "Stepwise" = step,
     #                      "Projection" = lassoProj,
-    #                      "H.C." = lassoHC)
+    #                      "Hahn-Carvalho" = lassoHC)
     # newXModels <- list("Selection" = lassoSelN,
     #                    "Simulated Annealing" = annealN,
     #                    "Stepwise" = stepN,
     #                    "Projection" = lassoProjN,
-    #                    "H.C." = lassoHCN)
+    #                    "Hahn-Carvalho" = lassoHCN)
     # singleModels <- list("Selection" = lassoSelO,
     #                      "Simulated Annealing" = annealO,
     #                      "Stepwise" = stepO#,
     #                      # "Projection" = lassoProjO,
-    #                      # "H.C." = lassoHCO
+    #                      # "Hahn-Carvalho" = lassoHCO
     # )
     #
     # #w2 from "true" posterior mean
