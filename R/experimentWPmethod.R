@@ -207,12 +207,12 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   }
 
   if (not.only.timing) {
-    inSampModels <- list("I.P." = ip,
+    inSampModels <- list("Binary Programming" = ip,
                          "Selection" = lassoSel,
                          "Simulated Annealing" = anneal,
                          "Stepwise" = step,
                          "Projection" = lassoProj,
-                         "H.C." = lassoHC)
+                         "Hahn-Carvalho" = lassoHC)
     cat("\nCalculating distances")
     if( calc_w2_post){
       W2_insamp <- distCompare(inSampModels, target = list(posterior = theta,
@@ -320,7 +320,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     cat("\n")
     # }
     # trajAnnealN <- annealCoef(annealN, t_theta)
-    newXModels <- list("I.P." = ipN,
+    newXModels <- list("Binary Programming" = ipN,
                        "Selection" = lassoSelN,
                        "Simulated Annealing" = annealN,
                        "Stepwise" = stepN,
@@ -431,7 +431,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     cat(annealO$message)
     cat("\n")
     # }
-    singleModels <- list("I.P." = ipO,
+    singleModels <- list("Binary Programming" = ipO,
                          "Selection" = lassoSelO,
                          "Simulated Annealing" = annealO,
                          "Stepwise" = stepO#,
