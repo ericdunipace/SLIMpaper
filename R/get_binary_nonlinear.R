@@ -62,7 +62,7 @@ get_binary_nonlinear_model <- function() {
   }
   cart <- function(x) {
     require(rpart)
-    require(dbarts)
+    # require(dbarts)
     temp_eta <- modified_friedman(x)
     # theta <- rnorm(5)
     # temp_eta <- apply(x[,1:5],2,gp) %*% abs(theta)/sum(abs(theta))
@@ -72,7 +72,7 @@ get_binary_nonlinear_model <- function() {
     df <- data.frame(y = temp_y, x1=x[,1], x2=x[,2], x3 = x[,3], x4 = x[,4], x5=x[,5])
     # rpcntrl <- rpart.control(minsplit=10, minbucket=5, cp=0.008)
     # cartFit <- rpart(y ~ x1 + x2 + x3 + x4 + x5, method="class", data=df, control=rpcntrl)
-    cartFit <- bart(x,temp_y)
+    cartFit <- dbarts::bart(x,temp_y)
     phi <- cartFit$yhat.train
     prob <- apply(pnorm(phi),2,median)
     eta <- qlogis(prob)
@@ -272,7 +272,7 @@ get_binary_nonlinear_model <- function() {
 
     }
     else if (dots$method == "bart") {
-      require(dbarts)
+      # require(dbarts)
       if(all(x[,1] == 1)) x <- x[,-1]
 
       nskip <- dots[["nskip"]]
@@ -302,7 +302,7 @@ get_binary_nonlinear_model <- function() {
 
       ndpost <- n.samp * keepevery / chains
 
-      bartFit <- bart(x.train = x, y.train = y, ndpost = ndpost, nskip = nskip,
+      bartFit <- dbarts::bart(x.train = x, y.train = y, ndpost = ndpost, nskip = nskip,
                       k = k, base=base, power=power,
                       numcut = numcut, ntree=ntree, keepevery = keepevery,
                       printevery = n.samp*keepevery/10, keeptrees=FALSE, x.test = X.test,
@@ -319,7 +319,7 @@ get_binary_nonlinear_model <- function() {
 
     }
     else if (dots$method == "logistic"){
-      require(rstan)
+      # require(rstan)
 
       if (all(x[,1]==1)) x <- x[,-1]
 
@@ -355,13 +355,13 @@ get_binary_nonlinear_model <- function() {
       warmup <- nsamp
       iter <- ceiling(n.samp/chains) + warmup
 
-      stanModel <- stan_model(stan_dir)
-      stanFit <- sampling(stanModel, data = stan_dat, iter = iter,
+      stanModel <- rstan::stan_model(stan_dir)
+      stanFit <- rstan::sampling(stanModel, data = stan_dat, iter = iter,
                           warmup = warmup, chains = chains, pars = c("eta","theta","prob", "beta", "intercept"))
-      samples <- extract(stanFit, pars= c("eta","theta","prob"))
+      samples <- rstan::extract(stanFit, pars= c("eta","theta","prob"))
       eta <- samples$eta
       mu <- samples$prob
-      theta <- samples$theta
+      theta <- t(samples$theta)
       model <- stanFit
       if(!is.null(X.test)){
         test$eta <- tcrossprod(X.test, samples$theta)
@@ -422,22 +422,22 @@ get_binary_nonlinear_model <- function() {
                        m0 = m0,
                        scale_intercept = scale_intercept)
 
-      stanModel <- stan_model(stan_dir)
-      stanFit <- vb(stanModel, data=stan_dat, algorithm=algorithm, iter=iter,
+      stanModel <- rstan::stan_model(stan_dir)
+      stanFit <- rstan::vb(stanModel, data=stan_dat, algorithm=algorithm, iter=iter,
                     grad_samples=grad_samples, eval_elbo=eval_elbo, eta=eta,
                     adapt_engaged=adapt_engaged, init=init, tol_rel_obj = tol,
                     output_samples = n.samp, pars=c("eta","prob","theta"))
-      samples <- extract(stanFit, pars=c("eta","prob","theta"))
+      samples <- rstan::extract(stanFit, pars=c("eta","prob","theta"))
       eta <- samples$eta
       mu <- samples$prob
-      theta <- samples$theta
+      theta <- t(samples$theta)
       model <- stanFit
       # test$eta <- tcrossprod(X.test, samples$theta)
       # test$mu <- plogis(test$eta)
 
     }
     else if (dots$method == "gamm") {
-      require(rstanarm)
+      # require(rstanarm)
       if(all(x[,1] == 1)) x <- x[,-1]
       p <- ncol(x)
       n <- nrow(x)
@@ -457,19 +457,19 @@ get_binary_nonlinear_model <- function() {
       for(i in 1:p) stan_dat[[namesX[i]]] <- x[,i]
       form <- as.formula(paste("Y ~ ", paste0("s(",namesX,")" , collapse= " + ")))
 
-      stanFit <- stan_gamm4(form, data = stan_dat, family = binomial(),
+      stanFit <- rstanarm::stan_gamm4(form, data = stan_dat, family = binomial(),
                  chains = chains, iter = iter, algorithm="sampling",
                  warmup = warmup, prior = prior )
-      eta <- posterior_linpred(stanFit)
+      eta <- rstanarm::posterior_linpred(stanFit)
       if(nrow(eta) > n.samp) eta <- eta[1:n.samp,]
       mu <- plogis(eta)
       params <- as.matrix(stanFit$stanfit)
-      theta <- params[,seq_len(ncol(stanFit$x))]
+      theta <- t(params[,seq_len(ncol(stanFit$x))])
       model <- stanFit
       if(!is.null(X.test)){
         if(all(X.test[,1]==1)) X.test <- X.test[,-1]
         X.test.lp <- mgcv::predict.gam(stanFit$jam, newdata=data.frame(X.test), type="lpmatrix")
-        test$eta <- tcrossprod(X.test.lp, theta)
+        test$eta <- X.test.lp %*% theta
         test$mu <- plogis(test$eta)
       }
     }

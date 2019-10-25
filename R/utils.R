@@ -4,16 +4,49 @@ augPseudo <- function(X, mu, theta, theta_norm, pseudo.obs, n, same=TRUE) {
   augDat$XtY <- n/(n + pseudo.obs) * augDat$XtY + theta_norm * pseudo.obs/(n + pseudo.obs)
   return(augDat)
 }
+colSD <- function(x){
+  sds <- rep(NA, ncol(x))
+  for(i in 1:ncol(x)){
+    sds[i] <- sd(x[,i], na.rm=TRUE)
+  }
+  return(sds)
+}
 
-set_penalty_factor <- function(x, method){
+rowSD <- function(x){
+  sds <- rep(NA, nrow(x))
+  for(i in 1:nrow(x)){
+    sds[i] <- sd(x[i,], na.rm=TRUE)
+  }
+  return(sds)
+}
+
+xtx_theta <- function(x,theta) {
+  xt <- t(x)
+  denom <- nrow(x) * ncol(theta)
+  xtx <- matrix(0, nrow = nrow(theta), ncol=nrow(theta))
+  for(i in 1:ncol(theta)) {
+    xtx <- xtx + tcrossprod(xt * theta[,i])/denom
+  }
+  return(xtx)
+}
+
+xty_theta <- function(x, theta, y, transport.method) {
+  sufficientStatistics(X_ = x, Y_ = y, theta_ = theta, same = FALSE, method = "selection.variable",
+                       transport_method = transport.method)$XtY
+}
+
+set_penalty_factor <- function(theta, method, intercept = TRUE, ...){
+  dots <- list(...)
   distances <- switch(method,
-                      expectation = abs(colMeans(x)),
-                      distance = sqrt(apply(x,2,crossprod)),
-                      none = rep(1, ncol(x)),
-                      wt_expect = abs(colMeans(x)/colSD(x))
+                      expectation = abs(rowMeans(theta)),
+                      distance = sqrt(apply(theta,1,crossprod)),
+                      none = rep(1, nrow(theta)),
+                      wt_expect = abs(rowMeans(theta)/rowSD(theta)),
+                      var = diag(xtx_theta(dots$x, theta)),
+                      covar = abs(xty_theta(dots$x, theta, dots$y, dots$transport.method))
   )
   penalties <- 1/distances
-  penalties[1] <- 0
+  if(intercept) penalties[1] <- 0
   return(penalties)
 }
 

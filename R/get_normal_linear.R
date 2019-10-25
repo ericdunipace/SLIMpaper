@@ -96,12 +96,12 @@ get_normal_linear_model <- function() {
       if(dim(hyperparameters$Lambda)[2] != ncol(x)) stop("dimensions of priors must equal ncol of x")
       conjFit <- bayesConjRegNormal(n.samp, hyperparameters,
                               y, x)
-      theta <- t(conjFit$theta)
+      theta <- conjFit$theta
       sigma <- conjFit$sigma
       model <- "conjugate"
-      eta <- mu <- tcrossprod(x , theta)
+      eta <- mu <- x %*% theta
       if(!is.null(X.test)){
-        testEta <- testMu <- tcrossprod(X.test, theta)
+        testEta <- testMu <- X.test %*% theta
         test <- list(eta = testEta, mu = testMu)
       }
 
@@ -144,11 +144,11 @@ get_normal_linear_model <- function() {
                           warmup = n.samp*7/4, chains=chains, pars = c("y_hat","theta","sigma"))
       samples <- extract(stanFit, pars= c("y_hat","theta","sigma"))
       eta <- mu <- samples$y_hat
-      theta <- (samples$theta)
+      theta <- t(samples$theta)
       sigma <- (samples$sigma^2)
       model <- stanFit
       if(!is.null(X.test)){
-        testEta <- testMu <- tcrossprod(X.test, theta)
+        testEta <- testMu <- X.test %*% theta
         test <- list(eta = testEta, mu = testMu)
       }
     } else {

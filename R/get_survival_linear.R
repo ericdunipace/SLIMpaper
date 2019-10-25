@@ -206,22 +206,22 @@ get_survival_linear_model <- function() {
       alpha_samp <- samples$alpha[, adjust_remove.idx, ]
 
       if(nchain > 1) {
-        theta <- matrix(NA, nrow=final_nsamp, ncol = dim(theta_samp)[1])
-        alpha <- matrix(NA, nrow=final_nsamp, ncol = dim(alpha_samp)[1])
+        theta <- matrix(NA, ncol=final_nsamp, nrow = dim(theta_samp)[1])
+        alpha <- matrix(NA, ncol=final_nsamp, nrow = dim(alpha_samp)[1])
         for(i in 1:nchain){
           get_rows <- (i-1)*nsamp_portion + (1:nsamp_portion)
-          theta[get_rows,] <- t(theta_samp[,,i])
-          alpha[get_rows,] <- t(alpha_samp[,,i])
+          theta[,get_rows] <- theta_samp[,,i]
+          alpha[,get_rows] <- alpha_samp[,,i]
         }
       } else {
-        theta <- t(theta_samp)
-        alpha <- t(alpha_samp)
+        theta <- theta_samp
+        alpha <- alpha_samp
       }
 
-      eta <- tcrossprod(cbind(1,x), theta)
+      eta <- cbind(1,x) %*% theta
       if(!is.null(X.test)){
         if(all(X.test[,1]==1) || all(X.test[,1]==0)) X.test <- cbind(1,X.test)
-        test$eta <- tcrossprod(X.test, theta)
+        test$eta <- X.test %*% theta
       }
     } else if(method == "jags") {
       mu_vec <- rep(mu_0, ncol(x))
@@ -264,26 +264,26 @@ get_survival_linear_model <- function() {
       # alpha_samp <- samples$alpha[, adjust_remove.idx, ]
 
       if(nchain > 1) {
-        theta <- matrix(NA, nrow=nsamp, ncol = dim(theta_samp)[1])
+        theta <- matrix(NA, ncol=nsamp, nrow = dim(theta_samp)[1])
         # alpha <- matrix(NA, nrow=final_nsamp, ncol = dim(alpha_samp)[1])
         for(i in 1:nchain){
           get_rows <- (i-1)*nsamp_portion + (1:nsamp_portion)
-          theta[get_rows,] <- t(theta_samp[,,i])
+          theta[,get_rows] <- theta_samp[,,i]
           # alpha[get_rows,] <- t(alpha_samp[,,i])
         }
       } else {
-        theta <- t(theta_samp)
+        theta <- theta_samp
         # alpha <- t(alpha_samp)
       }
-      if(ncol(theta) == (ncol(x) + 1)){
+      if(nrow(theta) == (ncol(x) + 1)){
         X.prod <- cbind(1,x)
       } else{
         X.prod <- x
       }
-      eta <- tcrossprod(X.prod, theta)
+      eta <- X.prod %*% theta
       if(!is.null(X.test)){
         if(ncol(theta) == (ncol(X.test) + 1)) X.test <- cbind(1,X.test)
-        test$eta <- tcrossprod(X.test, theta)
+        test$eta <- X.test %*% theta
       }
     } else if (method == "bvs-cox") {
       # require(BVSNLP)
