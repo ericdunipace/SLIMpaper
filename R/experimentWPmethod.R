@@ -8,6 +8,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   n.lambda <- conditions$n.lambda
   penalty_method <- conditions$penalty.factor
   family <- conditions$family
+  epsilon <- 0.05
+  otmaxit <- 100
   # pseudo.obs <- conditions$pseudo.obs
   stan_dir <- conditions$stan_dir
   calc_w2_post <- conditions$calc_w2_post
@@ -19,6 +21,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   if(is.null(transport.method)) transport.method <- "sinkhorn" #"univariate.approximation.pwr"
   not.only.timing <- conditions$not.only.timing
   if(is.null(not.only.timing)) not.only.timing <- FALSE
+  L0 <- conditions$L0
+  if(is.null(L0)) L0 <- FALSE
 
   sa_seq <- sort(unique(c(2,5,floor(seq(ceiling(p/5),p,floor(p/5))))))
   sa_max_time <- 64800
@@ -116,10 +120,45 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   proj_penalty_fact <- set_penalty_factor(theta = theta, "distance", intercept = TRUE)
   HC_penalty_fact <- set_penalty_factor(theta = theta, "expectation", intercept = TRUE)
 
-  #optional Wasserstein
-  # if(w2){
-  #   w2s <- w2l0(X,theta)
-  # }
+  #optional L0
+  if(L0){
+    L0list <- list(Selection = NULL,
+                   Projection = NULL)
+    L0list$Selection <- WPl0(X = X, Y = cond_eta, theta = theta,
+                p = 2, ground_p = 2, method = "selection.variable",
+                transport.method = transport.method, epsilon = epsilon,
+                niter = otmaxit)
+    L0list$Projection <- WPl0(X = X, Y = cond_eta, theta = theta,
+                   p = 2, ground_p = 2, method = "projection",
+                   transport.method = transport.method, epsilon = epsilon,
+                   niter = otmaxit)
+
+    W2L0 <- distCompare(L0list,
+                            target = list(posterior = NULL,
+                                          mean = cond_mu),
+                            method = wp_alg,
+                            quantity=c("mean"),
+                            parallel=FALSE,
+                            transform = data$invlink)
+    mseL0 <- distCompare(L0list,
+                            target = list(posterior = NULL,
+                                          mean = true_mu),
+                            method = "mse",
+                            quantity="mean",
+                            parallel=FALSE,
+                            transform = data$invlink)
+
+    rm(L0list)
+
+    outList <- list (
+      W2_dist = W2L0,
+      mse = mseL0,
+      time = NULL,
+      order = list(selection = L0.sel$minCombPerActive,
+                   projection = L0.proj$minCombPerActive)
+    )
+    return(outList)
+  }
 
   # augDat <- augPseudo(X, cond_eta, theta, theta_norm, pseudo.obs, n, same=TRUE)
   # lambdas <- calc.lambdas(augDat, lambda.min.ratio, penalty_fact, n.lambda)
