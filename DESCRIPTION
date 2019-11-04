@@ -21,7 +21,6 @@ Imports:
   rstan,
   rstanarm,
   rjags,
-  INLA,
   survival
 LinkingTo: 
   Rcpp (>= 1.0.0), 
@@ -30,4 +29,5 @@ Depends:
   SparsePosterior
 Suggests: 
   xtable, 
-  survival
+  survival,
+  INLA
