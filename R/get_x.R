@@ -3,7 +3,7 @@ gen_x <- function() {
   rX <- function(n, corr, p, ...) {
     p <- p-1 # leave room for intercept
     x_cov <- corr_mat_construct(corr, p)
-    X <- cbind(1,mvtnorm::rmvnorm(n, rep(0,p), x_cov))
+    X <- cbind(1, CoarsePosteriorSummary::rmvnorm(n, rep(0,p), x_cov))
     return(X)
   }
 
