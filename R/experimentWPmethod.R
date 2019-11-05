@@ -123,7 +123,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
 
   #optional L0
   if(L0){
-    cat(paste0("\nRunning L0 methods only, same data: ", date()))
+    cat(paste0("Running L0 methods only, same data: ", date(), "\n"))
     L0list <- list(Selection = NULL,
                    Projection = NULL)
     L0list$Selection <- WPL0(X = X, Y = cond_eta, theta = theta,
@@ -135,6 +135,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                    transport.method = transport.method, epsilon = epsilon,
                    maxit = otmaxit)
 
+    cat("L0 Distance Calculations\n")
     W2L0 <- distCompare(L0list,
                             target = list(posterior = NULL,
                                           mean = cond_mu),
@@ -162,7 +163,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
 
   # augDat <- augPseudo(X, cond_eta, theta, theta_norm, pseudo.obs, n, same=TRUE)
   # lambdas <- calc.lambdas(augDat, lambda.min.ratio, penalty_fact, n.lambda)
-  cat(paste0("\nRunning methods, same data: ", date()))
+  cat(paste0("Running methods, same data: ", date(),"\n"))
 
   #### In sample ####
   #IP
@@ -261,7 +262,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                          "Stepwise" = step,
                          "Projection" = lassoProj,
                          "Hahn-Carvalho" = lassoHC)
-    cat("\nCalculating distances")
+    cat("Calculating distances\n")
     if( calc_w2_post){
       W2_insamp <- distCompare(inSampModels, target = list(posterior = theta,
                                                            mean = cond_mu),
@@ -299,7 +300,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     #new method
     # augDatN <- augPseudo(X_new, cond_mu_new, theta, theta_norm, pseudo.obs, n, same=TRUE)
     # lambdas <- calc.lambdas(augDatN, lambda.min.ratio, penalty_fact, n.lambda)
-    cat(paste0("\nRunning methods, new X variable: ", date()))
+    cat(paste0("Running methods, new X variable: ", date(),"\n"))
     ipN <- W2IP(X = X_new, Y = cond_eta_new, theta = theta,
                 display.progress=FALSE,
                 transport.method = transport.method,
@@ -375,7 +376,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                        "Projection" = lassoProjN,
                        "Hahn-Carvalho" = lassoHCN)
 
-    cat("\nCalculating distances")
+    cat("Calculating distances\n")
     if( calc_w2_post){
       W2_newX <- distCompare(newXModels, target = list(posterior = theta,
                                                        mean = cond_mu_new),
@@ -413,7 +414,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     #new method, single datapoint
     # augDatO <- augPseudo(X_sing, cond_mu_sing, theta, theta_norm, pseudo.obs, n, same=TRUE)
     # lambdas <- calc.lambdas(augDatO, lambda.min.ratio, penalty_fact, n.lambda)
-    cat(paste0("\nRunning methods, single data point: ", date()))
+    cat(paste0("Running methods, single data point: ", date(),"\n"))
     ipO <- W2IP(X = X_sing, Y = cond_eta_sing, theta = theta,
                display.progress=FALSE,
                transport.method = transport.method,
@@ -487,7 +488,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                          # "Hahn-Carvalho" = lassoHCO
     )
 
-    cat("\nCalculating distances")
+    cat("Calculating distances\n")
     if( calc_w2_post){
       W2_single <- distCompare(singleModels, target = list(posterior = theta,
                                                            mean = cond_mu_sing),
