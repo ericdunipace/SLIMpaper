@@ -122,16 +122,17 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
 
   #optional L0
   if(L0){
+    cat(paste0("\nRunning L0 methods only, same data: ", date()))
     L0list <- list(Selection = NULL,
                    Projection = NULL)
-    L0list$Selection <- WPl0(X = X, Y = cond_eta, theta = theta,
+    L0list$Selection <- WPL0(X = X, Y = cond_eta, theta = theta,
                 p = 2, ground_p = 2, method = "selection.variable",
                 transport.method = transport.method, epsilon = epsilon,
-                niter = otmaxit)
-    L0list$Projection <- WPl0(X = X, Y = cond_eta, theta = theta,
+                maxit = otmaxit)
+    L0list$Projection <- WPL0(X = X, Y = cond_eta, theta = theta,
                    p = 2, ground_p = 2, method = "projection",
                    transport.method = transport.method, epsilon = epsilon,
-                   niter = otmaxit)
+                   maxit = otmaxit)
 
     W2L0 <- distCompare(L0list,
                             target = list(posterior = NULL,
