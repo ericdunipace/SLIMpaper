@@ -43,7 +43,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   }
 
   #w2 dist param
-  wp_alg <- "sinkhorn"
+  wp_alg <- conditions$wp_alg
+  if(is.null(wp_alg)) wp_alg <- "gandkhorn"
 
   # SETUP PARAMETERS
   param <- target$rparam()
@@ -149,14 +150,12 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                             parallel=FALSE,
                             transform = data$invlink)
 
-    rm(L0list)
-
     outList <- list (
       W2_dist = W2L0,
       mse = mseL0,
       time = NULL,
-      order = list(selection = L0.sel$minCombPerActive,
-                   projection = L0.proj$minCombPerActive)
+      order = list(selection = L0list$Selection$minCombPerActive,
+                   projection = L0list$Projection$minCombPerActive)
     )
     return(outList)
   }
