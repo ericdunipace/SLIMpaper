@@ -30,7 +30,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   # FSAiter <- 10*1:ceiling(p/2)
   # RSAiter <- if( p %% 2) { rev(FSAiter)[-1] } else { rev(FSAiter) }
   # SAiter <- c(FSAiter, RSAiter)
-  SAiter <- 10*ceiling(p/2)
+  SAiter <- 10 * ceiling(p/2)
   SAtemps <- 50
   # SAiter <- 1
   # SAtemps <- 1
@@ -141,14 +141,14 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                           mean = cond_mu),
                             method = wp_alg,
                             quantity=c("mean"),
-                            parallel=FALSE,
+                            parallel=NULL,
                             transform = data$invlink)
     mseL0 <- distCompare(L0list,
                             target = list(posterior = NULL,
                                           mean = true_mu),
                             method = "mse",
                             quantity="mean",
-                            parallel=FALSE,
+                            parallel=NULL,
                             transform = data$invlink)
 
     outList <- list (
@@ -189,32 +189,13 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   selTime <- proc.time() - time
   # trajSel <- selDist$theta
 
-  #projection
-  time <- proc.time()
-  lassoProj <- W2L1(X, cond_eta, theta, family="gaussian", penalty=penalty,
-                    penalty.factor=proj_penalty_fact, nlambda = n.lambda,
-                    lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
-                    maxit = 1e6,
-                    display.progress=FALSE,
-                    transport.method = transport.method,
-                    gamma = 1, method = "projection")
-  projTime <- proc.time() - time
-  # trajProj <- projDist$theta
-
-
   #carvalho method
   time <- proc.time()
   lassoHC <- HC(X, marg_eta, theta = theta,
-                family=family, penalty=penalty,
+                family=family, penalty=penalty, method = "selection.variable",
                 penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                 lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
   hcTime <- proc.time() - time
-  # trajHC <- lassoHC$theta
-
-  # trajHCdist <- list(coefs = NULL, nzero = trajHC$nzero)
-  # trajHCdist$coefs<- matrix(0, nrow=p, ncol = length(trajHC$nzero))
-  # HC_non_zero_idx <- which(trajHC$coefs != 0)
-  # trajHCdist$coefs[HC_non_zero_idx] <- 1
 
   #stepwise
   time <- proc.time()
@@ -248,6 +229,50 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                 proposal.method = sa_prop),
                  display.progress=FALSE, max.time = sa_max_time)
   annealTime <- proc.time() - time
+
+
+  #projection
+  time <- proc.time()
+  lassoProj <- W2L1(X, cond_eta, theta, family="gaussian", penalty=penalty,
+                    penalty.factor=proj_penalty_fact, nlambda = n.lambda,
+                    lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
+                    maxit = 1e6,
+                    display.progress=FALSE,
+                    transport.method = transport.method,
+                    gamma = 1, method = "projection")
+  projTime <- proc.time() - time
+  # trajProj <- projDist$theta
+
+  time <- proc.time()
+  PlassoHC <- HC(X, marg_eta, theta = theta,
+                family=family, penalty=penalty, method = "projection",
+                penalty.factor=HC_penalty_fact, nlambda = n.lambda,
+                lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
+  PhcTime <- proc.time() - time
+
+  #stepwise
+  time <- proc.time()
+  Pstep <- WPSW(X, Y = cond_eta, theta, force=1, p=2,
+               direction = "backward", method = "projection",
+               transport.method = transport.method,
+               display.progress = FALSE)
+  PstepTime <- proc.time() - time
+  # trajStep <- step$theta
+
+  #simulated annealing
+  annealTime <- NULL
+
+  time <- proc.time()
+  Panneal <- WPSA(X=X, Y=cond_eta, theta=theta,
+                 force = 1, p=2, model.size = sa_seq, iter = SAiter, temps = SAtemps,
+                 options = list(method = "projection",
+                                energy.distribution = "boltzman",
+                                transport.method = transport.method,
+                                cooling.schedule="exponential",
+                                proposal.method = sa_prop),
+                 display.progress=FALSE, max.time = sa_max_time)
+  PannealTime <- proc.time() - time
+
   # }
   # trajAnneal <- anneal$theta
   cat(anneal$message)
@@ -268,13 +293,13 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                                            mean = cond_mu),
                                method = ,
                                quantity=c("posterior","mean"),
-                               parallel=FALSE,
+                               parallel=NULL,
                                transform = data$invlink)
       mse_insamp <- distCompare(inSampModels, target = list(posterior = full_param,
                                                             mean = true_mu),
                                 method = "mse",
                                 quantity=c("posterior","mean"),
-                                parallel=FALSE,
+                                parallel=NULL,
                                 transform = data$invlink)
     }
     else {
@@ -282,13 +307,13 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                                            mean = cond_mu),
                                method = wp_alg,
                                quantity=c("mean"),
-                               parallel=FALSE,
+                               parallel=NULL,
                                transform = data$invlink)
       mse_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
                                                             mean = true_mu),
                                 method = "mse",
                                 quantity="mean",
-                                parallel=FALSE,
+                                parallel=NULL,
                                 transform = data$invlink)
     }
 
@@ -382,13 +407,13 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                                        mean = cond_mu_new),
                              method = wp_alg,
                              quantity=c("posterior","mean"),
-                             parallel=FALSE,
+                             parallel=NULL,
                              transform = data$invlink)
       mse_newX <- distCompare(newXModels, target = list(posterior = full_param,
                                                         mean = new_mu),
                               method = "mse",
                               quantity=c("posterior","mean"),
-                              parallel=FALSE,
+                              parallel=NULL,
                               transform = data$invlink)
     }
     else {
@@ -396,13 +421,13 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                                        mean = cond_mu_new),
                              method = wp_alg,
                              quantity=c("mean"),
-                             parallel=FALSE,
+                             parallel=NULL,
                              transform = data$invlink)
       mse_newX <- distCompare(newXModels, target = list(posterior = NULL,
                                                         mean = new_mu),
                               method = "mse",
                               quantity="mean",
-                              parallel=FALSE,
+                              parallel=NULL,
                               transform = data$invlink)
     }
 
@@ -494,13 +519,13 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                                            mean = cond_mu_sing),
                                method = wp_alg,
                                quantity=c("posterior","mean"),
-                               parallel=FALSE,
+                               parallel=NULL,
                                transform = data$invlink)
       mse_single <- distCompare(singleModels, target = list(posterior = full_param,
                                                             mean = new_mu_sing),
                                 method = "mse",
                                 quantity=c("posterior","mean"),
-                                parallel=FALSE,
+                                parallel=NULL,
                                 transform = data$invlink)
     }
     else {
@@ -509,13 +534,13 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                                            mean = cond_mu_sing),
                                method = wp_alg,
                                quantity=c("mean"),
-                               parallel=FALSE,
+                               parallel=NULL,
                                transform = data$invlink)
       mse_single <- distCompare(singleModels, target = list(posterior = NULL,
                                                             mean = new_mu_sing),
                                 method = "mse",
                                 quantity="mean",
-                                parallel=FALSE,
+                                parallel=NULL,
                                 transform = data$invlink)
     }
 
@@ -548,38 +573,38 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     #                                                        mean = cond_mu),
     #                            method = "sinkhorn",
     #                            quantity=c("posterior","mean"),
-    #                            parallel=FALSE,
+    #                            parallel=NULL,
     #                            transform = data$invlink)
     #   W2_newX <- distCompare(newXModels, target = list(posterior = theta,
     #                                                    mean = cond_mu_new),
     #                          method = "sinkhorn",
     #                          quantity=c("posterior","mean"),
-    #                          parallel=FALSE,
+    #                          parallel=NULL,
     #                          transform = data$invlink)
     #   W2_single <- distCompare(singleModels, target = list(posterior = theta,
     #                                                        mean = cond_mu_sing),
     #                            method = "sinkhorn",
     #                            quantity=c("posterior","mean"),
-    #                            parallel=FALSE,
+    #                            parallel=NULL,
     #                            transform = data$invlink)
     # } else {
     #   W2_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
     #                                                        mean = cond_mu),
     #                            method = "sinkhorn",
     #                            quantity=c("mean"),
-    #                            parallel=FALSE,
+    #                            parallel=NULL,
     #                            transform = data$invlink)
     #   W2_newX <- distCompare(newXModels, target = list(posterior = NULL,
     #                                                    mean = cond_mu_new),
     #                          method = "sinkhorn",
     #                          quantity=c("mean"),
-    #                          parallel=FALSE,
+    #                          parallel=NULL,
     #                          transform = data$invlink)
     #   W2_single <- distCompare(singleModels, target = list(posterior = NULL,
     #                                                        mean = cond_mu_sing),
     #                            method = "sinkhorn",
     #                            quantity=c("mean"),
-    #                            parallel=FALSE,
+    #                            parallel=NULL,
     #                            transform = data$invlink)
     # }
     #
@@ -589,19 +614,19 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     #                                                       mean = true_mu),
     #                           method = "mse",
     #                           quantity="mean",
-    #                           parallel=FALSE,
+    #                           parallel=NULL,
     #                           transform = data$invlink)
     # mse_newX <- distCompare(newXModels, target = list(posterior = NULL,
     #                                                   mean = new_mu),
     #                         method = "mse",
     #                         quantity="mean",
-    #                         parallel=FALSE,
+    #                         parallel=NULL,
     #                         transform = data$invlink)
     # mse_single <- distCompare(singleModels, target = list(posterior = NULL,
     #                                                       mean = new_mu_sing),
     #                           method = "mse",
     #                           quantity="mean",
-    #                           parallel=FALSE,
+    #                           parallel=NULL,
     #                           transform = data$invlink)
 
     #mse on means of original data
