@@ -18,7 +18,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   pseudo.obs <- 0
   posterior.method <- conditions$posterior.method
   transport.method <- conditions$transport.method
-  if(is.null(transport.method)) transport.method <- "sinkhorn" #"univariate.approximation.pwr"
+  if(is.null(transport.method)) transport.method <- "greenkhorn" #"univariate.approximation.pwr"
   not.only.timing <- conditions$not.only.timing
   if(is.null(not.only.timing)) not.only.timing <- FALSE
   L0 <- conditions$L0
