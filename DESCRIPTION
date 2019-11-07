@@ -20,7 +20,6 @@ Imports:
   dbarts,
   rstan,
   rstanarm,
-  rjags,
   survival
 LinkingTo: 
   Rcpp (>= 1.0.0), 
@@ -30,4 +29,5 @@ Depends:
 Suggests: 
   xtable, 
   survival,
-  INLA
+  INLA,
+  rjags
