@@ -172,7 +172,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                    display.progress=FALSE,
                    transport.method = transport.method,
                    model.size = ip_seq,
-                   infimum.maxit = 100, solution.method = "cone",
+                   infimum.maxit = 100, solution.method = "lp",
                    parallel = NULL)
   ipTime <- proc.time() - time
   # trajSel <- selDist$theta
@@ -330,7 +330,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                 display.progress=FALSE,
                 transport.method = transport.method,
                 model.size = ip_seq,
-                infimum.maxit = 100, solution.method = "cone",
+                infimum.maxit = 100, solution.method = "lp",
                 parallel = NULL)
 
     lassoSelN <- W2L1(X_new, cond_eta_new, theta, family="gaussian",
@@ -444,7 +444,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                display.progress=FALSE,
                transport.method = transport.method,
                model.size = ip_seq,
-               infimum.maxit = 100, solution.method = "cone",
+               infimum.maxit = 100, solution.method = "lp",
                parallel = NULL)
 
     lassoSelO <- W2L1(X_sing, cond_eta_sing, theta, family="gaussian", penalty="selection.lasso",
