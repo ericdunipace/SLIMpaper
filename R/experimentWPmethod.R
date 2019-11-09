@@ -275,7 +275,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
 
   # }
   # trajAnneal <- anneal$theta
-  cat(anneal$message)
+  cat(paste0(anneal$message,"\n"))
   if(anneal$message != "completed") {
     annealTime <- paste0(">", annealTime)
   }
@@ -390,7 +390,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                     cooling.schedule="exponential",
                                     proposal.method = sa_prop),
                      display.progress = TRUE, max.time = sa_max_time)
-    cat(annealN$message)
+    cat(paste0(annealN$message,"\n"))
     cat("\n")
     # }
     # trajAnnealN <- annealCoef(annealN, theta)
@@ -502,7 +502,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                     cooling.schedule="exponential",
                                     proposal.method = sa_prop),
                      display.progress = TRUE , max.time = sa_max_time)
-    cat(annealO$message)
+    cat(paste0(annealO$message,"\n"))
     cat("\n")
     # }
     singleModels <- list("Binary Programming" = ipO,
