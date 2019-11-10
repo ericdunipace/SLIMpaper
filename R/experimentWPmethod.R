@@ -191,7 +191,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
 
   #carvalho method
   time <- proc.time()
-  lassoHC <- HC(X, marg_eta, theta = theta,
+  lassoHC <- HC(X, cond_eta, theta = theta,
                 family=family, penalty=penalty, method = "selection.variable",
                 penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                 lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
@@ -244,7 +244,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   # trajProj <- projDist$theta
 
   time <- proc.time()
-  PlassoHC <- HC(X, marg_eta, theta = theta,
+  PlassoHC <- HC(X, cond_eta, theta = theta,
                 family=family, penalty=penalty, method = "projection",
                 penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                 lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
@@ -285,8 +285,14 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                          "Selection" = lassoSel,
                          "Simulated Annealing" = anneal,
                          "Stepwise" = step,
-                         "Projection" = lassoProj,
                          "Hahn-Carvalho" = lassoHC)
+    inSampModelsProj <- list("Lasso" = lassoProj,
+                             "Simulated Annealing" = Panneal,
+                             "Stepwise" = Pstep,
+                             "Hahn-Carvalho" = PlassoHC)
+    rm("ip","lassoSel", "anneal","step","lassoHC")
+    rm("lassoProj", "Panneal","Pstep","PlassoHC")
+
     cat("Calculating distances\n")
     if( calc_w2_post){
       W2_insamp <- distCompare(inSampModels, target = list(posterior = theta,
@@ -296,6 +302,18 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                parallel=NULL,
                                transform = data$invlink)
       mse_insamp <- distCompare(inSampModels, target = list(posterior = full_param,
+                                                            mean = true_mu),
+                                method = "mse",
+                                quantity=c("posterior","mean"),
+                                parallel=NULL,
+                                transform = data$invlink)
+      PW2_insamp <- distCompare(inSampModelsProj, target = list(posterior = theta,
+                                                           mean = cond_mu),
+                               method = ,
+                               quantity=c("posterior","mean"),
+                               parallel=NULL,
+                               transform = data$invlink)
+      Pmse_insamp <- distCompare(inSampModelsProj, target = list(posterior = full_param,
                                                             mean = true_mu),
                                 method = "mse",
                                 quantity=c("posterior","mean"),
@@ -318,7 +336,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     }
 
     rm(inSampModels)
-    rm("ip","lassoSel", "anneal","step","lassoProj","lassoHC")
+    rm(inSampModelsProj)
 
     #### new X variable ####
     #mse on new outcome data from same paramters and different X
@@ -343,44 +361,17 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     # trajSelN <- extractCoef(lassoSelN)
 
     #carvalho method
-    lassoHCN <- HC(X_new, marg_eta_new, theta = theta,
+    lassoHCN <- HC(X_new, cond_eta_new, theta = theta,
                    family=family, penalty=penalty,
                    penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                    lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
-    # trajHCN <- extractCoef(lassoHCN)
-    #
-    # trajHCNdist <- list(coefs = NULL, nzero = trajHCN$nzero)
-    # trajHCNdist$coefs<- matrix(0, nrow=p, ncol = length(trajHCN$nzero))
-    # HCN_non_zero_idx <- which(trajHCN$coefs != 0)
-    # trajHCNdist$coefs[HCN_non_zero_idx] <- 1
-
-    #permutation
-    lassoProjN <- W2L1(X_new, cond_eta_new, theta, family="gaussian", penalty=penalty,
-                       penalty.factor=proj_penalty_fact, nlambda = n.lambda,
-                       lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
-                       maxit=1e5,
-                       transport.method = transport.method,
-                       display.progress=TRUE, method = "projection")
-    # trajPermN <- extractCoef(projDistN)
 
     #stepwise
     stepN <- WPSW(X_new, cond_eta_new, theta, force=1, p=2,
                   direction = "backward", method = "selection.variable",
                   transport.method = transport.method,
                   display.progress = TRUE)
-    # trajStepN <- stepCoef(stepN, theta)
 
-    #simulated annealing
-    # if(n > 512 | p > 11){
-    #   annealN <-  WPSA(X=X_new, Y=cond_eta_new, theta=theta,
-    #                    force = 1, p=2, model.size = 5, iter = SAiter,
-    #                    temps = SAtemps,
-    #                    options = list(method = "selection.variable",
-    #                                   energy.distribution = "boltzman",
-    #                                   transport.method = transport.method,
-    #                                   cooling.schedule="exponential"),
-    #                    display.progress = TRUE)
-    # } else {
     annealN <-  WPSA(X=X_new, Y=cond_eta_new, theta=theta,
                      force = 1, p=2, model.size = sa_seq, iter = SAiter,
                      temps = SAtemps,
@@ -392,14 +383,51 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                      display.progress = TRUE, max.time = sa_max_time)
     cat(paste0(annealN$message,"\n"))
     cat("\n")
+
+    #projection
+    lassoProjN <- W2L1(X_new, cond_eta_new, theta, family="gaussian", penalty=penalty,
+                       penalty.factor=proj_penalty_fact, nlambda = n.lambda,
+                       lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
+                       maxit=1e5,
+                       transport.method = transport.method,
+                       display.progress=TRUE, method = "projection")
+
+    #stepwise
+    PstepN <- WPSW(X_new, cond_eta_new, theta, force=1, p=2,
+                  direction = "backward", method = "projection",
+                  transport.method = transport.method,
+                  display.progress = TRUE)
+    #HC
+    PlassoHCN <- HC(X_new, cond_eta_new, theta = theta,
+                   family=family, penalty=penalty, method = "projection",
+                   penalty.factor=HC_penalty_fact, nlambda = n.lambda,
+                   lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
+    # anneal
+    PannealN <-  WPSA(X=X_new, Y=cond_eta_new, theta=theta,
+                     force = 1, p=2, model.size = sa_seq, iter = SAiter,
+                     temps = SAtemps,
+                     options = list(method = "projection",
+                                    energy.distribution = "boltzman",
+                                    transport.method = transport.method,
+                                    cooling.schedule="exponential",
+                                    proposal.method = sa_prop),
+                     display.progress = TRUE, max.time = sa_max_time)
+    cat(paste0(PannealN$message,"\n"))
+    cat("\n")
     # }
     # trajAnnealN <- annealCoef(annealN, theta)
     newXModels <- list("Binary Programming" = ipN,
                        "Selection" = lassoSelN,
                        "Simulated Annealing" = annealN,
                        "Stepwise" = stepN,
-                       "Projection" = lassoProjN,
                        "Hahn-Carvalho" = lassoHCN)
+    rm("ipN","lassoSelN", "annealN","stepN","lassoHCN")
+    newXModelsP <- list("Lasso" = lassoProjN,
+                             "Simulated Annealing" = PannealN,
+                             "Stepwise" = PstepN,
+                             "Hahn-Carvalho" = PlassoHCN)
+    rm("lassoProjN",
+       "PannealN", "PstepN","PlassoHCN")
 
     cat("Calculating distances\n")
     if( calc_w2_post){
@@ -410,6 +438,18 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                              parallel=NULL,
                              transform = data$invlink)
       mse_newX <- distCompare(newXModels, target = list(posterior = full_param,
+                                                        mean = new_mu),
+                              method = "mse",
+                              quantity=c("posterior","mean"),
+                              parallel=NULL,
+                              transform = data$invlink)
+      PW2_newX <- distCompare(newXModelsP, target = list(posterior = theta,
+                                                       mean = cond_mu_new),
+                             method = wp_alg,
+                             quantity=c("posterior","mean"),
+                             parallel=NULL,
+                             transform = data$invlink)
+      Pmse_newX <- distCompare(newXModelsP, target = list(posterior = full_param,
                                                         mean = new_mu),
                               method = "mse",
                               quantity=c("posterior","mean"),
@@ -429,11 +469,23 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                               quantity="mean",
                               parallel=NULL,
                               transform = data$invlink)
+      PW2_newX <- distCompare(newXModelsP, target = list(posterior = NULL,
+                                                       mean = cond_mu_new),
+                             method = wp_alg,
+                             quantity=c("mean"),
+                             parallel=NULL,
+                             transform = data$invlink)
+      Pmse_newX <- distCompare(newXModelsP, target = list(posterior = NULL,
+                                                        mean = new_mu),
+                              method = "mse",
+                              quantity="mean",
+                              parallel=NULL,
+                              transform = data$invlink)
     }
 
 
-    rm(newXModels)
-    rm("ipN","lassoSelN", "annealN","stepN","lassoProjN","lassoHCN")
+    rm(newXModels, newXModelsP)
+
 
 
     #new method, single datapoint
@@ -512,6 +564,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                          # "Projection" = lassoProjO,
                          # "Hahn-Carvalho" = lassoHCO
     )
+    rm("ipO", "lassoSelO", "annealO","stepO")
 
     cat("Calculating distances\n")
     if( calc_w2_post){
@@ -545,7 +598,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     }
 
     rm(singleModels)
-    rm("ipO", "lassoSelO", "annealO","stepO")
+
     # trajAnnealO <- annealCoef(annealO, theta)
 
     # list of models
@@ -711,44 +764,26 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   #### generate output list ####
 
   outList <- list (
-    W2_dist = list(inSamp = W2_insamp, newX = W2_newX, single = W2_single),
-    mse = list(inSamp = mse_insamp, newX = mse_newX, single = mse_single),
-    # mseNewY = list(sel=newY_mseDSel, sel_E = newY_mseSelE, perm = newY_msePerm,
-    #                perm_E = newY_msePermE, hc=newY_mseHC, step = newY_mseStep),
-    # mseNewMu = list(sel = newMu_mseSel, sel_E = newMu_mseSelE, perm = newMu_msePerm,
-    # perm_E = newMu_msePermE, hc=newMu_mseHC, step = newMu_mseStep),
-    # mseNewX = list(sel=newX_mseSel, sel_E = newX_mseSelE, perm = newX_msePerm,
-    #                perm_E = newX_msePermE, hc=newX_mseHC, step = newX_mseStep),
-    # singleNewMu = list(sel = singleMu_mseSel, dist_E = singleMu_mseSelE, perm = singleMu_msePerm,
-    # perm_E = singleMu_msePermE, hc=singleMu_mseHC, step = singleMu_mseStep),
-    time = list(ip = ipTime[3], selection = selTime[3],
-                projection = projTime[3], HC = hcTime[3],
-                step = stepTime[3], anneal = annealTime[3])#,
-    # W2_dist_post = list(sel = postW2_Sel, perm = postW2_Perm,
-    #                     step = postW2_Step, anneal = postW2_Anneal,
-    #                     HC = postW2_HC)
+    W2_dist = list(inSamp = list(selection = W2_insamp,
+                                 projection = PW2_insamp),
+                   newX = list(selection = W2_newX,
+                               projection = PW2_newX),
+                   single = list(selection = NULL,
+                                 projection = W2_single) ),
+    mse = list(inSamp = list(selection = mse_insamp,
+                             projection = Pmse_insamp),
+               newX = list(selection = mse_newX,
+                           projection = Pmse_newX),
+               single = list(selection = mse_single,
+                             projection = Pmse_single) ),
+    time = list(selection = list(ip = ipTime[3], lasso = selTime[3],
+                                HC = hcTime[3],
+                                step = stepTime[3],
+                                anneal = annealTime[3]),
+                projection = list(lasso = projTime[3],
+                            HC = PhcTime[3], step = PstepTime[3],
+                            anneal = PannealTime[3]) )#,
   )
 
-  #add w2 data if necessary
-  # if( w2 ) {
-  #   W2_w2 <- sapply(w2s$minCombPerActive, function(i)
-  #     mse(apply(cond_mu,1,sort), apply(X[,i] %*% t(theta[,i]),1,sort)))
-  #   mean_w2 <- sapply(w2s$minCombPerActive, function(i) mse_C(true_mu, X[,i] %*% t(theta[,i])))
-  #   newY_w2 <- sapply(w2s$minCombPerActive, function(i) mse_C(new_Y, X[,i] %*% t(theta[,i])))
-  #   newMu_w2 <- sapply(w2s$minCombPerActive, function(i) mse_C(new_mu, X_new[,i] %*% t(theta[,i])))
-  #   newX_w2 <- sapply(w2s$minCombPerActive, function(i) mse_C(new_Y_new_X, X_new[,i] %*% t(theta[,i])))
-  #
-  #   #save in output
-  #   outList$W2_dist$w2  <- W2_w2
-  #   outList$mseMean$w2  <- mean_w2
-  #   outList$mseNewY$w2  <- newY_w2
-  #   outList$mseNewMu$w2 <- newMu_w2
-  #   outList$mseNewX$w2  <- newX_w2
-  # }
-  # ranks <- lapply(outList, function(o) apply(sapply(o, function(cc) cc), 1, rank))
-  # for(ii in seq_along(names(outList))) {
-  #   ranks[[ii]][which(is.na(t(sapply(outList[[ii]], function(cc) cc))),arr.ind=TRUE)] <- NA
-  # }
-  # outList$rank <- lapply(ranks, rowMeans, na.rm=TRUE)
   return(outList)
 }
