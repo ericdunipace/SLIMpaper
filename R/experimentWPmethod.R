@@ -282,7 +282,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
 
   if (not.only.timing) {
     inSampModels <- list("Binary Programming" = ip,
-                         "Selection" = lassoSel,
+                         "Lasso" = lassoSel,
                          "Simulated Annealing" = anneal,
                          "Stepwise" = step,
                          "Hahn-Carvalho" = lassoHC)
@@ -417,7 +417,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     # }
     # trajAnnealN <- annealCoef(annealN, theta)
     newXModels <- list("Binary Programming" = ipN,
-                       "Selection" = lassoSelN,
+                       "Lasso" = lassoSelN,
                        "Simulated Annealing" = annealN,
                        "Stepwise" = stepN,
                        "Hahn-Carvalho" = lassoHCN)
@@ -558,7 +558,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     cat("\n")
     # }
     singleModels <- list("Binary Programming" = ipO,
-                         "Selection" = lassoSelO,
+                         "Lasso" = lassoSelO,
                          "Simulated Annealing" = annealO,
                          "Stepwise" = stepO#,
                          # "Projection" = lassoProjO,
