@@ -505,28 +505,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                       maxit=1e5,
                       transport.method = transport.method,
                       display.progress=TRUE, gamma = 1, method = "selection.variable")
-    # trajSelO <- extractCoef(lassoSelO)
 
-    #carvalho method, single datapoint
-    # lassoHCO <- HC(X, NULL, theta,
-    #                     family=family, penalty=penalty,
-    #                     penalty.factor=penalty_fact, nlambda = n.lambda,
-    #                     lambda.min.ratio = lambda.min.ratio, lambda=lambdas)
-    # trajHCO <- extractCoef(lassoHCO)
-
-    # trajHCOdist <- list(coefs = NULL, nzero = trajHCO$nzero)
-    # trajHCOdist$coefs<- matrix(0, nrow=p, ncol = length(trajHCO$nzero))
-    # HCO_non_zero_idx <- which(trajHCO$coefs != 0)
-    # trajHCOdist$coefs[HCO_non_zero_idx] <- 1
-
-    #permutation, single datapoint
-    # lassoProjO <- W2L1(X_sing, NULL, theta, family="gaussian", penalty=penalty,
-    #                   penalty.factor=penalty_fact, nlambda = n.lambda,
-    #                   lambda.min.ratio = lambda.min.ratio, infimum.maxit=10000,
-    #                   maxit=1000,
-    #                   pseudo_observations = pseudo.obs,
-    #                   display.progress=TRUE, method = "projection")
-    # trajPermO <- extractCoef(permDistO)
 
     #stepwise
     stepO <- WPSW(X_sing, cond_eta_sing, theta, force=1, p=2,
@@ -534,18 +513,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                   method = "selection.variable",
                   transport.method = transport.method,
                   display.progress = TRUE)
-    # trajStepO <- stepCoef(stepO, theta)
 
     #simulated annealing
-    # if(n > 512 | p > 11){
-    #   annealO <- WPSA( X = X_sing, Y = cond_eta_sing, theta = theta,
-    #                    force = 1, p=2, model.size = 5, iter = SAiter, temps = SAtemps,
-    #                    options = list(method = "selection.variable",
-    #                                   energy.distribution = "boltzman",
-    #                                   transport.method = transport.method,
-    #                                   cooling.schedule="exponential"),
-    #                    display.progress = TRUE )
-    # } else {
     annealO <- WPSA( X = X_sing, Y = cond_eta_sing, theta = theta,
                      force = 1, p=2, model.size = sa_seq, iter = SAiter, temps = SAtemps,
                      options = list(method = "selection.variable",
@@ -556,13 +525,11 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                      display.progress = TRUE , max.time = sa_max_time)
     cat(paste0(annealO$message,"\n"))
     cat("\n")
-    # }
+
     singleModels <- list("Binary Programming" = ipO,
                          "Lasso" = lassoSelO,
                          "Simulated Annealing" = annealO,
                          "Stepwise" = stepO#,
-                         # "Projection" = lassoProjO,
-                         # "Hahn-Carvalho" = lassoHCO
     )
     rm("ipO", "lassoSelO", "annealO","stepO")
 
@@ -768,14 +735,14 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                  projection = PW2_insamp),
                    newX = list(selection = W2_newX,
                                projection = PW2_newX),
-                   single = list(selection = NULL,
-                                 projection = W2_single) ),
+                   single = list(selection = W2_single,
+                                 projection = NULL) ),
     mse = list(inSamp = list(selection = mse_insamp,
                              projection = Pmse_insamp),
                newX = list(selection = mse_newX,
                            projection = Pmse_newX),
                single = list(selection = mse_single,
-                             projection = Pmse_single) ),
+                             projection = NULL) ),
     time = list(selection = list(ip = ipTime[3], lasso = selTime[3],
                                 HC = hcTime[3],
                                 step = stepTime[3],
