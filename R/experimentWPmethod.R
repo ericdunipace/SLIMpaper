@@ -1,4 +1,4 @@
-experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
+experimentWPMethod <- function(target, hyperparameters, conditions) {
   n <- conditions$n
   p <- conditions$p
 
@@ -36,11 +36,11 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
   # SAtemps <- 1
 
   #IP sequence
-  if( p < 200 ) {
-    ip_seq <- 1:p
-  } else {
+  # if( p < 100 | (p < 200 & method == "exact")) {
+  #   ip_seq <- 1:p
+  # } else {
     ip_seq <- sa_seq
-  }
+  # }
 
   #w2 dist param
   wp_alg <- conditions$wp_alg
@@ -142,14 +142,18 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                             method = wp_alg,
                             quantity=c("mean"),
                             parallel=NULL,
-                            transform = data$invlink)
+                            transform = data$invlink,
+                        epsilon = epsilon,
+                        niter = otmaxit)
     mseL0 <- distCompare(L0list,
                             target = list(posterior = NULL,
                                           mean = true_mu),
                             method = "mse",
                             quantity="mean",
                             parallel=NULL,
-                            transform = data$invlink)
+                            transform = data$invlink,
+                         epsilon = epsilon,
+                         niter = otmaxit)
 
     outList <- list (
       W2_dist = W2L0,
@@ -172,7 +176,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                    display.progress=FALSE,
                    transport.method = transport.method,
                    model.size = ip_seq,
-                   infimum.maxit = 100, solution.method = "lp",
+                   infimum.maxit = 10, solution.method = "lp",
                    parallel = NULL)
   ipTime <- proc.time() - time
   # trajSel <- selDist$theta
@@ -300,25 +304,33 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                method = ,
                                quantity=c("posterior","mean"),
                                parallel=NULL,
-                               transform = data$invlink)
+                               transform = data$invlink,
+                               epsilon = epsilon,
+                               niter = otmaxit)
       mse_insamp <- distCompare(inSampModels, target = list(posterior = full_param,
                                                             mean = true_mu),
                                 method = "mse",
                                 quantity=c("posterior","mean"),
                                 parallel=NULL,
-                                transform = data$invlink)
+                                transform = data$invlink,
+                                epsilon = epsilon,
+                                niter = otmaxit)
       PW2_insamp <- distCompare(inSampModelsProj, target = list(posterior = theta,
                                                            mean = cond_mu),
                                method = ,
                                quantity=c("posterior","mean"),
                                parallel=NULL,
-                               transform = data$invlink)
+                               transform = data$invlink,
+                               epsilon = epsilon,
+                               niter = otmaxit)
       Pmse_insamp <- distCompare(inSampModelsProj, target = list(posterior = full_param,
                                                             mean = true_mu),
                                 method = "mse",
                                 quantity=c("posterior","mean"),
                                 parallel=NULL,
-                                transform = data$invlink)
+                                transform = data$invlink,
+                                epsilon = epsilon,
+                                niter = otmaxit)
     }
     else {
       W2_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
@@ -326,13 +338,17 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                method = wp_alg,
                                quantity=c("mean"),
                                parallel=NULL,
-                               transform = data$invlink)
+                               transform = data$invlink,
+                               epsilon = epsilon,
+                               niter = otmaxit)
       mse_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
                                                             mean = true_mu),
                                 method = "mse",
                                 quantity="mean",
                                 parallel=NULL,
-                                transform = data$invlink)
+                                transform = data$invlink,
+                                epsilon = epsilon,
+                                niter = otmaxit)
     }
 
     rm(inSampModels)
@@ -354,7 +370,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
     lassoSelN <- W2L1(X_new, cond_eta_new, theta, family="gaussian",
                       penalty="selection.lasso",
                       penalty.factor=penalty_factN, nlambda = n.lambda,
-                      lambda.min.ratio = lambda.min.ratio, infimum.maxit=10000,
+                      lambda.min.ratio = lambda.min.ratio, infimum.maxit=100,
                       maxit = 1e5,
                       transport.method = transport.method,
                       display.progress=TRUE, gamma = 1, method = "selection.variable")
@@ -436,25 +452,33 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                              method = wp_alg,
                              quantity=c("posterior","mean"),
                              parallel=NULL,
-                             transform = data$invlink)
+                             transform = data$invlink,
+                             epsilon = epsilon,
+                             niter = otmaxit)
       mse_newX <- distCompare(newXModels, target = list(posterior = full_param,
                                                         mean = new_mu),
                               method = "mse",
                               quantity=c("posterior","mean"),
                               parallel=NULL,
-                              transform = data$invlink)
+                              transform = data$invlink,
+                              epsilon = epsilon,
+                              niter = otmaxit)
       PW2_newX <- distCompare(newXModelsP, target = list(posterior = theta,
                                                        mean = cond_mu_new),
                              method = wp_alg,
                              quantity=c("posterior","mean"),
                              parallel=NULL,
-                             transform = data$invlink)
+                             transform = data$invlink,
+                             epsilon = epsilon,
+                             niter = otmaxit)
       Pmse_newX <- distCompare(newXModelsP, target = list(posterior = full_param,
                                                         mean = new_mu),
                               method = "mse",
                               quantity=c("posterior","mean"),
                               parallel=NULL,
-                              transform = data$invlink)
+                              transform = data$invlink,
+                              epsilon = epsilon,
+                              niter = otmaxit)
     }
     else {
       W2_newX <- distCompare(newXModels, target = list(posterior = NULL,
@@ -462,25 +486,33 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                              method = wp_alg,
                              quantity=c("mean"),
                              parallel=NULL,
-                             transform = data$invlink)
+                             transform = data$invlink,
+                             epsilon = epsilon,
+                             niter = otmaxit)
       mse_newX <- distCompare(newXModels, target = list(posterior = NULL,
                                                         mean = new_mu),
                               method = "mse",
                               quantity="mean",
                               parallel=NULL,
-                              transform = data$invlink)
+                              transform = data$invlink,
+                              epsilon = epsilon,
+                              niter = otmaxit)
       PW2_newX <- distCompare(newXModelsP, target = list(posterior = NULL,
                                                        mean = cond_mu_new),
                              method = wp_alg,
                              quantity=c("mean"),
                              parallel=NULL,
-                             transform = data$invlink)
+                             transform = data$invlink,
+                             epsilon = epsilon,
+                             niter = otmaxit)
       Pmse_newX <- distCompare(newXModelsP, target = list(posterior = NULL,
                                                         mean = new_mu),
                               method = "mse",
                               quantity="mean",
                               parallel=NULL,
-                              transform = data$invlink)
+                              transform = data$invlink,
+                              epsilon = epsilon,
+                              niter = otmaxit)
     }
 
 
@@ -496,12 +528,12 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                display.progress=FALSE,
                transport.method = transport.method,
                model.size = ip_seq,
-               infimum.maxit = 100, solution.method = "lp",
+               infimum.maxit = 10, solution.method = "lp",
                parallel = NULL)
 
     lassoSelO <- W2L1(X_sing, cond_eta_sing, theta, family="gaussian", penalty="selection.lasso",
                       penalty.factor=penalty_factO, nlambda = n.lambda,
-                      lambda.min.ratio = lambda.min.ratio, infimum.maxit=10000,
+                      lambda.min.ratio = lambda.min.ratio, infimum.maxit=100,
                       maxit=1e5,
                       transport.method = transport.method,
                       display.progress=TRUE, gamma = 1, method = "selection.variable")
@@ -540,13 +572,17 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                method = wp_alg,
                                quantity=c("posterior","mean"),
                                parallel=NULL,
-                               transform = data$invlink)
+                               transform = data$invlink,
+                               epsilon = epsilon,
+                               niter = otmaxit)
       mse_single <- distCompare(singleModels, target = list(posterior = full_param,
                                                             mean = new_mu_sing),
                                 method = "mse",
                                 quantity=c("posterior","mean"),
                                 parallel=NULL,
-                                transform = data$invlink)
+                                transform = data$invlink,
+                                epsilon = epsilon,
+                                niter = otmaxit)
     }
     else {
 
@@ -555,13 +591,17 @@ experimentWPMethod <- function(target, hyperparameters, conditions, w2=FALSE) {
                                method = wp_alg,
                                quantity=c("mean"),
                                parallel=NULL,
-                               transform = data$invlink)
+                               transform = data$invlink,
+                               epsilon = epsilon,
+                               niter = otmaxit)
       mse_single <- distCompare(singleModels, target = list(posterior = NULL,
                                                             mean = new_mu_sing),
                                 method = "mse",
                                 quantity="mean",
                                 parallel=NULL,
-                                transform = data$invlink)
+                                transform = data$invlink,
+                                epsilon = epsilon,
+                                niter = otmaxit)
     }
 
     rm(singleModels)
