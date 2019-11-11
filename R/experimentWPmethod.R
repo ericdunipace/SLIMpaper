@@ -36,11 +36,11 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   # SAtemps <- 1
 
   #IP sequence
-  # if( p < 100 | (p < 200 & method == "exact")) {
-  #   ip_seq <- 1:p
-  # } else {
+  if( p < 200 ) {
+    ip_seq <- 1:p
+  } else {
     ip_seq <- sa_seq
-  # }
+  }
 
   #w2 dist param
   wp_alg <- conditions$wp_alg
