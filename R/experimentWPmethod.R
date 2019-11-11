@@ -171,7 +171,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
 
   #### In sample ####
   #IP
-  cat("  Selection: IP, ")
+  cat("   Selection: IP,\n")
   time <- proc.time()
   ip <- W2IP(X = X, Y = cond_eta, theta = theta,
                    display.progress=FALSE,
@@ -182,7 +182,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   ipTime <- proc.time() - time
   # trajSel <- selDist$theta
 
-  cat(" Lasso, ")
+  cat("   Selection: IP, Lasso, ")
   #selection variable
   time <- proc.time()
   lassoSel <- W2L1(X, cond_eta, theta, family="gaussian", penalty="selection.lasso",
@@ -240,7 +240,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   annealTime <- proc.time() - time
 
 
-  cat("  Selection: Lasso, ")
+  cat("  Projection: Lasso, ")
   #projection
   time <- proc.time()
   lassoProj <- W2L1(X, cond_eta, theta, family="gaussian", penalty=penalty,
@@ -271,7 +271,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   PstepTime <- proc.time() - time
   # trajStep <- step$theta
 
-  cat(" SW\n")
+  cat(" SA\n")
   #simulated annealing
   annealTime <- NULL
 
@@ -387,7 +387,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                       display.progress=TRUE, gamma = 1, method = "selection.variable")
     # trajSelN <- extractCoef(lassoSelN)
 
-    cat(" HC")
+    cat(" HC, ")
     #carvalho method
     lassoHCN <- HC(X_new, cond_eta_new, theta = theta,
                    family=family, penalty=penalty,
@@ -429,7 +429,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                   direction = "backward", method = "projection",
                   transport.method = transport.method,
                   display.progress = TRUE)
-    cat(" HC")
+    cat(" HC, ")
     #HC
     PlassoHCN <- HC(X_new, cond_eta_new, theta = theta,
                    family=family, penalty=penalty, method = "projection",
