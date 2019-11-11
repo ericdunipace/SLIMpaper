@@ -171,6 +171,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
 
   #### In sample ####
   #IP
+  cat("  Selection: IP, ")
   time <- proc.time()
   ip <- W2IP(X = X, Y = cond_eta, theta = theta,
                    display.progress=FALSE,
@@ -181,6 +182,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   ipTime <- proc.time() - time
   # trajSel <- selDist$theta
 
+  cat(" Lasso, ")
   #selection variable
   time <- proc.time()
   lassoSel <- W2L1(X, cond_eta, theta, family="gaussian", penalty="selection.lasso",
@@ -193,6 +195,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   selTime <- proc.time() - time
   # trajSel <- selDist$theta
 
+  cat(" HC, ")
   #carvalho method
   time <- proc.time()
   lassoHC <- HC(X, cond_eta, theta = theta,
@@ -201,6 +204,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                 lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
   hcTime <- proc.time() - time
 
+  cat(" SW, ")
   #stepwise
   time <- proc.time()
   step <- WPSW(X, Y = cond_eta, theta, force=1, p=2,
@@ -210,6 +214,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   stepTime <- proc.time() - time
   # trajStep <- step$theta
 
+  cat(" SA\n")
   #simulated annealing
   annealTime <- NULL
   # if(n > 512 | p > 11){
@@ -235,6 +240,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   annealTime <- proc.time() - time
 
 
+  cat("  Selection: Lasso, ")
   #projection
   time <- proc.time()
   lassoProj <- W2L1(X, cond_eta, theta, family="gaussian", penalty=penalty,
@@ -247,6 +253,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   projTime <- proc.time() - time
   # trajProj <- projDist$theta
 
+  cat(" HC, ")
   time <- proc.time()
   PlassoHC <- HC(X, cond_eta, theta = theta,
                 family=family, penalty=penalty, method = "projection",
@@ -254,6 +261,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                 lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
   PhcTime <- proc.time() - time
 
+  cat(" SW, ")
   #stepwise
   time <- proc.time()
   Pstep <- WPSW(X, Y = cond_eta, theta, force=1, p=2,
@@ -263,6 +271,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   PstepTime <- proc.time() - time
   # trajStep <- step$theta
 
+  cat(" SW\n")
   #simulated annealing
   annealTime <- NULL
 
@@ -360,6 +369,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     # augDatN <- augPseudo(X_new, cond_mu_new, theta, theta_norm, pseudo.obs, n, same=TRUE)
     # lambdas <- calc.lambdas(augDatN, lambda.min.ratio, penalty_fact, n.lambda)
     cat(paste0("Running methods, new X variable: ", date(),"\n"))
+    cat("  Selection: IP")
     ipN <- W2IP(X = X_new, Y = cond_eta_new, theta = theta,
                 display.progress=TRUE,
                 transport.method = transport.method,
@@ -367,6 +377,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                 infimum.maxit = 100, solution.method = "cone",
                 parallel = NULL)
 
+    cat(" Lasso")
     lassoSelN <- W2L1(X_new, cond_eta_new, theta, family="gaussian",
                       penalty="selection.lasso",
                       penalty.factor=penalty_factN, nlambda = n.lambda,
@@ -376,18 +387,21 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                       display.progress=TRUE, gamma = 1, method = "selection.variable")
     # trajSelN <- extractCoef(lassoSelN)
 
+    cat(" HC")
     #carvalho method
     lassoHCN <- HC(X_new, cond_eta_new, theta = theta,
                    family=family, penalty=penalty,
                    penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                    lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
 
+    cat(" SW")
     #stepwise
     stepN <- WPSW(X_new, cond_eta_new, theta, force=1, p=2,
                   direction = "backward", method = "selection.variable",
                   transport.method = transport.method,
                   display.progress = TRUE)
 
+    cat(" SA")
     annealN <-  WPSA(X=X_new, Y=cond_eta_new, theta=theta,
                      force = 1, p=2, model.size = sa_seq, iter = SAiter,
                      temps = SAtemps,
@@ -400,6 +414,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     cat(paste0(annealN$message,"\n"))
     cat("\n")
 
+    cat("  Projection: Lasso")
     #projection
     lassoProjN <- W2L1(X_new, cond_eta_new, theta, family="gaussian", penalty=penalty,
                        penalty.factor=proj_penalty_fact, nlambda = n.lambda,
@@ -408,16 +423,19 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                        transport.method = transport.method,
                        display.progress=TRUE, method = "projection")
 
+    cat(" SW")
     #stepwise
     PstepN <- WPSW(X_new, cond_eta_new, theta, force=1, p=2,
                   direction = "backward", method = "projection",
                   transport.method = transport.method,
                   display.progress = TRUE)
+    cat(" HC")
     #HC
     PlassoHCN <- HC(X_new, cond_eta_new, theta = theta,
                    family=family, penalty=penalty, method = "projection",
                    penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                    lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
+    cat(" SA")
     # anneal
     PannealN <-  WPSA(X=X_new, Y=cond_eta_new, theta=theta,
                      force = 1, p=2, model.size = sa_seq, iter = SAiter,
@@ -524,6 +542,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     # augDatO <- augPseudo(X_sing, cond_mu_sing, theta, theta_norm, pseudo.obs, n, same=TRUE)
     # lambdas <- calc.lambdas(augDatO, lambda.min.ratio, penalty_fact, n.lambda)
     cat(paste0("Running methods, single data point: ", date(),"\n"))
+    cat("  Selection: IP")
     ipO <- W2IP(X = X_sing, Y = cond_eta_sing, theta = theta,
                display.progress=TRUE,
                transport.method = transport.method,
@@ -531,6 +550,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                infimum.maxit = 10, solution.method = "cone",
                parallel = NULL)
 
+    cat(" Lasso")
     lassoSelO <- W2L1(X_sing, cond_eta_sing, theta, family="gaussian", penalty="selection.lasso",
                       penalty.factor=penalty_factO, nlambda = n.lambda,
                       lambda.min.ratio = lambda.min.ratio, infimum.maxit=100,
@@ -538,7 +558,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                       transport.method = transport.method,
                       display.progress=TRUE, gamma = 1, method = "selection.variable")
 
-
+    cat(" SW")
     #stepwise
     stepO <- WPSW(X_sing, cond_eta_sing, theta, force=1, p=2,
                   direction = "backward",
@@ -546,6 +566,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                   transport.method = transport.method,
                   display.progress = TRUE)
 
+    cat(" SA")
     #simulated annealing
     annealO <- WPSA( X = X_sing, Y = cond_eta_sing, theta = theta,
                      force = 1, p=2, model.size = sa_seq, iter = SAiter, temps = SAtemps,
@@ -605,164 +626,6 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     }
 
     rm(singleModels)
-
-    # trajAnnealO <- annealCoef(annealO, theta)
-
-    # list of models
-    # inSampModels <- list("Selection" = lassoSel,
-    #                      "Simulated Annealing" = anneal,
-    #                      "Stepwise" = step,
-    #                      "Projection" = lassoProj,
-    #                      "Hahn-Carvalho" = lassoHC)
-    # newXModels <- list("Selection" = lassoSelN,
-    #                    "Simulated Annealing" = annealN,
-    #                    "Stepwise" = stepN,
-    #                    "Projection" = lassoProjN,
-    #                    "Hahn-Carvalho" = lassoHCN)
-    # singleModels <- list("Selection" = lassoSelO,
-    #                      "Simulated Annealing" = annealO,
-    #                      "Stepwise" = stepO#,
-    #                      # "Projection" = lassoProjO,
-    #                      # "Hahn-Carvalho" = lassoHCO
-    # )
-    #
-    # #w2 from "true" posterior mean
-    # cat("\nCalculating W2 distances")
-    # if( calc_w2_post){
-    #   W2_insamp <- distCompare(inSampModels, target = list(posterior = theta,
-    #                                                        mean = cond_mu),
-    #                            method = "sinkhorn",
-    #                            quantity=c("posterior","mean"),
-    #                            parallel=NULL,
-    #                            transform = data$invlink)
-    #   W2_newX <- distCompare(newXModels, target = list(posterior = theta,
-    #                                                    mean = cond_mu_new),
-    #                          method = "sinkhorn",
-    #                          quantity=c("posterior","mean"),
-    #                          parallel=NULL,
-    #                          transform = data$invlink)
-    #   W2_single <- distCompare(singleModels, target = list(posterior = theta,
-    #                                                        mean = cond_mu_sing),
-    #                            method = "sinkhorn",
-    #                            quantity=c("posterior","mean"),
-    #                            parallel=NULL,
-    #                            transform = data$invlink)
-    # } else {
-    #   W2_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
-    #                                                        mean = cond_mu),
-    #                            method = "sinkhorn",
-    #                            quantity=c("mean"),
-    #                            parallel=NULL,
-    #                            transform = data$invlink)
-    #   W2_newX <- distCompare(newXModels, target = list(posterior = NULL,
-    #                                                    mean = cond_mu_new),
-    #                          method = "sinkhorn",
-    #                          quantity=c("mean"),
-    #                          parallel=NULL,
-    #                          transform = data$invlink)
-    #   W2_single <- distCompare(singleModels, target = list(posterior = NULL,
-    #                                                        mean = cond_mu_sing),
-    #                            method = "sinkhorn",
-    #                            quantity=c("mean"),
-    #                            parallel=NULL,
-    #                            transform = data$invlink)
-    # }
-    #
-    # #mse from true mean
-    # cat("\nCalculating MSEs")
-    # mse_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
-    #                                                       mean = true_mu),
-    #                           method = "mse",
-    #                           quantity="mean",
-    #                           parallel=NULL,
-    #                           transform = data$invlink)
-    # mse_newX <- distCompare(newXModels, target = list(posterior = NULL,
-    #                                                   mean = new_mu),
-    #                         method = "mse",
-    #                         quantity="mean",
-    #                         parallel=NULL,
-    #                         transform = data$invlink)
-    # mse_single <- distCompare(singleModels, target = list(posterior = NULL,
-    #                                                       mean = new_mu_sing),
-    #                           method = "mse",
-    #                           quantity="mean",
-    #                           parallel=NULL,
-    #                           transform = data$invlink)
-
-    #mse on means of original data
-    # mean_mseSel <- mse_idx_dist(trajSel$coefs, X, theta, true_mu, trajSel$nzero,p)
-    # mean_mseSelE <- mse_idx_expect(trajSel$coefs, X, theta, true_mu, trajSel$nzero, p)
-    # mean_msePerm <- mse_idx_dist(trajPerm$coefs, X, theta, true_mu, trajPerm$nzero,p)
-    # mean_msePermE <- mse_idx_expect(trajPerm$coefs, X, theta, true_mu, trajPerm$nzero,p)
-    # mean_mseHC <- mse_idx_dist(trajHCdist$coefs, X, theta, true_mu, trajHCdist$nzero,p)
-    # mean_mseHCE <- mse_idx(trajHC$coefs, X, true_mu, trajHC$nzero, p)
-    # mean_mseStep <- mse_idx_dist(trajStep$coefs, X, theta, true_mu, trajStep$nzero,p)
-    # mean_mseAnneal <- mse_idx_dist(trajAnneal$coefs, X, theta, true_mu, trajAnneal$nzero,p)
-
-
-    #mse on new outcome data from same paramters and same X
-    # new_Y <- target$rdata(n, X, c(param$theta),
-    #                          param$sigma2)
-    # newY_mseSel <- mse_idx_dist(trajSel$coefs, X, theta, new_Y, trajSel$nzero, p)
-    # newY_mseSelE <- mse_idx_expect(trajSel$coefs, X, theta, new_Y, trajSel$nzero, p)
-    # newY_msePerm <- mse_idx_dist(trajPerm$coefs, X, theta, new_Y, trajPerm$nzero,p)
-    # newY_msePermE <- mse_idx_expect(trajPerm$coefs, X, theta, new_Y, trajPerm$nzero,p)
-    # newY_mseHC <- mse_idx_dist(trajHCdist$coefs, X, theta, new_Y, trajHCdist$nzero,p)
-    # newY_mseHCE <- mse_idx(trajHC$coefs, X, new_Y, trajHC$nzero, p)
-    # newY_mseStep <- mse_idx_dist( trajStep$coefs, X, theta, new_Y, trajStep$nzero, p )
-    # newY_mseAnneal <- mse_idx_dist( trajAnneal$coefs, X, theta, new_Y, trajAnneal$nzero, p )
-
-
-
-
-    #new mean
-    # newMu_mseSel <- mse_idx_dist(trajSelN$coefs, X_new, theta, new_mu, trajSelN$nzero, p)
-    # newMu_mseSelE <- mse_idx_expect(trajSelN$coefs, X_new, theta, new_mu, trajSelN$nzero, p)
-    # newMu_msePerm <- mse_idx_dist(trajPermN$coefs, X_new, theta, new_mu, trajPermN$nzero,p)
-    # newMu_msePermE <- mse_idx_expect(trajPermN$coefs, X_new, theta, new_mu, trajPermN$nzero,p)
-    # newMu_mseHC <- mse_idx_dist(trajHCNdist$coefs, X_new, theta, new_mu, trajHCNdist$nzero,p)
-    # newMu_mseHCE <- mse_idx(trajHCN$coefs, X_new, new_mu, trajHCN$nzero, p)
-    # newMu_mseStep <- mse_idx_dist(trajStepN$coefs, X_new, theta, new_mu, trajStepN$nzero, p)
-    # newMu_mseAnneal <- mse_idx_dist(trajAnnealN$coefs, X_new, theta, new_mu, trajAnnealN$nzero, p)
-
-    #new data
-    # newX_mseSel <- mse_idx_dist(trajSelN$coefs, X_new, theta, new_Y_new_X, trajSelN$nzero, p)
-    # newX_mseSelE <- mse_idx_expect(trajSelN$coefs, X_new, theta, new_Y_new_X, trajSelN$nzero, p)
-    # newX_msePerm <- mse_idx_dist(trajPermN$coefs, X_new, theta, new_Y_new_X, trajPermN$nzero,p)
-    # newX_msePermE <- mse_idx_expect(trajPermN$coefs, X_new, theta, new_Y_new_X, trajPermN$nzero,p)
-    # newX_mseHC <-  mse_idx(trajHCNdist$coefs, X_new, new_Y_new_X, trajHCNdist$nzero, p)
-    # newX_mseHCE <-  mse_idx(trajHCN$coefs, X_new, new_Y_new_X, trajHCN$nzero, p)
-    # newX_mseStep <- mse_idx_dist(trajStepN$coefs, X_new, theta, new_Y_new_X, trajStepN$nzero, p)
-    # newX_mseAnneal <- mse_idx_dist(trajAnnealN$coefs, X_new, theta, new_Y_new_X, trajAnnealN$nzero, p)
-
-
-    #single new mean
-    # singleMu_mseSel <- mse_idx_dist(trajSelO$coefs, X_sing, theta, new_mu_sing, trajSelO$nzero, p)
-    # singleMu_mseSelE <- mse_idx_expect(trajSelO$coefs, X_sing, theta, new_mu_sing, trajSelO$nzero, p)
-    # singleMu_msePerm <- mse_idx_dist(trajPermO$coefs, X_sing, theta, new_mu_sing, trajPermO$nzero,p)
-    # singleMu_msePermE <- mse_idx_expect(trajPermO$coefs, X_sing, theta, new_mu_sing, trajPermO$nzero,p)
-    # singleMu_mseHC <- mse_idx_dist(trajHCOdist$coefs, X_sing, theta, new_mu_sing, trajHCOdist$nzero,p)
-    # singleMu_mseHCE <- mse_idx(trajHCO$coefs, X_sing, new_mu_sing, trajHCO$nzero, p)
-    # singleMu_mseStep <- mse_idx_dist(trajStepO$coefs, X_sing, theta, new_mu_sing, trajStepO$nzero, p)
-    # singleMu_mseAnneal <- mse_idx_dist(trajAnnealO$coefs, X_sing, theta, new_mu_sing, trajAnnealO$nzero, p)
-
-    #single new data
-    # singleY_mseSel <- mse_idx_dist(trajSelO$coefs, X_sing, theta, single_Y, trajSelO$nzero, p)
-    # singleY_mseSelE <- mse_idx_expect(trajSelO$coefs, X_sing, theta, single_Y, trajSelO$nzero, p)
-    # singleY_msePerm <- mse_idx_dist(trajPermO$coefs, X_sing, theta, single_Y, trajPermO$nzero,p)
-    # singleY_msePermE <- mse_idx_expect(trajPermO$coefs, X_sing, theta, single_Y, trajPermO$nzero,p)
-    # singleY_mseHC <- mse_idx_dist(trajHCOdist$coefs, X_sing, theta, single_Y, trajHCOdist$nzero,p)
-    # singleY_mseHCE <-  mse_idx(trajHCO$coefs, X_sing, single_Y, trajHCO$nzero, p)
-    # singleY_mseStep <- mse_idx_dist(trajStepO$coefs, X_sing, theta, single_Y, trajStepO$nzero, p)
-    # singleY_mseAnneal <- mse_idx_dist(trajAnnealO$coefs, X_sing, theta, single_Y, trajAnnealO$nzero, p)
-
-    #### Using W2 to measure closeness to full posterior ####
-    # X_ident <- diag(1,p,p)
-    # postW2_Sel <- W2_idx(trajSel$coefs, X_ident, theta, post_sample$theta, trajSel$nzero,p)
-    # postW2_Perm <- W2_idx(trajPerm$coefs, X_ident, theta, post_sample$theta, trajPerm$nzero,p)
-    # postW2_Step <- W2_idx(trajStep$coefs, X_ident, theta, post_sample$theta, trajStep$nzero,p)
-    # postW2_Anneal <- W2_idx(trajAnneal$coefs, X_ident, theta, post_sample$theta, trajAnneal$nzero,p)
-    # postW2_HC <- W2_idx(trajHCdist$coefs, X_ident, theta, post_sample$theta, trajHCdist$nzero,p)
 
   } else {
     W2_insamp <- W2_newX <- W2_single <- mse_insamp <-  mse_newX <-  mse_single <- NULL
