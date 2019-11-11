@@ -176,7 +176,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                    display.progress=FALSE,
                    transport.method = transport.method,
                    model.size = ip_seq,
-                   infimum.maxit = 10, solution.method = "lp",
+                   infimum.maxit = 10, solution.method = "cone",
                    parallel = NULL)
   ipTime <- proc.time() - time
   # trajSel <- selDist$theta
@@ -361,10 +361,10 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     # lambdas <- calc.lambdas(augDatN, lambda.min.ratio, penalty_fact, n.lambda)
     cat(paste0("Running methods, new X variable: ", date(),"\n"))
     ipN <- W2IP(X = X_new, Y = cond_eta_new, theta = theta,
-                display.progress=FALSE,
+                display.progress=TRUE,
                 transport.method = transport.method,
                 model.size = ip_seq,
-                infimum.maxit = 100, solution.method = "lp",
+                infimum.maxit = 100, solution.method = "cone",
                 parallel = NULL)
 
     lassoSelN <- W2L1(X_new, cond_eta_new, theta, family="gaussian",
@@ -525,10 +525,10 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     # lambdas <- calc.lambdas(augDatO, lambda.min.ratio, penalty_fact, n.lambda)
     cat(paste0("Running methods, single data point: ", date(),"\n"))
     ipO <- W2IP(X = X_sing, Y = cond_eta_sing, theta = theta,
-               display.progress=FALSE,
+               display.progress=TRUE,
                transport.method = transport.method,
                model.size = ip_seq,
-               infimum.maxit = 10, solution.method = "lp",
+               infimum.maxit = 10, solution.method = "cone",
                parallel = NULL)
 
     lassoSelO <- W2L1(X_sing, cond_eta_sing, theta, family="gaussian", penalty="selection.lasso",
