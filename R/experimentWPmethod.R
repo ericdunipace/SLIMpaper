@@ -173,11 +173,11 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   #IP
   cat("   Selection: IP,\n")
   time <- proc.time()
-  ip <- W2IP(X = X, Y = cond_eta, theta = theta,
+  ip <- W2IP(X = X, Y = NULL, theta = theta,
                    display.progress=FALSE,
                    transport.method = transport.method,
                    model.size = ip_seq,
-                   infimum.maxit = 10, solution.method = "cone",
+                   infimum.maxit = 5, solution.method = "cone",
                    parallel = NULL)
   ipTime <- proc.time() - time
   # trajSel <- selDist$theta
@@ -238,9 +238,12 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 proposal.method = sa_prop),
                  display.progress=FALSE, max.time = sa_max_time)
   annealTime <- proc.time() - time
+  cat(paste0(anneal$message,"\n"))
+  if(anneal$message != "completed") {
+    annealTime <- paste0(">", annealTime)
+  }
 
-
-  cat("  Projection: Lasso, ")
+  cat("   Projection: Lasso, ")
   #projection
   time <- proc.time()
   lassoProj <- W2L1(X, cond_eta, theta, family="gaussian", penalty=penalty,
@@ -288,9 +291,9 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
 
   # }
   # trajAnneal <- anneal$theta
-  cat(paste0(anneal$message,"\n"))
-  if(anneal$message != "completed") {
-    annealTime <- paste0(">", annealTime)
+  cat(paste0(Panneal$message,"\n"))
+  if(Panneal$message != "completed") {
+    PannealTime <- paste0(">", PannealTime)
   }
 
   if (not.only.timing) {
@@ -310,7 +313,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     if( calc_w2_post){
       W2_insamp <- distCompare(inSampModels, target = list(posterior = theta,
                                                            mean = cond_mu),
-                               method = ,
+                               method = wp_alg,
                                quantity=c("posterior","mean"),
                                parallel=NULL,
                                transform = data$invlink,
@@ -326,7 +329,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 niter = otmaxit)
       PW2_insamp <- distCompare(inSampModelsProj, target = list(posterior = theta,
                                                            mean = cond_mu),
-                               method = ,
+                               method = wp_alg,
                                quantity=c("posterior","mean"),
                                parallel=NULL,
                                transform = data$invlink,
@@ -351,6 +354,22 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                epsilon = epsilon,
                                niter = otmaxit)
       mse_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
+                                                            mean = true_mu),
+                                method = "mse",
+                                quantity="mean",
+                                parallel=NULL,
+                                transform = data$invlink,
+                                epsilon = epsilon,
+                                niter = otmaxit)
+      PW2_insamp <- distCompare(inSampModelsProj, target = list(posterior = NULL,
+                                                           mean = cond_mu),
+                               method = wp_alg,
+                               quantity=c("mean"),
+                               parallel=NULL,
+                               transform = data$invlink,
+                               epsilon = epsilon,
+                               niter = otmaxit)
+      Pmse_insamp <- distCompare(inSampModelsProj, target = list(posterior = NULL,
                                                             mean = true_mu),
                                 method = "mse",
                                 quantity="mean",
