@@ -173,7 +173,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   #IP
   cat("   Selection: IP,\n")
   time <- proc.time()
-  ip <- W2IP(X = X, Y = NULL, theta = theta,
+  ip <- W2IP(X = X, Y = cond_eta, theta = theta,
                    display.progress=FALSE,
                    transport.method = transport.method,
                    model.size = ip_seq,
