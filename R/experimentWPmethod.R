@@ -177,7 +177,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                    display.progress=FALSE,
                    transport.method = transport.method,
                    model.size = ip_seq,
-                   infimum.maxit = 5, solution.method = "cone",
+                   infimum.maxit = 100, solution.method = "cone",
                    parallel = NULL)
   ipTime <- proc.time() - time
   # trajSel <- selDist$theta
@@ -566,7 +566,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                display.progress=TRUE,
                transport.method = transport.method,
                model.size = ip_seq,
-               infimum.maxit = 10, solution.method = "cone",
+               infimum.maxit = 100, solution.method = "cone",
                parallel = NULL)
 
     cat(" Lasso")
