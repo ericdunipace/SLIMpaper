@@ -31,7 +31,9 @@ get_normal_linear_model <- function() {
   rdata <- function(n, x, theta, sigma2, ...) {
     dots <- list(...)
     corr.x <- dots$corr
+    scale <- dots$scale
     if(is.null(corr.x)) corr.x <- 0
+    if(is.null(scale)) scale <- TRUE
 
     if(ncol(x) > length(theta)) {
       x <- x[, 1: length(theta), drop=FALSE]
@@ -50,7 +52,11 @@ get_normal_linear_model <- function() {
     corr.mat <- corr_mat_construct(corr.x, p)
     diag(corr.mat) <- 1
     theta_norm <- c(t(theta) %*% corr.mat %*% theta)
-    theta_scaled <- theta/sqrt(theta_norm) #* sqrt(sigma2)
+    theta_scaled <- if(scale) {
+                      theta/sqrt(theta_norm)
+                    } else {
+                      theta
+                    }#* sqrt(sigma2)
     mu <- x %*% theta_scaled + intercept
     Y <- rnorm(n, mu, sqrt(sigma2))
     theta <- c(intercept, theta_scaled)

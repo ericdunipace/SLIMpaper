@@ -377,7 +377,8 @@ get_survival_linear_model <- function() {
                          inseed = seed, ncpu = ncpu, parallel.MPI = parallel.MPI)
     } else if (method == "inla") {
       # if(all(x[,1]==1) || all(x[,1]==0)) x <- x[,-1]
-      xdf <- as.data.frame(scale(x))
+      sx <- scale(x)
+      xdf <- as.data.frame(sx)
       pred.names <- colnames(xdf)
       colnames(xdf) <- paste0("x",1:ncol(xdf))
       intercept1 <- rep(1,n)
@@ -460,11 +461,21 @@ get_survival_linear_model <- function() {
         return(list(surv = Surv, base = baseSurv))
       }
 
-      survlist <- surv.calc(model, theta, x)
+      survlist <- surv.calc(model, theta, sx)
       mu$S <- survlist
       # mu$time
+      eta <- sx %*% theta[-1,]
 
-      eta <- x %*% theta[-1,]
+      if(!is.null(X.test)) {
+        mm <- attr(sx, "scaled:center")
+        ss <- attr(sx, "scaled:scale")
+        sxt <- scale(X.test, center =mm, scale = ss)
+        test$eta <- sxt %*% theta[-1,]
+        test$mu <- list()
+        test$mu$S <- surv.calc(model, theta, sxt)
+      }
+
+
 
     } else if (method == "inla.cens") {
       # if(all(x[,1]==1) || all(x[,1]==0)) x <- x[,-1]
