@@ -135,7 +135,34 @@ get_binary_nonlinear_model <- function() {
       data_gen_functions <- gp
     }
     else if (method == "glm") {
-      logit.p <- x %*% dots$param
+      corr.x <- dots$corr
+      scale <- dots$scale
+      if(is.null(corr.x)) corr.x <- 0
+      if(is.null(scale)) scale <- TRUE
+
+      if(ncol(x) > length(theta)) {
+        x <- x[, 1: length(theta), drop=FALSE]
+        warning("Ncol X > length(theta). Only using first length(theta) columns of X.")
+      }
+      is.intercept <- all(x[,1] == 1)
+      if(is.intercept) {
+        intercept <- theta[1]
+        theta <- theta[-1]
+        x <- x[,-1, drop=FALSE]
+      } else {
+        intercept <- 0
+      }
+
+      p <- ncol(x)
+      corr.mat <- corr_mat_construct(corr.x, p)
+      diag(corr.mat) <- 1
+      theta_norm <- c(t(theta) %*% corr.mat %*% theta)
+      theta_scaled <- if(scale) {
+        theta/sqrt(theta_norm)
+      } else {
+        theta
+      }#* sqrt(sigma2)
+      logit.p <- x %*% theta_scaled + intercept
     }
     else if (method == "random.interaction") {
       # param <- dots$param

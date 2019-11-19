@@ -55,8 +55,35 @@ get_survival_linear_model <- function() {
   rdata <- function(n, x, theta, ...) {
     dots <- list(...)
     # id <- dots$id
+    corr.x <- dots$corr
+    scale <- dots$scale
+    if(is.null(corr.x)) corr.x <- 0
+    if(is.null(scale)) scale <- TRUE
 
-    log.rate <- x %*% c(theta)
+    if(ncol(x) > length(theta)) {
+      x <- x[, 1: length(theta), drop=FALSE]
+      warning("Ncol X > length(theta). Only using first length(theta) columns of X.")
+    }
+    is.intercept <- all(x[,1] == 1)
+    if(is.intercept) {
+      intercept <- theta[1]
+      theta <- theta[-1]
+      x <- x[,-1, drop=FALSE]
+    } else {
+      intercept <- 0
+    }
+
+    p <- ncol(x)
+    corr.mat <- corr_mat_construct(corr.x, p)
+    diag(corr.mat) <- 1
+    theta_norm <- c(t(theta) %*% corr.mat %*% theta)
+    theta_scaled <- if(scale) {
+      theta/sqrt(theta_norm)
+    } else {
+      theta
+    }
+    log.rate <- x %*% theta_scaled + intercept
+
     mu <- exp(log.rate)
     Y <- rexp(n, mu)
     return(list(Y= Y, mu = mu, eta = log.rate, link = Gamma(link = log)$linkfun, invlink = Gamma(link = log)$linkinv, param = theta))
