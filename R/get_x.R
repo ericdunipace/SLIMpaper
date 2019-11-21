@@ -24,28 +24,35 @@ corr_mat_construct <- function(corr, p) {
   if(is.matrix(corr)) {
     x_cov <- corr
   } else {
-    x_cov <- matrix(corr, nrow=p, ncol=p)
+    x_cov <- matrix(0, nrow=p, ncol=p)
+  }
+  # diag(x_cov) <- 1
+  #
+  # if(p > 5) {
+  #   p_lim <- 5
+  #   p_lim1 <- p_lim + 1
+  #   x_cov[p_lim1:p,1:p_lim] <- x_cov[1:p_lim, p_lim1:p] <- 0
+  # }
+  # if(p > 10) {
+  #   p_lim <- 10
+  #   p_lim1 <- p_lim + 1
+  #   x_cov[p_lim1:p,1:p_lim] <- x_cov[1:p_lim, p_lim1:p] <- 0
+  # }
+  # if(p > 20) {
+  #   p_lim <- 20
+  #   p_lim1 <- p_lim + 1
+  #   x_cov[p_lim1:p,1:p_lim] <- x_cov[1:p_lim, p_lim1:p] <- 0
+  # }
+  # if(p > 50) {
+  #   p_lim <- 50
+  #   p_lim1 <- p_lim + 1
+  #   x_cov[p_lim1:p,1:p_lim] <- x_cov[1:p_lim, p_lim1:p] <- 0
+  # }
+  for(i in seq(1,p,5)) {
+    ranges <- (i:(i + 4))
+    if(ranges[5] > p) ranges <- ranges[ranges <= p]
+    x_cov[ranges, ranges] <- corr
   }
   diag(x_cov) <- 1
-  if(p > 5) {
-    p_lim <- 5
-    p_lim1 <- p_lim + 1
-    x_cov[p_lim1:p,1:p_lim] <- x_cov[1:p_lim, p_lim1:p] <- 0
-  }
-  if(p > 10) {
-    p_lim <- 10
-    p_lim1 <- p_lim + 1
-    x_cov[p_lim1:p,1:p_lim] <- x_cov[1:p_lim, p_lim1:p] <- 0
-  }
-  if(p > 20) {
-    p_lim <- 20
-    p_lim1 <- p_lim + 1
-    x_cov[p_lim1:p,1:p_lim] <- x_cov[1:p_lim, p_lim1:p] <- 0
-  }
-  if(p > 50) {
-    p_lim <- 50
-    p_lim1 <- p_lim + 1
-    x_cov[p_lim1:p,1:p_lim] <- x_cov[1:p_lim, p_lim1:p] <- 0
-  }
   return(x_cov)
 }
