@@ -185,13 +185,14 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   cat("   Selection: IP, Lasso, ")
   #selection variable
   time <- proc.time()
-  lassoSel <- W2L1(X, cond_eta, theta, family="gaussian", penalty="selection.lasso",
-                   penalty.factor = penalty_fact, nlambda = n.lambda,
+  lassoSel <- W2L1(X, cond_eta, theta, family="gaussian", penalty=penalty,
+                   penalty.factor = penalty_fact, nlambda = n.lambda, alpha = 0.99,
+                   gamma = 1.1,
                    lambda.min.ratio = lambda.min.ratio, infimum.maxit=1e2,
                    maxit = 1e6,
                    display.progress=FALSE,
                    transport.method = transport.method,
-                   gamma = 1, method = "selection.variable")
+                   method = "selection.variable")
   selTime <- proc.time() - time
   # trajSel <- selDist$theta
 
@@ -200,7 +201,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   time <- proc.time()
   lassoHC <- HC(X, cond_eta, theta = theta,
                 family=family, penalty=penalty, method = "selection.variable",
-                penalty.factor=HC_penalty_fact, nlambda = n.lambda,
+                penalty.factor=HC_penalty_fact, nlambda = n.lambda, alpha = 0.99, gamma = 1.1,
                 lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
   hcTime <- proc.time() - time
 
@@ -249,10 +250,10 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   lassoProj <- W2L1(X, cond_eta, theta, family="gaussian", penalty=penalty,
                     penalty.factor=proj_penalty_fact, nlambda = n.lambda,
                     lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
-                    maxit = 1e6,
+                    maxit = 1e6, alpha = 0.99, gamma = 1.1,
                     display.progress=FALSE,
                     transport.method = transport.method,
-                    gamma = 1, method = "projection")
+                    method = "projection")
   projTime <- proc.time() - time
   # trajProj <- projDist$theta
 
@@ -260,6 +261,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   time <- proc.time()
   PlassoHC <- HC(X, cond_eta, theta = theta,
                 family=family, penalty=penalty, method = "projection",
+                alpha = 0.99, gamma = 1.1,
                 penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                 lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
   PhcTime <- proc.time() - time
@@ -398,18 +400,18 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
 
     cat(" Lasso")
     lassoSelN <- W2L1(X_new, cond_eta_new, theta, family="gaussian",
-                      penalty="selection.lasso",
+                      penalty=penalty, alpha = 0.99, gamma = 1.1,
                       penalty.factor=penalty_factN, nlambda = n.lambda,
                       lambda.min.ratio = lambda.min.ratio, infimum.maxit=100,
                       maxit = 1e5,
                       transport.method = transport.method,
-                      display.progress=TRUE, gamma = 1, method = "selection.variable")
+                      display.progress=TRUE, method = "selection.variable")
     # trajSelN <- extractCoef(lassoSelN)
 
     cat(" HC, ")
     #carvalho method
     lassoHCN <- HC(X_new, cond_eta_new, theta = theta,
-                   family=family, penalty=penalty,
+                   family=family, penalty=penalty, alpha = 0.99, gamma = 1.1,
                    penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                    lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
 
@@ -438,7 +440,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     lassoProjN <- W2L1(X_new, cond_eta_new, theta, family="gaussian", penalty=penalty,
                        penalty.factor=proj_penalty_fact, nlambda = n.lambda,
                        lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
-                       maxit=1e5,
+                       maxit=1e5, alpha = 0.99, gamma = 1.1,
                        transport.method = transport.method,
                        display.progress=TRUE, method = "projection")
 
@@ -450,7 +452,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                   display.progress = TRUE)
     cat(" HC, ")
     #HC
-    PlassoHCN <- HC(X_new, cond_eta_new, theta = theta,
+    PlassoHCN <- HC(X_new, cond_eta_new, theta = theta, alpha = 0.99, gamma = 1.1,
                    family=family, penalty=penalty, method = "projection",
                    penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                    lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
@@ -570,12 +572,12 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                parallel = NULL)
 
     cat(" Lasso")
-    lassoSelO <- W2L1(X_sing, cond_eta_sing, theta, family="gaussian", penalty="selection.lasso",
+    lassoSelO <- W2L1(X_sing, cond_eta_sing, theta, family="gaussian", penalty=penalty,
                       penalty.factor=penalty_factO, nlambda = n.lambda,
                       lambda.min.ratio = lambda.min.ratio, infimum.maxit=100,
-                      maxit=1e5,
+                      maxit=1e5, alpha = 0.99, gamma = 1.1,
                       transport.method = transport.method,
-                      display.progress=TRUE, gamma = 1, method = "selection.variable")
+                      display.progress=TRUE, method = "selection.variable")
 
     cat(" SW")
     #stepwise
