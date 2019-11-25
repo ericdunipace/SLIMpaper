@@ -379,8 +379,8 @@ get_binary_nonlinear_model <- function() {
                        m0 = m0,
                        scale_intercept = scale_intercept)
 
-      warmup <- nsamp
-      iter <- ceiling(n.samp/chains) + warmup
+      warmup <- max(n.samp*(2-1/chains), 1000)
+      iter <- warmup + ceiling(n.samp/chains)
 
       stanModel <- rstan::stan_model(stan_dir)
       stanFit <- rstan::sampling(stanModel, data = stan_dat, iter = iter,
@@ -476,8 +476,8 @@ get_binary_nonlinear_model <- function() {
       chains <- dots$chains
       X.test <- dots[["X.test"]]
       prior <- hs_plus()
-      warmup <- n.samp
-      iter <- ceiling(n.samp/chains) + warmup
+      warmup <- max(n.samp*(2-1/chains), 1000)
+      iter <- warmup + ceiling(n.samp/chains)
 
       stan_dat <- data.frame(Y = Y)
       namesX <- paste0("X",1:p)

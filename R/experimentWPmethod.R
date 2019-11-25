@@ -76,16 +76,26 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   post_sample <- target$rpost(n.samps, X, Y, hyperparameters, method = posterior.method, stan_dir = stan_dir, X.test = rbind(X_sing, X_new))
   if(family != "binomial") {
     post_interp <- post_sample
-  } else {
+   } else {
     post_interp <- target$rpost(n.samps, X, Y, NULL, method = "logistic", stan_dir = stan_dir,
                                 X.test = rbind(X_sing, X_new))
     calc_w2_post <- FALSE
   }
 
-  theta <- post_interp$theta #regression coef
+  # if(family == "exponential" & posterior.method == "stan-cox") {
+  #   log_dL0 <- rstan::extract(post_sample$model, pars= c("log_dL0"))$log_dL0
+  #   intercept <- t(rowMeans(log_dL0))
+  #   print(dim(post_sample$theta))
+  #   post_sample$theta <-  rbind(intercept, post_sample$theta)
+  #   print(dim(post_sample$theta))
+  #   post_sample$eta <-  post_sample$eta + matrix(intercept, nrow = n, ncol=n.samps, byrow = TRUE)
+  #   post_sample$test$eta <- post_sample$test$eta +
+  #     matrix(intercept, nrow = n+1, ncol=n.samps, byrow = TRUE)
+  # }
+  theta <- post_sample$theta #regression coef
   if(nrow(theta) != ncol(X)) theta <- t(theta)
   t_theta <- t(theta)
-  sigma <- post_interp$sigma #variance (if it exists for model)
+  sigma <- post_sample$sigma #variance (if it exists for model)
 
   #functions of theta
   E_theta <- colMeans(theta)
@@ -102,14 +112,37 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   marg_eta_sing <- rowMeans(cond_eta_sing)
 
   #conditional and marginal means
-  cond_mu <- post_sample$mu
-  marg_mu <- rowMeans(cond_mu)
+  if(family != "exponential") {
+    cond_mu <- post_sample$mu
+    marg_mu <- rowMeans(cond_mu)
 
-  cond_mu_new <- post_sample$test$mu[-1,, drop=FALSE]
-  marg_mu_new <- rowMeans(cond_mu_new)
+    cond_mu_new <- post_sample$test$mu[-1,, drop=FALSE]
+    marg_mu_new <- rowMeans(cond_mu_new)
 
-  cond_mu_sing <- post_sample$test$mu[1,,drop=FALSE]
-  marg_mu_sing <- rowMeans(cond_mu_sing)
+    cond_mu_sing <- post_sample$test$mu[1,,drop=FALSE]
+    marg_mu_sing <- rowMeans(cond_mu_sing)
+  } else {
+    # cond_mu <- post_sample$mu$S$surv
+    # marg_mu <- apply(cond_mu, 2:3, mean)
+    #
+    # cond_mu_new <- post_sample$test$mu$S[,, -1,drop=FALSE]
+    # marg_mu_new <- apply(cond_mu_new, 2:3, mean)
+    #
+    # cond_mu_sing <- post_sample$test$mu$S[,,1,drop=FALSE]
+    # marg_mu_sing <- apply(cond_mu_sing, 2:3, mean)
+    # X <- X[,-1]
+    # X_new <- X_new[,-1]
+    # X_sing <- X_sing[,-1]
+    cond_mu <- data$invlink(post_sample$eta)
+    marg_mu <- rowMeans(cond_mu)
+
+    cond_mu_new <- data$invlink(post_sample$test$eta[-1,, drop=FALSE])
+    marg_mu_new <- rowMeans(cond_mu_new)
+
+    cond_mu_sing <- data$invlink(post_sample$test$eta[1,,drop=FALSE])
+    marg_mu_sing <- rowMeans(cond_mu_sing)
+  }
+
 
   #penalty terms
   penalty_fact <- set_penalty_factor(theta = theta, method = penalty_method, intercept = TRUE,

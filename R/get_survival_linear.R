@@ -96,7 +96,7 @@ get_survival_linear_model <- function() {
   rpost_coef <- function(x){NULL}
   rpost_sigma <- function(x){NULL}
 
-  rpost <- function(n.samp, x, y, hyperparameters,...) { #uses RJAGS
+  rpost <- function(n.samp, x, y, hyperparameters=list(),...) { #uses RJAGS
     # require(rjags)
     dots <- list(...)
     id <- dots$id
@@ -193,7 +193,7 @@ get_survival_linear_model <- function() {
     }
 
     if(method == "ss-jags") {
-      mu_vec <- rep(mu_0, ncol(x))
+      mu_vec <- rep(m, ncol(x))
       prec_matrix <- matrix(0, ncol(x), ncol(x))
       diag(prec_matrix) <- lambda
       jags_data <-
@@ -251,7 +251,7 @@ get_survival_linear_model <- function() {
         test$eta <- X.test %*% theta
       }
     } else if(method == "jags") {
-      mu_vec <- rep(mu_0, ncol(x))
+      mu_vec <- rep(m, ncol(x))
       prec_matrix <- matrix(0, ncol(x), ncol(x))
       diag(prec_matrix) <- lambda
       jags_data <-
@@ -594,6 +594,85 @@ get_survival_linear_model <- function() {
       # mu$time
 
       # eta <- x %*% theta[-1,]
+    } else if (method == "stan-cox") {
+      sx <- scale(x)
+
+      p <- ncol(x)
+      n <- nrow(x)
+
+      stan_dir <- dots$stan_dir
+      m0 <- dots$m0
+      # scale_intercept <- dots$scale_intercept
+      chains <- dots$chains
+      X.test <- dots$X.test
+      if(is.null(n.intervals)) n.intervals <- 15
+
+      if(is.null(m0)) m0 <- round(0.1 * p)
+      if(m0 < 1) m0 <- round(m0 * p)
+      # if(is.null(scale_intercept)) scale_intercept <- 2.5
+      if(is.null(chains)) chains <- 4
+      # if(any(times) == 0) times <- times[times != 0]
+      scaled.times <- times[times != 0]/max(times[times != 0], na.rm = TRUE)
+
+      if(is.null(cutpoints)) {
+        cutpoints <- quantile(scaled.times, seq(0,1,length.out = n.intervals))
+        # cutpoints <- c(0, cutpoints)
+      }
+
+
+      stan_dat <- list(
+        N = as.integer(length(unique(id))),
+        NT = as.integer(length(cutpoints)),
+        obs_t = as.double(obs.time),
+        times = as.double(cutpoints),
+        fail = as.integer(fail),
+        P = as.integer(ncol(sx)),
+        X = as.matrix(sx),
+        m0 = as.double(m0)
+        )
+
+      warmup <- max(n.samp*(2-1/chains), 1000)
+      iter <- warmup + ceiling(n.samp/chains)
+
+      stanModel <- rstan::stan_model(stan_dir)
+      stanFit <- rstan::sampling(stanModel, data=stan_dat, iter=iter,
+                          warmup = warmup, chains=chains,
+                          pars = c("baseline_S","individ_S","beta","log_dL0","eta"),
+                          sample_file = "cox_stan.csv")
+      samples <- rstan::extract(stanFit, pars= c("baseline_S","individ_S","log_dL0","beta","eta"))
+
+      theta <- t( samples$beta)
+      theta <- diag(1/attr(sx, "scaled:scale")) %*% theta
+
+
+
+      model <- stanFit
+      # mu$Xtrans <- list(center=attr(sx, "scaled:center"), scale = attr(sx, "scaled:scale"))
+      surv.calc <- function(baseSurv,x, theta) {
+        # sx <- scale(x, center = model$Xtrans$center, scale=model$Xtrans$scale)
+        # baseSurv <- t(rstan::extract(stanFit, pars= c("baseline_S"))$baseline_S)
+        # theta <-  rstan::extract(stanFit, pars= c("beta"))$beta
+        eta <- x %*%  theta
+        exp_eta <- exp(eta)
+        nT <- nrow(baseSurv)
+        nS <- ncol(baseSurv)
+        Surv <- simplify2array(lapply(1:n, function(i) baseSurv^matrix(exp_eta[i,], nT, nS, byrow=TRUE)))
+        return(Surv)
+      }
+
+      intercept <- t(rowMeans(samples$log_dL0)) - matrix(attr(sx, "scaled:center"),nrow=p,ncol=n.samp) %*% theta
+      theta <- rbind(intercept, theta)
+      eta <- t(samples$eta ) + intercept
+      mu <- list(S = list(surv = samples$individ_S, base = t(samples$baseline_S)),
+                 intercept = intercept)
+
+      if(!is.null(X.test)){
+        if(all(X.test[,1] == 1)) X.test <- X.test[,-1, drop = FALSE]
+        # sxt <- scale(X.test, center = attr(sx, "scaled:center"), scale = attr(sx, "scaled:scale"))
+        testEta <- cbind(1,X.test) %*% theta
+        test <- list(eta = testEta, mu = list(S = surv.calc(mu$S$base, X.test, theta)))
+      }
+
     }
 
 

@@ -35,7 +35,7 @@ get_param <- function() {
     #                 .029, .04, .005, .04, .006)
     theta_star <- theta_gen()
     theta_star[1] <- -0.7
-    return(theta_star)
+    return(list(theta = theta_star))
   }
 
   expo_param <- function() {
@@ -45,7 +45,7 @@ get_param <- function() {
     #                 0.02, 0.05, 0.009, 0.018, 0.01,
     #                 0.029, 0.04, 0.005, 0.04, 0.006)
     theta_star <- theta_gen()
-    return(theta_star)
+    return(list(theta = theta_star))
   }
 
   return(list(gaussian = gaussian_param,

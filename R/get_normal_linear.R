@@ -145,9 +145,12 @@ get_normal_linear_model <- function() {
                        m0 = m0,
                        scale_intercept = scale_intercept)
 
+      warmup <- max(n.samp*(2-1/chains), 1000)
+      iter <- warmup + ceiling(n.samp/chains)
+
       stanModel <- stan_model(stan_dir)
-      stanFit <- sampling(stanModel, data=stan_dat, iter=n.samp*2,
-                          warmup = n.samp*7/4, chains=chains, pars = c("y_hat","theta","sigma"))
+      stanFit <- sampling(stanModel, data=stan_dat, iter=iter,
+                          warmup = warmup, chains=chains, pars = c("y_hat","theta","sigma"))
       samples <- extract(stanFit, pars= c("y_hat","theta","sigma"))
       eta <- mu <- samples$y_hat
       theta <- t(samples$theta)
