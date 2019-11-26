@@ -286,10 +286,10 @@ get_binary_nonlinear_model <- function() {
       nodes <- hyperparameters$nodes
       L <- hyperparameters$L
 
-
-      dnn <- stan_model(stan_dir)
+      rstan::rstan_options(auto_write = TRUE)
+      dnn <- rstan::stan_model(stan_dir)
       stan_dat <- list(N = n, P=p, L = L, X=x, Y=y, m0 = m0, nodes=nodes)
-      vb.out <- vb(dnn,stan_dat, algorithm=algorithm, iter=iter,
+      vb.out <- rstan::vb(dnn,stan_dat, algorithm=algorithm, iter=iter,
                    grad_samples=grad_samples, eval_elbo=eval_elbo, eta=eta,
                    adapt_engaged=adapt_engaged, init=init, tol_rel_obj = tol,
                    output_samples = n.samp)
@@ -382,6 +382,7 @@ get_binary_nonlinear_model <- function() {
       warmup <- max(n.samp*(2-1/chains), 1000)
       iter <- warmup + ceiling(n.samp/chains)
 
+      rstan::rstan_options(auto_write = TRUE)
       stanModel <- rstan::stan_model(stan_dir)
       stanFit <- rstan::sampling(stanModel, data = stan_dat, iter = iter,
                           warmup = warmup, chains = chains, pars = c("eta","theta","prob", "beta", "intercept"))
@@ -448,7 +449,7 @@ get_binary_nonlinear_model <- function() {
                        R_inv_x = R_inv,
                        m0 = m0,
                        scale_intercept = scale_intercept)
-
+      rstan::rstan_options(auto_write = TRUE)
       stanModel <- rstan::stan_model(stan_dir)
       stanFit <- rstan::vb(stanModel, data=stan_dat, algorithm=algorithm, iter=iter,
                     grad_samples=grad_samples, eval_elbo=eval_elbo, eta=eta,

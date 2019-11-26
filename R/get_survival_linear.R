@@ -120,6 +120,8 @@ get_survival_linear_model <- function() {
     parallel <- dots$parallel
     cutpoints <- dots$cutpoints
     n.intervals <- dots$n.intervals
+    is.exponential <- dots$is.exponential
+    if(is.null(is.exponential)) is.exponential <- FALSE
     if(is.null(method)) method <- "ss-jags"
 
     test <- list(eta = NULL, mu = NULL)
@@ -596,7 +598,6 @@ get_survival_linear_model <- function() {
       # eta <- x %*% theta[-1,]
     } else if (method == "stan-cox") {
       sx <- scale(x)
-
       p <- ncol(x)
       n <- nrow(x)
 
@@ -634,17 +635,18 @@ get_survival_linear_model <- function() {
       warmup <- max(n.samp*(2-1/chains), 1000)
       iter <- warmup + ceiling(n.samp/chains)
 
+      rstan::rstan_options(auto_write = TRUE)
       stanModel <- rstan::stan_model(stan_dir)
       stanFit <- rstan::sampling(stanModel, data=stan_dat, iter=iter,
                           warmup = warmup, chains=chains,
-                          pars = c("baseline_S","individ_S","beta","log_dL0","eta"),
-                          sample_file = "cox_stan.csv")
+                          pars = c("baseline_S","individ_S","beta","log_dL0","eta"))
+                          # sample_file = "cox_stan.csv")
       samples <- rstan::extract(stanFit, pars= c("baseline_S","individ_S","log_dL0","beta","eta"))
 
       theta <- t( samples$beta)
       theta <- diag(1/attr(sx, "scaled:scale")) %*% theta
-
-
+      mu <- list(S = list(surv = samples$individ_S, base = t(samples$baseline_S)))
+      eta <- t(samples$eta)
 
       model <- stanFit
       # mu$Xtrans <- list(center=attr(sx, "scaled:center"), scale = attr(sx, "scaled:scale"))
@@ -659,18 +661,25 @@ get_survival_linear_model <- function() {
         Surv <- simplify2array(lapply(1:n, function(i) baseSurv^matrix(exp_eta[i,], nT, nS, byrow=TRUE)))
         return(Surv)
       }
+      if(is.exponential){
+        intercept <- t(rowMeans(samples$log_dL0)) - t(attr(sx, "scaled:center")) %*% theta
+        theta <- rbind(intercept, theta)
+        eta <- t(samples$eta  + rowMeans(samples$log_dL0))
+        mu$intercept <- intercept
+      }
 
-      intercept <- t(rowMeans(samples$log_dL0)) - matrix(attr(sx, "scaled:center"),nrow=p,ncol=n.samp) %*% theta
-      theta <- rbind(intercept, theta)
-      eta <- t(samples$eta ) + intercept
-      mu <- list(S = list(surv = samples$individ_S, base = t(samples$baseline_S)),
-                 intercept = intercept)
 
       if(!is.null(X.test)){
         if(all(X.test[,1] == 1)) X.test <- X.test[,-1, drop = FALSE]
+        if(is.exponential) {
+          S.test <- surv.calc(mu$S$base, X.test, theta[-1,])
+          X.test <- cbind(1, X.test)
+        } else {
+          S.test <- surv.calc(mu$S$base, X.test, theta)
+        }
         # sxt <- scale(X.test, center = attr(sx, "scaled:center"), scale = attr(sx, "scaled:scale"))
-        testEta <- cbind(1,X.test) %*% theta
-        test <- list(eta = testEta, mu = list(S = surv.calc(mu$S$base, X.test, theta)))
+        testEta <- X.test %*% theta
+        test <- list(eta = testEta, mu = list(S = S.test))
       }
 
     }

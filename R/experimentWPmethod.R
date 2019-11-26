@@ -44,7 +44,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
 
   #w2 dist param
   wp_alg <- conditions$wp_alg
-  if(is.null(wp_alg)) wp_alg <- "gandkhorn"
+  if(is.null(wp_alg)) wp_alg <- "greenkhorn"
 
   # SETUP PARAMETERS
   param <- target$rparam()
@@ -73,7 +73,11 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   new_mu_sing <- single_data$mu
 
   #sample theta
-  post_sample <- target$rpost(n.samps, X, Y, hyperparameters, method = posterior.method, stan_dir = stan_dir, X.test = rbind(X_sing, X_new))
+  post_sample <- target$rpost(n.samps, X, Y, hyperparameters,
+                              method = posterior.method, stan_dir = stan_dir,
+                              X.test = rbind(X_sing, X_new),
+                              chains = 1,
+                              is.exponential = TRUE)
   if(family != "binomial") {
     post_interp <- post_sample
    } else {
@@ -233,7 +237,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   #carvalho method
   time <- proc.time()
   lassoHC <- HC(X, cond_eta, theta = theta,
-                family=family, penalty=penalty, method = "selection.variable",
+                family="gaussian", penalty=penalty, method = "selection.variable",
                 penalty.factor=HC_penalty_fact, nlambda = n.lambda, alpha = 0.99, gamma = 1.1,
                 lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
   hcTime <- proc.time() - time
@@ -293,7 +297,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   cat(" HC, ")
   time <- proc.time()
   PlassoHC <- HC(X, cond_eta, theta = theta,
-                family=family, penalty=penalty, method = "projection",
+                family="gaussian", penalty=penalty, method = "projection",
                 alpha = 0.99, gamma = 1.1,
                 penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                 lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
@@ -444,7 +448,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     cat(" HC, ")
     #carvalho method
     lassoHCN <- HC(X_new, cond_eta_new, theta = theta,
-                   family=family, penalty=penalty, alpha = 0.99, gamma = 1.1,
+                   family="gaussian", penalty=penalty, alpha = 0.99, gamma = 1.1,
                    penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                    lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
 
@@ -486,7 +490,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     cat(" HC, ")
     #HC
     PlassoHCN <- HC(X_new, cond_eta_new, theta = theta, alpha = 0.99, gamma = 1.1,
-                   family=family, penalty=penalty, method = "projection",
+                   family="gaussian", penalty=penalty, method = "projection",
                    penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                    lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
     cat(" SA")
