@@ -56,6 +56,9 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   X <- target$X$rX(n, target$X$corr, p)
   X_sing <- matrix(c(target$X$rX(1, target$X$corr, p)), nrow=1, ncol=p)
   X_new <- target$X$rX(n, target$X$corr, p)
+  X_neighborhood <- CoarsePosteriorSummary::rmvnorm(nsamples = p*3,
+                                                    mean = X_sing,
+                                                    covariance = cov(X)/n)
 
   data <- target$rdata(n, X[,1:p_star,drop=FALSE], c(param$theta),
                        param$sigma2, method = "modified.friedman", corr = target$X$corr)
@@ -75,16 +78,19 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   #sample theta
   post_sample <- target$rpost(n.samps, X, Y, hyperparameters,
                               method = posterior.method, stan_dir = stan_dir,
-                              X.test = rbind(X_sing, X_new),
+                              X.test = rbind(X_sing, X_new, X_neighborhood),
                               chains = 1,
                               is.exponential = TRUE)
   if(family != "binomial") {
     post_interp <- post_sample
    } else {
     post_interp <- target$rpost(n.samps, X, Y, NULL, method = "logistic", stan_dir = stan_dir,
-                                X.test = rbind(X_sing, X_new))
+                                X.test = rbind(X_sing, X_new, X_neighborhood))
     calc_w2_post <- FALSE
-  }
+   }
+  single_idx <- 1
+  new_idx <- 2:(n+1)
+  neighb_idx <- (n+2):(n+1 + p*3)
 
   # if(family == "exponential" & posterior.method == "stan-cox") {
   #   log_dL0 <- rstan::extract(post_sample$model, pars= c("log_dL0"))$log_dL0
@@ -109,22 +115,29 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   cond_eta <- post_sample$eta
   marg_eta <- rowMeans(cond_eta)
 
-  cond_eta_new <- post_sample$test$eta[-1,, drop=FALSE]
+  cond_eta_new <- post_sample$test$eta[new_idx,, drop=FALSE]
   marg_eta_new <- rowMeans(cond_eta_new)
 
-  cond_eta_sing <- post_sample$test$eta[1,,drop=FALSE]
+  cond_eta_sing <- post_sample$test$eta[single_idx,,drop=FALSE]
   marg_eta_sing <- rowMeans(cond_eta_sing)
 
+  cond_eta_neighb <- post_sample$test$eta[neighb_idx,,drop=FALSE]
+  marg_eta_neighb <- rowMeans(cond_eta_neighb)
+
   #conditional and marginal means
-  if(family != "exponential") {
+  # family != "exponential" &
+  if(!grepl("cox", posterior.method)) {
     cond_mu <- post_sample$mu
     marg_mu <- rowMeans(cond_mu)
 
-    cond_mu_new <- post_sample$test$mu[-1,, drop=FALSE]
+    cond_mu_new <- post_sample$test$mu[new_idx,, drop=FALSE]
     marg_mu_new <- rowMeans(cond_mu_new)
 
-    cond_mu_sing <- post_sample$test$mu[1,,drop=FALSE]
+    cond_mu_sing <- post_sample$test$mu[single_idx,,drop=FALSE]
     marg_mu_sing <- rowMeans(cond_mu_sing)
+
+    cond_mu_neighb <- post_sample$test$mu[neighb_idx,,drop=FALSE]
+    marg_mu_neighb <- rowMeans(cond_mu_neighb)
   } else {
     # cond_mu <- post_sample$mu$S$surv
     # marg_mu <- apply(cond_mu, 2:3, mean)
@@ -140,11 +153,14 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     cond_mu <- data$invlink(post_sample$eta)
     marg_mu <- rowMeans(cond_mu)
 
-    cond_mu_new <- data$invlink(post_sample$test$eta[-1,, drop=FALSE])
+    cond_mu_new <- data$invlink(post_sample$test$eta[new_idx,, drop=FALSE])
     marg_mu_new <- rowMeans(cond_mu_new)
 
-    cond_mu_sing <- data$invlink(post_sample$test$eta[1,,drop=FALSE])
+    cond_mu_sing <- data$invlink(post_sample$test$eta[single_idx,,drop=FALSE])
     marg_mu_sing <- rowMeans(cond_mu_sing)
+
+    cond_mu_neighb <- data$invlink(post_sample$test$eta[neighb_idx,,drop=FALSE])
+    marg_mu_neighb <- rowMeans(cond_mu_neighb)
   }
 
 
@@ -637,12 +653,60 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     cat(paste0(annealO$message,"\n"))
     cat("\n")
 
+    cat("  Projection: Lasso")
+    #projection
+    lassoProjO <- W2L1(X_neighborhood, cond_eta_neighb, theta, family="gaussian", penalty=penalty,
+                       penalty.factor=proj_penalty_fact, nlambda = n.lambda,
+                       lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
+                       maxit=1e5, alpha = 0.99, gamma = 1.1,
+                       transport.method = transport.method,
+                       display.progress=TRUE, method = "projection")
+
+    cat(" SW")
+    #stepwise
+    PstepO <- WPSW(X_neighborhood, cond_eta_neighb, theta, force=1, p=2,
+                   direction = "backward", method = "projection",
+                   transport.method = transport.method,
+                   display.progress = TRUE)
+    cat(" HC, ")
+    #HC
+    PlassoHCO <- HC(X_neighborhood, cond_eta_neighb, theta = theta, alpha = 0.99, gamma = 1.1,
+                    family="gaussian", penalty=penalty, method = "projection",
+                    penalty.factor=HC_penalty_fact, nlambda = n.lambda,
+                    lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
+    cat(" SA")
+    # anneal
+    PannealO <-  WPSA(X_neighborhood, cond_eta_neighb, theta=theta,
+                      force = 1, p=2, model.size = sa_seq, iter = SAiter,
+                      temps = SAtemps,
+                      options = list(method = "projection",
+                                     energy.distribution = "boltzman",
+                                     transport.method = transport.method,
+                                     cooling.schedule="exponential",
+                                     proposal.method = sa_prop),
+                      display.progress = TRUE, max.time = sa_max_time)
+    cat(paste0(PannealO$message,"\n"))
+    cat("\n")
+    # }
+    # }
+    # trajAnnealN <- annealCoef(annealN, theta)
     singleModels <- list("Binary Programming" = ipO,
                          "Lasso" = lassoSelO,
                          "Simulated Annealing" = annealO,
                          "Stepwise" = stepO#,
     )
     rm("ipO", "lassoSelO", "annealO","stepO")
+    singleModelsP <- list("Lasso" = lassoProjO,
+                        "Simulated Annealing" = PannealO,
+                        "Stepwise" = PstepO,
+                        "Hahn-Carvalho" = PlassoHCO)
+    rm("lassoProjO",
+       "PannealO", "PstepO","PlassoHCO")
+    #recalculate values for single obs
+    singleModelsP <- lapply(singleModelsP, function(x) {
+      x$eta <- lapply(x$theta, function(tt) X_sing %*% tt)
+      return(x)
+    })
 
     cat("Calculating distances\n")
     if( calc_w2_post){
@@ -662,6 +726,22 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 transform = data$invlink,
                                 epsilon = epsilon,
                                 niter = otmaxit)
+      PW2_single <- distCompare(singleModelsP, target = list(posterior = theta,
+                                                           mean = cond_mu_sing),
+                               method = wp_alg,
+                               quantity=c("posterior","mean"),
+                               parallel=NULL,
+                               transform = data$invlink,
+                               epsilon = epsilon,
+                               niter = otmaxit)
+      Pmse_single <- distCompare(singleModelsP, target = list(posterior = full_param,
+                                                            mean = new_mu_sing),
+                                method = "mse",
+                                quantity=c("posterior","mean"),
+                                parallel=NULL,
+                                transform = data$invlink,
+                                epsilon = epsilon,
+                                niter = otmaxit)
     }
     else {
 
@@ -674,6 +754,22 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                epsilon = epsilon,
                                niter = otmaxit)
       mse_single <- distCompare(singleModels, target = list(posterior = NULL,
+                                                            mean = new_mu_sing),
+                                method = "mse",
+                                quantity="mean",
+                                parallel=NULL,
+                                transform = data$invlink,
+                                epsilon = epsilon,
+                                niter = otmaxit)
+      PW2_single <- distCompare(singleModelsP, target = list(posterior = NULL,
+                                                           mean = cond_mu_neighb),
+                               method = wp_alg,
+                               quantity=c("mean"),
+                               parallel=NULL,
+                               transform = data$invlink,
+                               epsilon = epsilon,
+                               niter = otmaxit)
+      Pmse_single <- distCompare(singleModelsP, target = list(posterior = NULL,
                                                             mean = new_mu_sing),
                                 method = "mse",
                                 quantity="mean",

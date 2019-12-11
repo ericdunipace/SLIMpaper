@@ -501,6 +501,65 @@ get_binary_nonlinear_model <- function() {
         test$mu <- plogis(test$eta)
       }
     }
+    else if (dots$method == "gp"){
+      # require(rstan)
+
+      if (all(x[,1]==1)) x <- x[,-1]
+
+
+      p <- ncol(x)
+      n <- nrow(x)
+
+      stan_dir <- dots$stan_dir
+      # m0 <- hyperparameters$m0
+      # scale_intercept <- hyperparameters$scale_intercept
+      chains <- dots$chains
+      X.test <- dots[["X.test"]]
+
+      # if(is.null(m0)) m0 <- round(0.1 * p)
+      # if(is.null(scale_intercept)) scale_intercept <- 2.5
+      if(is.null(chains)) chains <- 4
+
+      x_c <- scale(x, scale=FALSE)
+      n_test <- 0
+      x_test <- array(0, dim=c(0,p))
+      if(!is.null(X.test)){
+        if (all(X.test[,1]==1)) X.test <- X.test[,-1]
+        x_test <- scale(X.test, center = attr(x_c, "scaled:center"),
+                        scale = attr(x_c, "scaled:scale"))
+      }
+      # {
+      #   qrdecomp <- qr(x_c)
+      #   Q_x <- qr.Q(qrdecomp)[,1:p] * sqrt(n-1)
+      #   R_inv <- solve(qr.R(qrdecomp)/sqrt(n-1))
+      # }
+
+      stan_dat <- list(N = n,
+                       N_test = n_test,
+                       P = p,
+                       y = y,
+                       x = x_c,
+                       x_test = x_test)
+
+      warmup <- max(n.samp*(2-1/chains), 1000)
+      iter <- warmup + ceiling(n.samp/chains)
+
+      rstan::rstan_options(auto_write = TRUE)
+      stanModel <- rstan::stan_model(stan_dir)
+      stanFit <- rstan::sampling(stanModel, data = stan_dat, iter = iter,
+                                 warmup = warmup, chains = chains, pars = c("pred_eta"))
+      samples <- rstan::extract(stanFit, pars= c("pred_eta"))
+      eta <- t(samples$pred_eta[,1:n])
+      mu <- plogis(eta)
+      theta <- lm.fit(x=x, y = eta)$coefficients
+      model <- stanFit
+      if(!is.null(X.test)){
+        test$eta <- t(samples$pred_eta[,(n+1):(n+n_test),drop=FALSE])
+        test$mu <- plogis(test$eta )
+      }
+
+
+    }
 
     return(list(theta=theta, mu=mu, eta=eta, model=model, test = test))
 
