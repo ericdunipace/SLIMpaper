@@ -79,7 +79,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   post_sample <- target$rpost(n.samps, X, Y, hyperparameters,
                               method = posterior.method, stan_dir = stan_dir,
                               X.test = rbind(X_sing, X_new, X_neighborhood),
-                              chains = 1,
+                              chains = 1, m0 = 20,
                               is.exponential = TRUE)
   if(family != "binomial") {
     post_interp <- post_sample
