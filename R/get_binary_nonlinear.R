@@ -285,6 +285,10 @@ get_binary_nonlinear_model <- function() {
       m0 <- hyperparameters$m0
       nodes <- hyperparameters$nodes
       L <- hyperparameters$L
+      if(m0 >= p) {
+        m0 <- p - 1
+        warning("Adjusting m0 value. Must be less than number of predictors")
+      }
 
       rstan::rstan_options(auto_write = TRUE)
       dnn <- rstan::stan_model(stan_dir)
@@ -364,6 +368,11 @@ get_binary_nonlinear_model <- function() {
       if(is.null(scale_intercept)) scale_intercept <- 2.5
       if(is.null(chains)) chains <- 4
 
+      if(m0 >= p) {
+        m0 <- p - 1
+        warning("Adjusting m0 value. Must be less than number of predictors")
+      }
+
       x_c <- scale(x, scale=FALSE)
       # {
       #   qrdecomp <- qr(x_c)
@@ -440,6 +449,11 @@ get_binary_nonlinear_model <- function() {
       Q_x <- qr.Q(qrdecomp) * sqrt(n-1)
       R_inv <- solve(qr.R(qrdecomp)/sqrt(n-1))
 
+      if(m0 >= p) {
+        m0 <- p - 1
+        warning("Adjusting m0 value. Must be less than number of predictors")
+      }
+
       stan_dat <- list(N = n,
                        P = p,
                        Y = y,
@@ -479,6 +493,11 @@ get_binary_nonlinear_model <- function() {
       prior <- hs_plus()
       warmup <- max(n.samp*(2-1/chains), 1000)
       iter <- warmup + ceiling(n.samp/chains)
+
+      if(m0 >= p) {
+        m0 <- p - 1
+        warning("Adjusting m0 value. Must be less than number of predictors")
+      }
 
       stan_dat <- data.frame(Y = Y)
       namesX <- paste0("X",1:p)

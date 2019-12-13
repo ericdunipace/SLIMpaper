@@ -613,18 +613,22 @@ get_survival_linear_model <- function() {
       # if(is.null(scale_intercept)) scale_intercept <- 2.5
       if(is.null(chains)) chains <- 4
       # if(any(times) == 0) times <- times[times != 0]
-      scaled.times <- times[times != 0]/max(times[times != 0], na.rm = TRUE)
-
+      scaled.times <- follow.up#/max(follow.up)
+      # scaled.times <- times
       if(is.null(cutpoints)) {
-        cutpoints <- quantile(scaled.times, seq(0,1,length.out = n.intervals))
+        # cutpoints <- quantile(scaled.times, seq(0,1,length.out = n.intervals))
         # cutpoints <- c(0, cutpoints)
+        cutpoints <- seq(0,max(scaled.times), length.out = n.intervals + 1)
       }
-
+      if(m0 >= ncol(sx)) {
+        m0 <- ncol(sx) - 1
+        warning("Adjusting m0 value. Must be less than number of predictors")
+      }
 
       stan_dat <- list(
         N = as.integer(length(unique(id))),
-        NT = as.integer(length(cutpoints)),
-        obs_t = as.double(obs.time),
+        NT = n.intervals,
+        obs_t = as.double(scaled.times),
         times = as.double(cutpoints),
         fail = as.integer(fail),
         P = as.integer(ncol(sx)),
@@ -639,9 +643,11 @@ get_survival_linear_model <- function() {
       stanModel <- rstan::stan_model(stan_dir)
       stanFit <- rstan::sampling(stanModel, data=stan_dat, iter=iter,
                           warmup = warmup, chains=chains,
-                          pars = c("baseline_S","individ_S","beta","log_dL0","eta"))
+                          pars = c("baseline_S","individ_S","beta","log_hazard","eta","intercept","dN_out","int_dur"),
+                          control = list(adapt_delta = 0.9,
+                                         max_treedepth = 20))
                           # sample_file = "cox_stan.csv")
-      samples <- rstan::extract(stanFit, pars= c("baseline_S","individ_S","log_dL0","beta","eta"))
+      samples <- rstan::extract(stanFit, pars= c("baseline_S","individ_S","log_hazard","beta","eta","intercept"))
 
       theta <- t( samples$beta)
       theta <- diag(1/attr(sx, "scaled:scale")) %*% theta
@@ -661,10 +667,16 @@ get_survival_linear_model <- function() {
         Surv <- simplify2array(lapply(1:n, function(i) baseSurv^matrix(exp_eta[i,], nT, nS, byrow=TRUE)))
         return(Surv)
       }
+      # if(is.exponential){
+      #   intercept <- t(rowMeans(samples$log_dL0)) - t(attr(sx, "scaled:center")) %*% theta
+      #   theta <- rbind(intercept, theta)
+      #   eta <- t(samples$eta  + rowMeans(samples$log_dL0))
+      #   mu$intercept <- intercept
+      # }
       if(is.exponential){
-        intercept <- t(rowMeans(samples$log_dL0)) - t(attr(sx, "scaled:center")) %*% theta
+        intercept <- t(samples$intercept) - t(attr(sx, "scaled:center")) %*% theta
         theta <- rbind(intercept, theta)
-        eta <- t(samples$eta  + rowMeans(samples$log_dL0))
+        eta <- t(samples$eta  + c(samples$intercept))
         mu$intercept <- intercept
       }
 
