@@ -795,11 +795,11 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                              "exponential" = list(baseline = post_sample$mu$base,
                                                   param = theta))
 
-    imp_insamp <- WPVI(X = X, Y = cond_mu, theta = mean.fun.theta, pred.fun = pred.fun,
+    imp_insamp <- WPVI(X = X, Y = cond_mu, theta = pred.fun.theta, pred.fun = pred.fun,
                        p = 2, ground_p = 2, transport.method = "exact")
-    imp_newX <- WPVI(X = X_new, Y = cond_mu_new, theta = mean.fun.theta, pred.fun = pred.fun,
+    imp_newX <- WPVI(X = X_new, Y = cond_mu_new, theta = pred.fun.theta, pred.fun = pred.fun,
                      p = 2, ground_p = 2, transport.method = "exact")
-    imp_newX <- WPVI(X = X_sing, Y = cond_mu_new, theta = mean.fun.theta, pred.fun = pred.fun,
+    imp_newX <- WPVI(X = X_sing, Y = cond_mu_new, theta = pred.fun.theta, pred.fun = pred.fun,
                      p = 2, ground_p = 2, transport.method = "exact")
 
   } else {
