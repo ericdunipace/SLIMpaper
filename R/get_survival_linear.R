@@ -974,7 +974,7 @@ get_survival_linear_model <- function() {
     return(x %*% theta)
   }
 
-  sel.mean.fun <- function(method) {
+  sel.pred.fun <- function(method) {
 
     mf <- switch(method, "cox" = ,
                  "linpred" = mf.linpred,
