@@ -168,6 +168,13 @@ get_normal_linear_model <- function() {
 
   }
 
+  mf.linpred <- function(x, theta) {
+    return(x %*% theta)
+  }
+  sel.pred.fun <- function(method="linpred") {
+    return(mf.linpred)
+  }
+
   return(list(rprior=rprior,
               rdata = rdata,
               rpost = rpost,
@@ -175,5 +182,6 @@ get_normal_linear_model <- function() {
               data_gen_function = NULL,
               rparam = rparam,
               link = gaussian()$linkfun,
+              sel.pred.fun = sel.pred.fun,
               invlink = gaussian()$linkinv))
 }

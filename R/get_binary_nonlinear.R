@@ -49,6 +49,20 @@ get_binary_nonlinear_model <- function() {
     sq_cov <- U %*% diag(d_half) %*% t(V)
     return(sq_cov %*% z)
   }
+  mf_data <- function(x){
+    x6sq <- x[,6]^2
+    costerm <- cos(2 * x6sq + pi/2)
+    x6term <- ifelse(2 * x6sq > 3/4 * pi, 1,  costerm)
+    x1_2 <- sin(pi/8 * x[,1] * x[,2] + pi/2)
+    x11_15 <- tanh(-pi/8 * x[,11] * x[,15]^2)
+    x7_exp <- exp(-x[,7]^2/5)
+    x7_3 <- (x[,7])^3 * x7_exp
+    x7_2 <- (x[,7])^2 * x7_exp
+    x7_1 <- x[,7]  * x7_exp
+
+    return(cbind(x1_2, x6term, x11_15, x7_3, x7_2, x7_1))
+
+  }
   modified_friedman <- function(x){
     # f(x) = 10 * sin(pi * x[,1] * x[,2]) + 20 * (x[,3]-0.5)^2  10 * x[,4] + 5 * x[,5]
     x6sq <- x[,6]^2
@@ -584,6 +598,32 @@ get_binary_nonlinear_model <- function() {
 
   }
 
+  #### mean functions for variable importance ####
+  mf.friedman <- function(x,theta) {
+    dat <- mf_data(x)
+    eta <- x %*% theta
+    return(binomial$linkinv(eta))
+  }
+
+  mf.linpred <- function(x,theta) {
+    return(x %*% theta)
+  }
+
+  mf.logit <- function(x, theta) {
+    eta <- x %*% theta
+    return(binomial$linkinv(eta))
+  }
+
+  sel.pred.fun <- function(method = "linpred") {
+
+    mf <- switch(method, "modified.friedman" = mf.friedman,
+                 "glm" = mf.logit,
+                 "logistic" = mf.logit,
+                 "linpred" = mf.linpred)
+
+    return(mf)
+  }
+
   #### Output ####
   return(list(rprior=rprior,
               rdata = rdata,
@@ -591,6 +631,8 @@ get_binary_nonlinear_model <- function() {
               X = list(rX = rX, corr = NULL),
               data_gen_function = data_gen_functions,
               rparam = rparam,
+              sel.pred.fun = sel.pred.fun,
               link = binomial()$linkfun,
-              invlink = binomial()$linkinv))
+              invlink = binomial()$linkinv,
+              mf.data = mf_data))
 }

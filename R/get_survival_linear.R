@@ -586,8 +586,8 @@ get_survival_linear_model <- function() {
         baseSurv <- exp(-cumHaz)
         rownames(baseSurv) <- haz.times
 
-        # Surv <- simplify2array(lapply(1:n, function(i) baseSurv^matrix(exp(eta[i,]), nT, nS, byrow=TRUE)))
-        Surv <- baseSurv
+        Surv <- simplify2array(lapply(1:n, function(i) baseSurv^matrix(exp(eta[i,]), nT, nS, byrow=TRUE)))
+        # Surv <- baseSurv
         return(list(surv = Surv, base = baseSurv))
       }
 
@@ -954,6 +954,36 @@ get_survival_linear_model <- function() {
     return(predExp)
   }
 
+  mf.cox <- function(x,theta) {
+    baseline <- theta$base
+    param <- theta$param
+    eta <- x %*% param
+    surv <- baseline^(exp(eta))
+    return(surv)
+  }
+
+  mf.bart <- function(x,theta) {
+    if(!is.data.frame(x)) x <- as.data.frame(x)
+    stopifnot(is.data.frame(x))
+    model <- theta
+    preds <- predict(model, newdata=x)
+    return(preds)
+  }
+
+  mf.linpred <- function(x, theta) {
+    return(x %*% theta)
+  }
+
+  sel.mean.fun <- function(method) {
+
+    mf <- switch(method, "cox" = ,
+                 "linpred" = mf.linpred,
+                 "bart" = mf.bart
+                 )
+
+    return(mf)
+  }
+
   return(list(rprior=rprior,
               rdata = rdata,
               rpost = rpost,
@@ -962,6 +992,7 @@ get_survival_linear_model <- function() {
               rparam = rparam,
               link = Gamma(link = log)$linkfun,
               invlink = Gamma(link = log)$linkinv,
+              sel.pred.fun = sel.pred.fun,
               evalfit = evalfit,
               expandPred = expandPred))
 }
