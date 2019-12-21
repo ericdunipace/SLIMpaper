@@ -50,6 +50,9 @@ get_binary_nonlinear_model <- function() {
     return(sq_cov %*% z)
   }
   mf_data <- function(x){
+    if(all(x[,1]==0)) x <- x[,-1]
+    if(all(x[,1]==1)) x <- x[,-1]
+
     x6sq <- x[,6]^2
     costerm <- cos(2 * x6sq + pi/2)
     x6term <- ifelse(2 * x6sq > 3/4 * pi, 1,  costerm)
@@ -65,11 +68,13 @@ get_binary_nonlinear_model <- function() {
   }
   modified_friedman <- function(x){
     # f(x) = 10 * sin(pi * x[,1] * x[,2]) + 20 * (x[,3]-0.5)^2  10 * x[,4] + 5 * x[,5]
-    x6sq <- x[,6]^2
+    x6sq <- x[,6, drop = FALSE]^2
     costerm <- cos(2 * x6sq + pi/2)
     x6term <- ifelse(2 * x6sq > 3/4 * pi, 1,  costerm)
     # x6term <- costerm
-    return(1 * sin(pi/8 * x[,1] * x[,2] + pi/2) + 2 * x6term  + tanh(-pi/8 * x[,11] * x[,15]^2) + (2/5 * (x[,7])^3 - 1/8 * (x[,7])^2 - 2 * x[,7])*exp(-x[,7]^2/5) )
+    return(1 * sin(pi/8 * x[,1, drop = FALSE] * x[,2, drop = FALSE] + pi/2) +
+             2 * x6term  + tanh(-pi/8 * x[,11, drop = FALSE] * x[,15, drop = FALSE]^2) +
+             (2/5 * (x[,7, drop = FALSE])^3 - 1/8 * (x[,7, drop = FALSE])^2 - 2 * x[,7, drop = FALSE])*exp(-x[,7, drop = FALSE]^2/5) )
     # return(1 * sin(pi/8 * x[,1] * x[,2] + pi/2) + 2 * x6sq  + sin(-pi/8 * x[,11] * x[,15]^2) + 1/20 * x[,7]^3 - 1/24 * x[,7]^2 - 1 * x[,7])
     # return(1 * sin(pi/8 * x[,1] * x[,2] + pi/2) + 2 * x6sq  + tanh(-x[,11] * x[,15]^2) + 0.25 * x[,7])
     # return(1 * sin(pi/8 * x[,1] * x[,2] + pi/2) - 2 * x[,3]^2 + x[,4] + 0.5 * x[,5])
@@ -130,10 +135,11 @@ get_binary_nonlinear_model <- function() {
       logit.p <-  cbind(1, browned) %*% param
     }
     else if (method == "modified.friedman") {
-      data_gen_functions <- modified_friedman
+      # data_gen_functions <- modified_friedman
+      data_gen_functions <- mf_data
       stopifnot(ncol(x)>=6)
-      logit.p <- modified_friedman(x[,-1])
-      theta <- c(1,2,1,1)
+      logit.p <- modified_friedman(x[,-1, drop = FALSE])
+      theta <- c(1, 2, 1, 2/5, -1/8, -2)
     }
     else if (method == "cart") {
       stopifnot(ncol(x)>=6)
@@ -410,8 +416,8 @@ get_binary_nonlinear_model <- function() {
       stanFit <- rstan::sampling(stanModel, data = stan_dat, iter = iter,
                           warmup = warmup, chains = chains, pars = c("eta","theta","prob", "beta", "intercept"))
       samples <- rstan::extract(stanFit, pars= c("eta","theta","prob"))
-      eta <- samples$eta
-      mu <- samples$prob
+      eta <- t(samples$eta)
+      mu <- t(samples$prob)
       theta <- t(samples$theta)
       model <- stanFit
       if(!is.null(X.test)){

@@ -955,10 +955,18 @@ get_survival_linear_model <- function() {
   }
 
   mf.cox <- function(x,theta) {
+    #get params
     baseline <- theta$base
     param <- theta$param
-    eta <- x %*% param
-    surv <- baseline^(exp(eta))
+    exp_eta <- exp(x %*% param)
+
+    # dims
+    n <- nrow(x)
+    nT <- nrow(baseline)
+    nS <- ncol(baseline)
+
+    #calc survival
+    surv <- do.call("rbind", lapply(1:nT, function(i) matrix(baseline[i,], nrow = n, ncol = nS, byrow = TRUE)^exp_eta))
     return(surv)
   }
 
@@ -976,7 +984,7 @@ get_survival_linear_model <- function() {
 
   sel.pred.fun <- function(method) {
 
-    mf <- switch(method, "cox" = ,
+    mf <- switch(method, "cox" = mf.cox,
                  "linpred" = mf.linpred,
                  "bart" = mf.bart
                  )

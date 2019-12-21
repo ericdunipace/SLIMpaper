@@ -27,7 +27,8 @@ LinkingTo:
 Depends:
   SparsePosterior
 Suggests: 
-  xtable, 
-  survival,
-  INLA,
-  rjags
+    xtable,
+    survival,
+    INLA,
+    rjags,
+    testthat (>= 2.1.0)
