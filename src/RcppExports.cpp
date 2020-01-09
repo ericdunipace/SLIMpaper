@@ -7,6 +7,24 @@
 
 using namespace Rcpp;
 
+// brierScore_
+Rcpp::NumericMatrix brierScore_(vector& y, vectorI& event, vector& times, Rcpp::List& pred, Rcpp::List& cens_weight, matrix& cens_prob, int S, int S_c);
+RcppExport SEXP _CoarsePosteriorSummary_brierScore_(SEXP ySEXP, SEXP eventSEXP, SEXP timesSEXP, SEXP predSEXP, SEXP cens_weightSEXP, SEXP cens_probSEXP, SEXP SSEXP, SEXP S_cSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< vector& >::type y(ySEXP);
+    Rcpp::traits::input_parameter< vectorI& >::type event(eventSEXP);
+    Rcpp::traits::input_parameter< vector& >::type times(timesSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List& >::type pred(predSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List& >::type cens_weight(cens_weightSEXP);
+    Rcpp::traits::input_parameter< matrix& >::type cens_prob(cens_probSEXP);
+    Rcpp::traits::input_parameter< int >::type S(SSEXP);
+    Rcpp::traits::input_parameter< int >::type S_c(S_cSEXP);
+    rcpp_result_gen = Rcpp::wrap(brierScore_(y, event, times, pred, cens_weight, cens_prob, S, S_c));
+    return rcpp_result_gen;
+END_RCPP
+}
 // bayesConjRegNormal
 List bayesConjRegNormal(int n_samp, const List& hyperparameters, const NumericVector& Y_, const NumericMatrix X_);
 RcppExport SEXP _CoarsePosteriorSummary_bayesConjRegNormal(SEXP n_sampSEXP, SEXP hyperparametersSEXP, SEXP Y_SEXP, SEXP X_SEXP) {
@@ -49,6 +67,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_CoarsePosteriorSummary_brierScore_", (DL_FUNC) &_CoarsePosteriorSummary_brierScore_, 8},
     {"_CoarsePosteriorSummary_bayesConjRegNormal", (DL_FUNC) &_CoarsePosteriorSummary_bayesConjRegNormal, 4},
     {"_CoarsePosteriorSummary_rmvnorm", (DL_FUNC) &_CoarsePosteriorSummary_rmvnorm, 3},
     {"_CoarsePosteriorSummary_dmvnorm", (DL_FUNC) &_CoarsePosteriorSummary_dmvnorm, 3},
