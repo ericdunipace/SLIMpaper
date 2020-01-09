@@ -25,7 +25,7 @@ LinkingTo:
   Rcpp (>= 1.0.0), 
   RcppEigen (>= 0.3.3.4.0)
 Depends:
-  SparsePosterior
+  limbs
 Suggests: 
     xtable,
     survival,
