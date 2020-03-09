@@ -27,8 +27,8 @@ LinkingTo:
 Depends:
   limbs
 Suggests: 
-    xtable,
-    survival,
-    INLA,
-    rjags,
-    testthat (>= 2.1.0)
+  xtable,
+  survival,
+  INLA,
+  rjags,
+  testthat (>= 2.1.0)

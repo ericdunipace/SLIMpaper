@@ -596,7 +596,8 @@ get_survival_linear_model <- function() {
       # mu$time
 
       # eta <- x %*% theta[-1,]
-    } else if (method == "stan-cox") {
+    }
+    else if (method == "stan-cox") {
       sx <- scale(x)
       p <- ncol(x)
       n <- nrow(x)
@@ -694,6 +695,113 @@ get_survival_linear_model <- function() {
         test <- list(eta = testEta, mu = list(S = S.test))
       }
 
+    }
+    else if (method == "inla-GAM") {
+      # sx <- scale(x)
+      xdf <- as.data.frame(x)
+      pred.names <- colnames(xdf)
+      colnames(xdf) <- paste0("x",1:ncol(xdf))
+      intercept1 <- rep(1,n)
+      # index_df <- matrix(1,nrow=n, ncol=ncol(xdf))
+      # index_names <- paste0("index_", colnames(xdf))
+      # colnames(index_df) <- index_names
+      # df <- cbind(data.frame(time = follow.up, event = fail), xdf, index_df)
+      #lambda = 0.4712777
+      # hc <- "expression:
+      #         lambda = 0.01;
+      #         precision = exp(log_precision);
+      #         logdens = -1.5*log_precision-log(pi*lambda)-log(1+1/(precision*lambda^2));
+      #         log_jacobian = log_precision;
+      #         return(logdens+log_jacobian);"
+      # hcprior <- list(prec = list(prior = hc))
+      if(is.null(n.intervals)) n.intervals <- 15
+      time.vars <- paste("time", 1:ncol(xdf), sep=".")
+      fs <- paste0("f(INLA::inla.group(",time.vars, ", n = ", n.intervals, "), ", colnames(xdf), ", model = 'rw2')")
+      # survform <- formula(paste(c("inla.surv(time, event) ~ 0 + incercept1 ", fs), collapse = " + "))
+      df <- cbind(data.frame(time = follow.up, time = sapply(1:ncol(xdf), function(i) follow.up), event = fail), intercept1, xdf)
+      # survform <- formula(paste(c("inla.surv(time, event) ~ 0 + intercept1", colnames(xdf)), collapse = " + "))
+      survform <- formula(paste(c("INLA::inla.surv(time, event) ~ -1 + intercept1 ", fs), collapse = " + "))
+
+      if(!is.null(X.test)) {
+        xtdf <- as.data.frame(X.test)
+        times <- sort(unique(follow.up))
+        cut.times <- seq(0, max(times), length.out = n.intervals + 1)[-1]
+        test.df <- do.call("rbind", lapply(1:nrow(xtdf),
+                                           function(i) do.call("rbind",
+                                                        lapply(cut.times, function(j)
+                                                        data.frame(time = j,
+                                                        time = t(sapply(1:ncol(xtdf), function(i) j)),
+                                                        fail = 1,
+                                                        intercept1[1], xtdf[i,,drop=FALSE])))))
+        colnames(test.df) <- colnames(df)
+        df <- rbind(df, test.df)
+      }
+      # if(is.null(cutpoints)) cutpoints <- NULL
+
+      cox.call <- INLA::inla.coxph(survform, df, control.hazard = list(model = "rw1",
+                                                                 n.intervals = n.intervals,
+                                                                 cutpoints = cutpoints,
+                                                                 constr = TRUE))
+      if(!is.null(X.test)) {
+        idx <- which(!(cox.call$data$expand..coxph %in% c(1:n)))
+        cox.call$data$y..coxph[idx] <- NA
+      }
+      # times <- rep(NA, nrow(cox.call$data))
+      # for(i in 1:n) {
+      #   idx <- which(cox.call$data$expand..coxph == i)
+      #   indiv.time <- cox.call$data$baseline.hazard.time[idx]
+      #   times[idx] <- c(indiv.time[-1], follow.up[i])
+      # }
+      # cox.call$data[time.vars] <- sapply(time.vars, function(j) times)
+      # timings <- proc.time()
+      # model <- inla(survform, family = "coxph",
+      #               data = df, control.fixed=list(mean=m[1], prec=1/(s[1])),
+      #               debug = TRUE, verbose=FALSE)
+      model.gauss <- INLA::inla(cox.call$formula, family = cox.call$family,
+                          data = c(as.list(cox.call$data), cox.call$data.list),
+                          E = cox.call$E,
+                          control.fixed=list(mean=m[1], prec=lambda[1]),
+                          control.inla = list(strategy = "gaussian"),
+                          control.predictor = list(link = 1)
+      )
+      model <- INLA::inla(cox.call$formula, family = cox.call$family,
+                    data = c(as.list(cox.call$data), cox.call$data.list),
+                    E = cox.call$E,
+                    control.fixed=list(mean=m[1], prec=lambda[1]),
+                    control.inla = list(strategy = "laplace", fast = FALSE),
+                    control.mode = list(result = model.gauss, restart = TRUE),
+                    control.compute=list(config=TRUE),
+                    control.predictor=list(compute=TRUE, link = 1))
+      # print(proc.time() - timings)
+      samples <- INLA::inla.posterior.sample(n = n.samp, result = model, intern = FALSE,
+                                       use.improved.mean = TRUE,
+                                       add.names = TRUE, seed = -1L, num.threads = 1L)
+      predictor <- sapply(samples, function(s) s$latent[grep("Predictor", rownames(s$latent))])
+
+      model$samples <- exp(predictor
+                           + matrix(log(cox.call$E), nrow(predictor), ncol(predictor))
+                           )
+
+      surv.calc <- function(samples, idx) {
+        baseSurv <- NULL
+        nS <- ncol(samples)
+        n <- length(unique(idx))
+        nT <- nrow(samples)/n
+
+        Surv <- simplify2array(lapply(unique(idx), function(i) exp(-apply(samples[idx == i,,drop=FALSE],2,cumsum))))
+
+        return(list(surv = Surv, base = baseSurv))
+      }
+
+      survlist <- surv.calc(model$samples, idx = cox.call$data$expand..coxph[cox.call$data$expand..coxph %in% 1:n])
+      mu$S <- survlist
+      # mu$time
+      eta <- NULL #sx %*% theta[-1,]
+
+      if(!is.null(X.test)) {
+        test$mu <- list()
+        test$mu$S <- surv.calc(samples, cox.call$data$expand..coxph[!(cox.call$data$expand..coxph %in% 1:n)])
+      }
     }
 
 
