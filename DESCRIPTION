@@ -20,7 +20,8 @@ Imports:
   dbarts,
   rstan,
   rstanarm,
-  survival
+  survival,
+  reticulate
 LinkingTo: 
   Rcpp (>= 1.0.0), 
   RcppEigen (>= 0.3.3.4.0)
