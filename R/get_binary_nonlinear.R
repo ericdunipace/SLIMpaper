@@ -26,20 +26,26 @@ get_binary_nonlinear_model <- function() {
   #### Y Data ####
   brownian <- function(x) {
     n <- length(x)
-    orders <- order(x)
+    original.orders <- rank(x)
     s_x <- sort(c(0,x))
     zero_idx <- which(s_x == 0)
     sqrt_diffs <- sqrt(diff(s_x))
     increments <- rnorm(n, 0, sqrt_diffs)
     values <- c(cumsum(increments[(zero_idx-1):1]), cumsum(increments[zero_idx:n]))
 
-    return(values[orders])
+    return(values[original.orders])
   }
   gp <- function(x) {
     sq_exp <- function(x) {
-      return(exp(-0.5*as.matrix(dist(x)^2)))
+      L <- diag(0.5, ncol(x), ncol(x))
+      sigma <- 1
+      x_scale <- x %*% chol(L)
+      distances <- as.matrix(dist(x_scale, diag = TRUE))
+      Sigma <- sigma^2 * exp(-0.5*distances)
+      return(Sigma)
     }
-    n <- length(x)
+    n <- nrow(x)
+    d <- ncol(x)
     z <- rnorm(n)
     cov <- 1*sq_exp(x)
     svds <- svd(cov)
@@ -101,10 +107,11 @@ get_binary_nonlinear_model <- function() {
     hist(eta)
     hist(plogis(eta))
   }
+
   multiply.cols <- function(x) {
     return(apply(x,1,prod) )
   }
-  data_gen_functions <- list(brownian=brownian, modified_friedman = modified_friedman)
+  data_gen_functions <- list(brownian=brownian, modified_friedman = modified_friedman, gp = gp)
   rdata <- function(n, x, param, ...) {
 
     dots <- list(...)
@@ -112,46 +119,50 @@ get_binary_nonlinear_model <- function() {
     if(is.null(method)) method <- "cart"
     method <- match.arg(method, c("brownian","modified.friedman","cart","gp","glm", "polynomial","random.interaction"))
 
-    if(all(x[,1] == 1)) {
-      p <- ncol(x)-1
-    } else {
-      p <- ncol(x)
+
+    is.intercept <- all(x[,1] == 1)
+    if(is.intercept) {
+      x <- x[,-1, drop=FALSE]
     }
+
+    p <- ncol(x)
     logit.p <- NA
     extra <- NULL
     if (method == "brownian") {
       data_gen_functions <- brownian
       num.comb <- length(param) - ncol(x)
-      potential.combinations <- combn(rep(1:p,2), 2)
-      combinations <- potential.combinations[,sample(1:ncol(potential.combinations), num.comb)]
       if (num.comb > 0){
-        design.matrix <- cbind(x[,-1],
+        potential.combinations <- combn(rep(1:p,2), 2)
+        combinations <- potential.combinations[,sample(1:ncol(potential.combinations), num.comb)]
+        design.matrix <- cbind(x,
                                sapply(1:ncol(combinations),
-                                      function(i) multiply.cols(x[,1+combinations[,i]])))
+                                      function(i) multiply.cols(x[,combinations[,i]])))
       } else {
-        design.matrix <- x[,-1]
+        design.matrix <- x[,1:(length(param)-1)]
       }
       browned <- apply(design.matrix,2,brownian)
       logit.p <-  cbind(1, browned) %*% param
+      theta <- param
     }
     else if (method == "modified.friedman") {
       # data_gen_functions <- modified_friedman
       data_gen_functions <- mf_data
       stopifnot(ncol(x)>=6)
-      logit.p <- modified_friedman(x[,-1, drop = FALSE])
+      logit.p <- modified_friedman(x)
       theta <- c(1, 2, 1, 2/5, -1/8, -2)
     }
     else if (method == "cart") {
       stopifnot(ncol(x)>=6)
-      output <- cart(x[,-1])
+      output <- cart(x)
       data_gen_functions <- output$model
       logit.p <- output$eta
     }
     else if (method == "gp") {
-      output <- apply(x[,-1],2,gp)
-      theta <- param[1:(p+1)]
-      theta <- abs(theta)/sqrt(sum(theta^2))
-      logit.p <- cbind(1,output) %*% theta
+      logit.p <- gp(x)
+      # theta <- param[1:(p+1)]
+      # theta <- abs(theta)/sqrt(sum(theta^2))
+      # logit.p <- cbind(1,output) %*% theta
+      theta <- list(L = diag(0.5,p, p), sigma = 1)
       data_gen_functions <- gp
     }
     else if (method == "glm") {
@@ -159,21 +170,20 @@ get_binary_nonlinear_model <- function() {
       scale <- dots$scale
       if(is.null(corr.x)) corr.x <- 0
       if(is.null(scale)) scale <- TRUE
+      theta <- dots$theta
 
-      if(ncol(x) > length(theta)) {
-        x <- x[, 1: length(theta), drop=FALSE]
-        warning("Ncol X > length(theta). Only using first length(theta) columns of X.")
-      }
-      is.intercept <- all(x[,1] == 1)
       if(is.intercept) {
         intercept <- theta[1]
         theta <- theta[-1]
-        x <- x[,-1, drop=FALSE]
       } else {
         intercept <- 0
       }
 
-      p <- ncol(x)
+      if(p > length(theta)) {
+        x <- x[, 1: length(theta), drop=FALSE]
+        warning("Ncol X > length(theta). Only using first length(theta) columns of X.")
+      }
+
       corr.mat <- corr_mat_construct(corr.x, p)
       diag(corr.mat) <- 1
       theta_norm <- c(t(theta) %*% corr.mat %*% theta)
@@ -269,6 +279,107 @@ get_binary_nonlinear_model <- function() {
   #### Posterior on Coefficients ####
   rpost_coef <- function(x){NULL}
   rpost_sigma <- function(x){NULL}
+  rnn <- function(n.samp, x, y, hyperparameters,...) {
+
+    n <- nrow(x)
+
+    x <- as.matrix(x)
+    y <- as.matrix(y)
+
+    dots <- list(...)
+
+    if(is.null(dots$test.portion)) {
+      test.portion <- 0.1
+    } else {
+      test.portion <- dots$test.portion
+    }
+
+    if(is.null(dots$niter)) {
+      niter <- 20
+    } else {
+      niter <- dots$niter
+    }
+
+    if(is.null(hyperparameters$learning.rate)) {
+      learning.rate <- 20
+    } else {
+      learning.rate <- hyperparameters$learning.rate
+    }
+
+    if(is.null(hyperparameters$lambda)) {
+      lambda <- 1
+    } else {
+      lambda <- hyperparameters$lambda
+    }
+
+    if(is.null(hyperparameters$batch.size)) {
+      batch.size <- 128
+    } else {
+      batch.size <- hyperparameters$batch.size
+    }
+
+    if(is.null(hyperparameters$first.layer.width)) {
+      first.layer.width <- ncol(x) * 10
+    } else {
+      first.layer.width <- hyperparameters$first.layer.width
+    }
+    if(is.null(hyperparameters$hidden.layer.width)) {
+      hidden.layer.width <- ncol(x) * 10
+    } else {
+      hidden.layer.width <- hyperparameters$hidden.layer.width
+    }
+
+    python.path <- dots$python.path
+
+    if(is.null(dots$verbose)) {
+      verbose <- FALSE
+    } else {
+      verbose <- dots$verbose
+    }
+
+
+    res <- nn_train(x=x, y=y, niter = niter, learning.rate = learning.rate,
+                    lambda = lambda,
+                    test.portion = test.portion,
+                    first.layer.width = first.layer.width,
+                    hidden.layer.width = hidden.layer.width,
+                    batch.size = batch.size,
+                    python.path = python.path,
+                    model = NULL,
+                    verbose = verbose)
+
+    run.test <- !is.null(dots[["X.test"]])
+    if (run.test) {
+      xt <- dots[["X.test"]]
+      if (all(xt[,1] == 1)) xt <- xt[,-1,drop=FALSE]
+      xt <- torch$FloatTensor(xt)
+    }
+
+    boots <- lapply(1:n.samp, function(i) {
+      boot.idx <- sample.int(n,n,replace=TRUE)
+      temp <- nn_train(x=x[boot.idx, , drop = FALSE], y=y[boot.idx, , drop=FALSE],
+                       niter = niter, learning.rate = learning.rate,
+                       lambda = lambda,
+                       test.portion = test.portion,
+                       first.layer.width = first.layer.width,
+                       hidden.layer.width = hidden.layer.width,
+                       batch.size = batch.size,
+                       python.path = python.path,model = NULL)
+      yhat <- temp$yhat
+      yhat.test <- NULL
+      if (run.test) {
+        yhat.test <- plogis(temp$model$predict(xt)$data$numpy())
+      }
+      return(list(mu = yhat, mu.test = yhat.test))
+    })
+
+    mu <- sapply(boots, function(b) b$mu)
+    mu.test <- sapply(boots, function(b) b$mu.test)
+
+    return(list(mu = mu, mu.test = mu.test, model = res$model))
+
+
+  }
 
   rpost <- function(n.samp, x, y, hyperparameters,...) { # implements either BART or BNN
     dots <- list(...)
@@ -599,10 +710,29 @@ get_binary_nonlinear_model <- function() {
 
 
     }
+    else if (dots$method == "nn") {
+      warning("Not a Bayesian method! Does a NN with bootstrapped data")
+
+      if (all(x[,1]==1)) x <- x[,-1, drop = FALSE]
+
+      output <- rnn(n.samp, x, y, hyperparameters,...)
+      theta <- NULL
+      mu <- output$mu
+      eta <- qlogis(mu)
+      model <- function(x) {
+        return(output$model$predict(torch$FloatTensor(x))$data$numpy())
+      }
+
+      X.test <- dots[["X.test"]]
+      if (!is.null(X.test)) {
+        test$mu <- output$mu.test
+        test$eta <- qlogis(test$mu)
+      }
+    }
 
     return(list(theta=theta, mu=mu, eta=eta, model=model, test = test))
-
   }
+
 
   #### mean functions for variable importance ####
   mf.friedman <- function(x,theta) {

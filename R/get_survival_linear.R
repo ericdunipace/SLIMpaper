@@ -160,7 +160,7 @@ get_survival_linear_model <- function() {
     # if(any(follow.up > dots$time)) follow.up[follow.up > dots$time] <- max(dots$time)
     times <- sort(c(0,unique(follow.up)))
     mu <- eta <- alpha <- theta <- NULL
-
+    n <- length(id)
 
     # obs.time <- tapply(dots$time, id, max)
     obs.time <- follow.up
@@ -726,13 +726,21 @@ get_survival_linear_model <- function() {
         xtdf <- as.data.frame(X.test)
         times <- sort(unique(follow.up))
         cut.times <- seq(0, max(times), length.out = n.intervals + 1)[-1]
+        max.time <- max(cut.times)
+        # test.df <- do.call("rbind", lapply(1:nrow(xtdf),
+        #                                    function(i) do.call("rbind",
+        #                                                 lapply(cut.times, function(j)
+        #                                                 data.frame(time = j,
+        #                                                 time = t(sapply(1:ncol(xtdf), function(i) j)),
+        #                                                 fail = 1,
+        #                                                 intercept1[1], xtdf[i,,drop=FALSE])))))
         test.df <- do.call("rbind", lapply(1:nrow(xtdf),
-                                           function(i) do.call("rbind",
-                                                        lapply(cut.times, function(j)
-                                                        data.frame(time = j,
-                                                        time = t(sapply(1:ncol(xtdf), function(i) j)),
-                                                        fail = 1,
-                                                        intercept1[1], xtdf[i,,drop=FALSE])))))
+                                           function(i) #do.call("rbind",
+                                             # lapply(cut.times, function(j)
+                                               data.frame(time = max.time,
+                                                          time = t(sapply(1:ncol(xtdf), function(i) max.time)),
+                                                          fail = 1,
+                                                          intercept1[1], xtdf[i,,drop=FALSE])))
         colnames(test.df) <- colnames(df)
         df <- rbind(df, test.df)
       }
@@ -746,6 +754,9 @@ get_survival_linear_model <- function() {
         idx <- which(!(cox.call$data$expand..coxph %in% c(1:n)))
         cox.call$data$y..coxph[idx] <- NA
       }
+      times.cols <- grep("time.[[:digit:]]", colnames(cox.call$data))
+      cox.call$data[,times.cols] <- matrix(cox.call$data$E..coxph + cox.call$data$baseline.hazard,
+                                           nrow= nrow(cox.call$data), ncol = length(times.cols))
       # times <- rep(NA, nrow(cox.call$data))
       # for(i in 1:n) {
       #   idx <- which(cox.call$data$expand..coxph == i)
@@ -782,25 +793,27 @@ get_survival_linear_model <- function() {
                            + matrix(log(cox.call$E), nrow(predictor), ncol(predictor))
                            )
 
-      surv.calc <- function(samples, idx) {
+      surv.calc <- function(samples, idx, sel.idx) {
         baseSurv <- NULL
         nS <- ncol(samples)
-        n <- length(unique(idx))
+        n <- length(unique(sel.idx))
         nT <- nrow(samples)/n
 
-        Surv <- simplify2array(lapply(unique(idx), function(i) exp(-apply(samples[idx == i,,drop=FALSE],2,cumsum))))
+        Surv <- simplify2array(lapply(unique(sel.idx), function(i) exp(-apply(samples[idx == i,,drop=FALSE],2,cumsum))))
 
         return(list(surv = Surv, base = baseSurv))
       }
 
-      survlist <- surv.calc(model$samples, idx = cox.call$data$expand..coxph[cox.call$data$expand..coxph %in% 1:n])
+      survlist <- surv.calc(model$samples, idx = cox.call$data$expand..coxph,
+                            sel.idx = cox.call$data$expand..coxph[cox.call$data$expand..coxph %in% 1:n])
       mu$S <- survlist
       # mu$time
       eta <- NULL #sx %*% theta[-1,]
 
       if(!is.null(X.test)) {
         test$mu <- list()
-        test$mu$S <- surv.calc(samples, cox.call$data$expand..coxph[!(cox.call$data$expand..coxph %in% 1:n)])
+        sel.idx <- cox.call$data$expand..coxph[!(cox.call$data$expand..coxph %in% 1:n)]
+        test$mu$S <- surv.calc(model$samples, cox.call$data$expand..coxph, sel.idx)
       }
     }
 
@@ -915,7 +928,7 @@ get_survival_linear_model <- function() {
 
   brier.score <- function(times, event, surv, surv.times, cens_prob, ...) {
     # stopifnot(all(dim(event) == dim(probs) ))
-    readTime <- sort(unique(times))
+    readTime <- sort(unique(surv.times))
     nst <- length(surv.times)
     ntimes <- length(readTime)
     # nct <- length(cens.times)
@@ -947,14 +960,19 @@ get_survival_linear_model <- function() {
       as.integer( times > curTime )))
     # cens_mat <- vector("list", ncens)
     bs <- matrix(0, nrow=ntimes, ncol=nsamp)
-    time.idx <- as.numeric(cut(times, readTime, include.lowest = TRUE))
+    if(readTime[1] != 0) {
+      cutTime <- c(0, readTime)
+    } else {
+      cutTime <- readTime
+    }
+    time.idx <- as.numeric(cut(times, cutTime, include.lowest = TRUE))
     cens_prob_at_event <- matrix(NA, nrow = nsamp, ncol=n)
     if(any(is.na(cens_prob))) {
       repl_idx <- which(is.na(cens_prob),arr.ind=TRUE)
       cens_prob[repl_idx] <- min(cens_prob, na.rm=TRUE)
     }
-    if(any(cens_prob == 0)) {
-      repl_idx <- which(cens_prob == 0, arr.ind=TRUE)
+    if(any(cens_prob <= .Machine$double.xmin)) {
+      repl_idx <- which(cens_prob <= .Machine$double.xmin, arr.ind=TRUE)
       cens_prob[repl_idx] <- Inf
     }
 
@@ -994,8 +1012,8 @@ get_survival_linear_model <- function() {
       surv_at_time <- predAtTime(curTime, surv, surv.times)
       cens_at_time <- predAtTime(curTime, cens_prob, cens.times)
       normalize <- rowSums(eh / cens_prob_at_event + enh / cens_at_time)
-      bs[idx_time, ] <- rowSums((0 -  surv_at_time)^2 * eh / cens_prob_at_event / normalize +
-      ( 1 - surv_at_time  )^2 * enh / cens_at_time/ normalize )
+      bs[idx_time, ] <- rowSums(((0 -  surv_at_time)^2 * eh / cens_prob_at_event +
+      ( 1 - surv_at_time  )^2 * enh / cens_at_time)/ normalize )
       # for (samp in nsamp) {
       #   for(cc in 1:ncens) {
       #     cens_mat[[cc]] <-  ((0 - surv[,samp,] )^2 /cens_prob[,cc,] * eventHappen +
