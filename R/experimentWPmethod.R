@@ -7,7 +7,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   lambda.min.ratio <- conditions$lambda.min.ratio
   n.lambda <- conditions$n.lambda
   penalty_method <- conditions$penalty.factor
-  family <- conditions$family
+  family  <- conditions$family
   epsilon <- 0.05
   otmaxit <- 100
   # pseudo.obs <- conditions$pseudo.obs
@@ -84,26 +84,6 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   new_mu <- new_data$mu
   new_mu_sing <- single_data$mu
 
-
-
-  # add non-linearities if binomial
-  if(family == "binomial") {
-    cov_X <- cov(X[,-1,drop = FALSE])
-    # form <- formula("~.**2")
-    form <- formula(paste0("~",paste0("I(X",1:(p-1),"^2)", collapse=" + ")))
-
-    X <- model.matrix(object=form, data = data.frame(X[,-1,drop = FALSE]))
-    p <- ncol(X)
-    X_new <- model.matrix(form, data = data.frame(X_new[,-1,drop = FALSE]))
-    #resamp x_neighb for larger space
-    X_neighborhood <- CoarsePosteriorSummary::rmvnorm(nsamples = p*3,
-                                                      mean = X_sing[,-1,drop = FALSE],
-                                                      covariance = cov_X/n)
-    X_sing <- model.matrix(form, data = data.frame(X_sing[,-1,drop = FALSE]))
-    X_neighborhood <- model.matrix(form, data = data.frame(X_neighborhood))
-
-  }
-
   # indices for different data
   single_idx <- 1
   new_idx <- 2:(n+1)
@@ -120,20 +100,53 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     post_interp <- post_sample
     theta <- theta_new <- theta_sing <- post_interp$theta #regression coef
     if(nrow(theta) != ncol(X)) theta <- t(theta)
-    t_theta <- t(theta)
+    if(!is.null(theta)) {
+      t_theta <- t(theta)
+    } else {
+      t_theta <- theta
+    }
     sigma <- post_interp$sigma
+
+    # X <- target$model_matrix(X)
+    # X_sing <- target$model_matrix(X_sing)
+
   } else {
-    post_sample <- target$rpost(n.samps, cbind(1, data$data_gen_functions( X ) ),
+    hyperparameters <- list(learning.rate = 1e-3,
+                            lambda = 0.001,
+                            batch.size = 128,
+                            first.layer.width = as.integer(p*10),
+                            hidden.layer.width = as.integer(2/3 * p + 1))
+    post_sample <- target$rpost(n.samps, X,
                                 Y,
                                 hyperparameters,
                                 method = posterior.method,
                                 stan_dir = stan_dir,
-                                X.test = cbind(1, data$data_gen_functions( rbind(X_sing, X_new, X_neighborhood) ) ),
+                                X.test = rbind(X_sing, X_new, X_neighborhood),
                                 chains = 1, m0 = 20,
-                                is.exponential = TRUE)
+                                is.exponential = TRUE,
+                                test.portion = 0,
+                                learning.rate = 1e-3,
+                                niter = 50)
     # post_interp <- target$rpost(n.samps, X, Y, NULL, method = "logistic", stan_dir = "exec/Stan/logistic_horseshoe_noQR.stan",
     #                             X.test = rbind(X_sing, X_new, X_neighborhood),
     #                             chains = 1, m0 = 20)
+    # add non-linearities if binomial
+    # if(family == "binomial") {
+      cov_X <- cov(X[,-1,drop = FALSE])
+      # form <- formula("~.**2")
+      form <- formula(paste0("~",paste0("I(X",1:(p-1),"^2)", collapse=" + ")))
+
+      X <- model.matrix(object=form, data = data.frame(X[,-1,drop = FALSE]))
+      p <- ncol(X)
+      X_new <- model.matrix(form, data = data.frame(X_new[,-1,drop = FALSE]))
+      #resamp x_neighb for larger space
+      X_neighborhood <- CoarsePosteriorSummary::rmvnorm(nsamples = p*3,
+                                                        mean = X_sing[,-1,drop = FALSE],
+                                                        covariance = cov_X/n)
+      X_sing <- model.matrix(form, data = data.frame(X_sing[,-1,drop = FALSE]))
+      X_neighborhood <- model.matrix(form, data = data.frame(X_neighborhood))
+
+    # }
     theta <- lm.fit(X, post_sample$eta)$coefficients
     theta_new <-  lm.fit(X_new, post_sample$test$eta[new_idx,,drop=FALSE])$coefficients
     theta_sing <-  lm.fit(X_neighborhood, post_sample$test$eta[neighb_idx,,drop=FALSE])$coefficients
@@ -271,410 +284,26 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     return(outList)
   }
 
-  # augDat <- augPseudo(X, cond_eta, theta, theta_norm, pseudo.obs, n, same=TRUE)
-  # lambdas <- calc.lambdas(augDat, lambda.min.ratio, penalty_fact, n.lambda)
-  cat(paste0("Running methods, same data: ", date(),"\n"))
+  time <- list(NULL)
 
-  #### In sample ####
-  #IP
-  cat("   Selection: IP,\n")
-  time <- proc.time()
-  ip <- W2IP(X = X, Y = cond_eta, theta = theta,
-             display.progress=FALSE,
-             transport.method = transport.method,
-             model.size = ip_seq,
-             infimum.maxit = 100, solution.method = "cone",
-             parallel = NULL)
-  ipTime <- proc.time() - time
-  # trajSel <- selDist$theta
+  PW2_insamp    <- W2_insamp  <-
+    PW2_newX    <- W2_newX    <-
+    PW2_single  <- W2_single  <-
+    mse_insamp  <-  mse_newX  <-  mse_single  <-
+    Pmse_insamp <-  Pmse_newX <-  Pmse_single <- NULL
+  imp_insamp    <- imp_newX   <- imp_single   <- NULL
 
-  cat("   Selection: IP, Lasso, ")
-  #selection variable
-  time <- proc.time()
-  lassoSel <- W2L1(X, cond_eta, theta, family="gaussian", penalty=penalty,
-                   penalty.factor = penalty_fact, nlambda = n.lambda, alpha = 0.99,
-                   gamma = 1.1,
-                   lambda.min.ratio = lambda.min.ratio, infimum.maxit=1e2,
-                   maxit = 1e6,
-                   display.progress=FALSE,
-                   transport.method = transport.method,
-                   method = "selection.variable")
-  selTime <- proc.time() - time
-  # trajSel <- selDist$theta
-
-  cat(" HC, ")
-  #carvalho method
-  time <- proc.time()
-  lassoHC <- HC(X, cond_eta, theta = theta,
-                family="gaussian", penalty=penalty, method = "selection.variable",
-                penalty.factor=HC_penalty_fact, nlambda = n.lambda, alpha = 0.99, gamma = 1.1,
-                lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
-  hcTime <- proc.time() - time
-
-  cat(" SW, ")
-  #stepwise
-  time <- proc.time()
-  step <- WPSW(X, Y = cond_eta, theta, force=1, p=2,
-               direction = "backward", method = "selection.variable",
-               transport.method = transport.method,
-               display.progress = FALSE)
-  stepTime <- proc.time() - time
-  # trajStep <- step$theta
-
-  cat(" SA\n")
-  #simulated annealing
-  annealTime <- NULL
-  # if(n > 512 | p > 11){
-  #   anneal <- WPSA(X=X, Y=cond_eta, theta=theta,
-  #                  force = 1, p=2, model.size = 5, iter = SAiter, temps = SAtemps,
-  #                  options = list(method = "selection.variable",
-  #                                 energy.distribution = "boltzman",
-  #                                 transport.method = transport.method,
-  #                                 cooling.schedule="exponential"),
-  #                  display.progress=TRUE)
-  #   annealTime <- NULL
-  # }
-  # else {
-  time <- proc.time()
-  anneal <- WPSA(X=X, Y=cond_eta, theta=theta,
-                 force = 1, p=2, model.size = sa_seq, iter = SAiter, temps = SAtemps,
-                 options = list(method = "selection.variable",
-                                energy.distribution = "boltzman",
-                                transport.method = transport.method,
-                                cooling.schedule="exponential",
-                                proposal.method = sa_prop),
-                 display.progress=FALSE, max.time = sa_max_time)
-  annealTime <- proc.time() - time
-  cat(paste0(anneal$message,"\n"))
-  if(anneal$message != "completed") {
-    annealTime <- paste0(">", annealTime)
-  }
-
-  cat("   Projection: Lasso, ")
-  #projection
-  time <- proc.time()
-  lassoProj <- W2L1(X, cond_eta, theta, family="gaussian", penalty=penalty,
-                    penalty.factor=proj_penalty_fact, nlambda = n.lambda,
-                    lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
-                    maxit = 1e6, alpha = 0.99, gamma = 1.1,
-                    display.progress=FALSE,
-                    transport.method = transport.method,
-                    method = "projection")
-  projTime <- proc.time() - time
-  # trajProj <- projDist$theta
-
-  cat(" HC, ")
-  time <- proc.time()
-  PlassoHC <- HC(X, cond_eta, theta = theta,
-                 family="gaussian", penalty=penalty, method = "projection",
-                 alpha = 0.99, gamma = 1.1,
-                 penalty.factor=HC_penalty_fact, nlambda = n.lambda,
-                 lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
-  PhcTime <- proc.time() - time
-
-  cat(" SW, ")
-  #stepwise
-  time <- proc.time()
-  Pstep <- WPSW(X, Y = cond_eta, theta, force=1, p=2,
-                direction = "backward", method = "projection",
-                transport.method = transport.method,
-                display.progress = FALSE)
-  PstepTime <- proc.time() - time
-  # trajStep <- step$theta
-
-  cat(" SA\n")
-  #simulated annealing
-  annealTime <- NULL
-
-  time <- proc.time()
-  Panneal <- WPSA(X=X, Y=cond_eta, theta=theta,
-                  force = 1, p=2, model.size = sa_seq, iter = SAiter, temps = SAtemps,
-                  options = list(method = "projection",
-                                 energy.distribution = "boltzman",
-                                 transport.method = transport.method,
-                                 cooling.schedule="exponential",
-                                 proposal.method = sa_prop),
-                  display.progress=FALSE, max.time = sa_max_time)
-  PannealTime <- proc.time() - time
-
-  # }
-  # trajAnneal <- anneal$theta
-  cat(paste0(Panneal$message,"\n"))
-  if(Panneal$message != "completed") {
-    PannealTime <- paste0(">", PannealTime)
-  }
-
-  if (not.only.timing) {
-    inSampModels <- list("Binary Programming" = ip,
-                         "Lasso" = lassoSel,
-                         "Simulated Annealing" = anneal,
-                         "Stepwise" = step,
-                         "Hahn-Carvalho" = lassoHC)
-    inSampModelsProj <- list("Lasso" = lassoProj,
-                             "Simulated Annealing" = Panneal,
-                             "Stepwise" = Pstep,
-                             "Hahn-Carvalho" = PlassoHC)
-    rm("ip","lassoSel", "anneal","step","lassoHC")
-    rm("lassoProj", "Panneal","Pstep","PlassoHC")
-
-    cat("Calculating distances\n")
-    if( calc_w2_post){
-      W2_insamp <- distCompare(inSampModels, target = list(posterior = theta,
-                                                           mean = cond_mu),
-                               method = wp_alg,
-                               quantity=c("posterior","mean"),
-                               parallel=NULL,
-                               transform = data$invlink,
-                               epsilon = epsilon,
-                               niter = otmaxit)
-      mse_insamp <- distCompare(inSampModels, target = list(posterior = full_param,
-                                                            mean = true_mu),
-                                method = "mse",
-                                quantity=c("posterior","mean"),
-                                parallel=NULL,
-                                transform = data$invlink,
-                                epsilon = epsilon,
-                                niter = otmaxit)
-      PW2_insamp <- distCompare(inSampModelsProj, target = list(posterior = theta,
-                                                                mean = cond_mu),
-                                method = wp_alg,
-                                quantity=c("posterior","mean"),
-                                parallel=NULL,
-                                transform = data$invlink,
-                                epsilon = epsilon,
-                                niter = otmaxit)
-      Pmse_insamp <- distCompare(inSampModelsProj, target = list(posterior = full_param,
-                                                                 mean = true_mu),
-                                 method = "mse",
-                                 quantity=c("posterior","mean"),
-                                 parallel=NULL,
-                                 transform = data$invlink,
-                                 epsilon = epsilon,
-                                 niter = otmaxit)
-    }
-    else {
-      W2_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
-                                                           mean = cond_mu),
-                               method = wp_alg,
-                               quantity=c("mean"),
-                               parallel=NULL,
-                               transform = data$invlink,
-                               epsilon = epsilon,
-                               niter = otmaxit)
-      mse_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
-                                                            mean = true_mu),
-                                method = "mse",
-                                quantity="mean",
-                                parallel=NULL,
-                                transform = data$invlink,
-                                epsilon = epsilon,
-                                niter = otmaxit)
-      PW2_insamp <- distCompare(inSampModelsProj, target = list(posterior = NULL,
-                                                                mean = cond_mu),
-                                method = wp_alg,
-                                quantity=c("mean"),
-                                parallel=NULL,
-                                transform = data$invlink,
-                                epsilon = epsilon,
-                                niter = otmaxit)
-      Pmse_insamp <- distCompare(inSampModelsProj, target = list(posterior = NULL,
-                                                                 mean = true_mu),
-                                 method = "mse",
-                                 quantity="mean",
-                                 parallel=NULL,
-                                 transform = data$invlink,
-                                 epsilon = epsilon,
-                                 niter = otmaxit)
-    }
-
-    rm(inSampModels)
-    rm(inSampModelsProj)
-
-    #### new X variable ####
-    #mse on new outcome data from same paramters and different X
-    #new method
-    # augDatN <- augPseudo(X_new, cond_mu_new, theta, theta_norm, pseudo.obs, n, same=TRUE)
-    # lambdas <- calc.lambdas(augDatN, lambda.min.ratio, penalty_fact, n.lambda)
-    cat(paste0("Running methods, new X variable: ", date(),"\n"))
-    cat("  Selection: IP")
-    ipN <- W2IP(X = X_new, Y = cond_eta_new, theta = theta_new,
-                display.progress=TRUE,
-                transport.method = transport.method,
-                model.size = ip_seq,
-                infimum.maxit = 100, solution.method = "cone",
-                parallel = NULL)
-
-    cat(" Lasso")
-    lassoSelN <- W2L1(X_new, cond_eta_new, theta_new, family="gaussian",
-                      penalty=penalty, alpha = 0.99, gamma = 1.1,
-                      penalty.factor=penalty_factN, nlambda = n.lambda,
-                      lambda.min.ratio = lambda.min.ratio, infimum.maxit=100,
-                      maxit = 1e5,
-                      transport.method = transport.method,
-                      display.progress=TRUE, method = "selection.variable")
-    # trajSelN <- extractCoef(lassoSelN)
-
-    cat(" HC, ")
-    #carvalho method
-    lassoHCN <- HC(X_new, cond_eta_new, theta = theta_new,
-                   family="gaussian", penalty=penalty, alpha = 0.99, gamma = 1.1,
-                   penalty.factor=HC_penalty_fact, nlambda = n.lambda,
-                   lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
-
-    cat(" SW")
-    #stepwise
-    stepN <- WPSW(X_new, cond_eta_new, theta_new, force=1, p=2,
-                  direction = "backward", method = "selection.variable",
-                  transport.method = transport.method,
-                  display.progress = TRUE)
-
-    cat(" SA")
-    annealN <-  WPSA(X=X_new, Y=cond_eta_new, theta=theta_new,
-                     force = 1, p=2, model.size = sa_seq, iter = SAiter,
-                     temps = SAtemps,
-                     options = list(method = "selection.variable",
-                                    energy.distribution = "boltzman",
-                                    transport.method = transport.method,
-                                    cooling.schedule="exponential",
-                                    proposal.method = sa_prop),
-                     display.progress = TRUE, max.time = sa_max_time)
-    cat(paste0(annealN$message,"\n"))
-    cat("\n")
-
-    cat("  Projection: Lasso")
-    #projection
-    lassoProjN <- W2L1(X_new, cond_eta_new, theta_new, family="gaussian", penalty=penalty,
-                       penalty.factor=proj_penalty_fact, nlambda = n.lambda,
-                       lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
-                       maxit=1e5, alpha = 0.99, gamma = 1.1,
-                       transport.method = transport.method,
-                       display.progress=TRUE, method = "projection")
-
-    cat(" SW")
-    #stepwise
-    PstepN <- WPSW(X_new, cond_eta_new, theta_new, force=1, p=2,
-                   direction = "backward", method = "projection",
-                   transport.method = transport.method,
-                   display.progress = TRUE)
-    cat(" HC, ")
-    #HC
-    PlassoHCN <- HC(X_new, cond_eta_new, theta = theta_new, alpha = 0.99, gamma = 1.1,
-                    family="gaussian", penalty=penalty, method = "projection",
-                    penalty.factor=HC_penalty_fact, nlambda = n.lambda,
-                    lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
-    cat(" SA")
-    # anneal
-    PannealN <-  WPSA(X=X_new, Y=cond_eta_new, theta=theta_new,
-                      force = 1, p=2, model.size = sa_seq, iter = SAiter,
-                      temps = SAtemps,
-                      options = list(method = "projection",
-                                     energy.distribution = "boltzman",
-                                     transport.method = transport.method,
-                                     cooling.schedule="exponential",
-                                     proposal.method = sa_prop),
-                      display.progress = TRUE, max.time = sa_max_time)
-    cat(paste0(PannealN$message,"\n"))
-    cat("\n")
-    # }
-    # trajAnnealN <- annealCoef(annealN, theta)
-    newXModels <- list("Binary Programming" = ipN,
-                       "Lasso" = lassoSelN,
-                       "Simulated Annealing" = annealN,
-                       "Stepwise" = stepN,
-                       "Hahn-Carvalho" = lassoHCN)
-    rm("ipN","lassoSelN", "annealN","stepN","lassoHCN")
-    newXModelsP <- list("Lasso" = lassoProjN,
-                        "Simulated Annealing" = PannealN,
-                        "Stepwise" = PstepN,
-                        "Hahn-Carvalho" = PlassoHCN)
-    rm("lassoProjN",
-       "PannealN", "PstepN","PlassoHCN")
-
-    cat("Calculating distances\n")
-    if( calc_w2_post){
-      W2_newX <- distCompare(newXModels, target = list(posterior = theta_new,
-                                                       mean = cond_mu_new),
-                             method = wp_alg,
-                             quantity=c("posterior","mean"),
-                             parallel=NULL,
-                             transform = data$invlink,
-                             epsilon = epsilon,
-                             niter = otmaxit)
-      mse_newX <- distCompare(newXModels, target = list(posterior = full_param,
-                                                        mean = new_mu),
-                              method = "mse",
-                              quantity=c("posterior","mean"),
-                              parallel=NULL,
-                              transform = data$invlink,
-                              epsilon = epsilon,
-                              niter = otmaxit)
-      PW2_newX <- distCompare(newXModelsP, target = list(posterior = theta_new,
-                                                         mean = cond_mu_new),
-                              method = wp_alg,
-                              quantity=c("posterior","mean"),
-                              parallel=NULL,
-                              transform = data$invlink,
-                              epsilon = epsilon,
-                              niter = otmaxit)
-      Pmse_newX <- distCompare(newXModelsP, target = list(posterior = full_param,
-                                                          mean = new_mu),
-                               method = "mse",
-                               quantity=c("posterior","mean"),
-                               parallel=NULL,
-                               transform = data$invlink,
-                               epsilon = epsilon,
-                               niter = otmaxit)
-    }
-    else {
-      W2_newX <- distCompare(newXModels, target = list(posterior = NULL,
-                                                       mean = cond_mu_new),
-                             method = wp_alg,
-                             quantity=c("mean"),
-                             parallel=NULL,
-                             transform = data$invlink,
-                             epsilon = epsilon,
-                             niter = otmaxit)
-      mse_newX <- distCompare(newXModels, target = list(posterior = NULL,
-                                                        mean = new_mu),
-                              method = "mse",
-                              quantity="mean",
-                              parallel=NULL,
-                              transform = data$invlink,
-                              epsilon = epsilon,
-                              niter = otmaxit)
-      PW2_newX <- distCompare(newXModelsP, target = list(posterior = NULL,
-                                                         mean = cond_mu_new),
-                              method = wp_alg,
-                              quantity=c("mean"),
-                              parallel=NULL,
-                              transform = data$invlink,
-                              epsilon = epsilon,
-                              niter = otmaxit)
-      Pmse_newX <- distCompare(newXModelsP, target = list(posterior = NULL,
-                                                          mean = new_mu),
-                               method = "mse",
-                               quantity="mean",
-                               parallel=NULL,
-                               transform = data$invlink,
-                               epsilon = epsilon,
-                               niter = otmaxit)
-    }
-
-
-    rm(newXModels, newXModelsP)
-
-
-
+  if(not.only.timing) {
     #### new method, single datapoint ####
     # augDatO <- augPseudo(X_sing, cond_mu_sing, theta, theta_norm, pseudo.obs, n, same=TRUE)
     # lambdas <- calc.lambdas(augDatO, lambda.min.ratio, penalty_fact, n.lambda)
     cat(paste0("Running methods, single data point: ", date(),"\n"))
-    cat("  Selection: IP")
+    cat("  Selection: IP\n")
     ipO <- W2IP(X = X_sing, Y = cond_eta_sing, theta = theta_sing,
                 display.progress=TRUE,
                 transport.method = transport.method,
                 model.size = ip_seq,
-                infimum.maxit = 100, solution.method = "cone",
+                infimum.maxit = 100, solution.method = "gurobi",
                 parallel = NULL)
 
     cat(" Lasso")
@@ -706,7 +335,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     cat(paste0(annealO$message,"\n"))
     cat("\n")
 
-    cat("  Projection: Lasso")
+    cat("  Projection: Lasso\n")
     #projection
     lassoProjO <- W2L1(X_neighborhood, cond_eta_neighb, theta_sing, family="gaussian", penalty=penalty,
                        penalty.factor=proj_penalty_fact, nlambda = n.lambda,
@@ -715,19 +344,19 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                        transport.method = transport.method,
                        display.progress=TRUE, method = "projection")
 
-    cat(" SW")
+    cat(" SW\n")
     #stepwise
     PstepO <- WPSW(X_neighborhood, cond_eta_neighb, theta_sing, force=1, p=2,
                    direction = "backward", method = "projection",
                    transport.method = transport.method,
                    display.progress = TRUE)
-    cat(" HC, ")
+    cat(" HC\n")
     #HC
     PlassoHCO <- HC(X_neighborhood, cond_eta_neighb, theta = theta_sing, alpha = 0.99, gamma = 1.1,
                     family="gaussian", penalty=penalty, method = "projection",
                     penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                     lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
-    cat(" SA")
+    cat(" SA\n")
     # anneal
     PannealO <-  WPSA(X_neighborhood, cond_eta_neighb, theta=theta_sing,
                       force = 1, p=2, model.size = sa_seq, iter = SAiter,
@@ -738,7 +367,23 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                      cooling.schedule="exponential",
                                      proposal.method = sa_prop),
                       display.progress = TRUE, max.time = sa_max_time)
-    cat(paste0(PannealO$message,"\n"))
+
+    cat("\n L1\n")
+    PL1O <- W1L1(X=X_neighborhood, Y=cond_eta_neighb,
+                 solver = "gurobi",
+                 nlambda = n.lambda, penalty = penalty,
+                 lambda.min.ratio = lambda.min.ratio, maxit = 1e5,
+                 gamma = 1.1, display.progress = TRUE)
+
+    cat("\n LInfinity\n")
+    PLInfO <- WInfL1(X=X_neighborhood, Y=cond_eta_neighb,
+                     nlambda = n.lambda, penalty = penalty,
+                     lambda.min.ratio = lambda.min.ratio,
+                     gamma = 1.1, solver = "gurobi",
+                     display.progress = TRUE)
+
+    cat("\n")
+    cat(paste0(PannealO$message))
     cat("\n")
     # }
     # }
@@ -842,18 +487,441 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     #                          "binomial" = theta,
     #                          "exponential" = list(baseline = post_sample$mu$S$base,
     #                                               param = theta))
+    # imp_newX <- WPVI(X = X_new, Y = NULL, theta = theta_new, pred.fun = pred.fun,
+    #                  p = 2, ground_p = 2, transport.method = "exact")
+    imp_single <- WPVI(X = X_sing, Y = NULL, theta = theta_sing, pred.fun = pred.fun,
+                       p = 2, ground_p = 2, transport.method = "exact")
+
+  } else {
+    cat(paste0("Running methods, same data: ", date(),"\n"))
+
+    #### In sample ####
+    #IP
+    cat("   Selection: IP,\n")
+    time <- proc.time()
+    ip <- W2IP(X = X, Y = cond_eta, theta = theta,
+               display.progress=FALSE,
+               transport.method = transport.method,
+               model.size = ip_seq,
+               infimum.maxit = 100, solution.method = "gurobi",
+               parallel = NULL)
+    ipTime <- proc.time() - time
+    # trajSel <- selDist$theta
+
+    cat("   Selection: IP, Lasso, ")
+    #selection variable
+    time <- proc.time()
+    lassoSel <- W2L1(X, cond_eta, theta, family="gaussian", penalty=penalty,
+                     penalty.factor = penalty_fact, nlambda = n.lambda, alpha = 0.99,
+                     gamma = 1.1,
+                     lambda.min.ratio = lambda.min.ratio, infimum.maxit=1e2,
+                     maxit = 1e6,
+                     display.progress=FALSE,
+                     transport.method = transport.method,
+                     method = "selection.variable")
+    selTime <- proc.time() - time
+    # trajSel <- selDist$theta
+
+    cat(" HC, ")
+    #carvalho method
+    time <- proc.time()
+    lassoHC <- HC(X, cond_eta, theta = theta,
+                  family="gaussian", penalty=penalty, method = "selection.variable",
+                  penalty.factor=HC_penalty_fact, nlambda = n.lambda, alpha = 0.99, gamma = 1.1,
+                  lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
+    hcTime <- proc.time() - time
+
+    cat(" SW, ")
+    #stepwise
+    time <- proc.time()
+    step <- WPSW(X, Y = cond_eta, theta, force=1, p=2,
+                 direction = "backward", method = "selection.variable",
+                 transport.method = transport.method,
+                 display.progress = FALSE)
+    stepTime <- proc.time() - time
+    # trajStep <- step$theta
+
+    cat(" SA\n")
+    #simulated annealing
+    annealTime <- NULL
+    # if(n > 512 | p > 11){
+    #   anneal <- WPSA(X=X, Y=cond_eta, theta=theta,
+    #                  force = 1, p=2, model.size = 5, iter = SAiter, temps = SAtemps,
+    #                  options = list(method = "selection.variable",
+    #                                 energy.distribution = "boltzman",
+    #                                 transport.method = transport.method,
+    #                                 cooling.schedule="exponential"),
+    #                  display.progress=TRUE)
+    #   annealTime <- NULL
+    # }
+    # else {
+    time <- proc.time()
+    anneal <- WPSA(X=X, Y=cond_eta, theta=theta,
+                   force = 1, p=2, model.size = sa_seq, iter = SAiter, temps = SAtemps,
+                   options = list(method = "selection.variable",
+                                  energy.distribution = "boltzman",
+                                  transport.method = transport.method,
+                                  cooling.schedule="exponential",
+                                  proposal.method = sa_prop),
+                   display.progress=FALSE, max.time = sa_max_time)
+    annealTime <- proc.time() - time
+    cat(paste0(anneal$message,"\n"))
+    if(anneal$message != "completed") {
+      annealTime <- paste0(">", annealTime)
+    }
+
+    cat("   Projection: Lasso, ")
+    #projection
+    time <- proc.time()
+    lassoProj <- W2L1(X, cond_eta, theta, family="gaussian", penalty=penalty,
+                      penalty.factor=proj_penalty_fact, nlambda = n.lambda,
+                      lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
+                      maxit = 1e6, alpha = 0.99, gamma = 1.1,
+                      display.progress=FALSE,
+                      transport.method = transport.method,
+                      method = "projection")
+    projTime <- proc.time() - time
+    # trajProj <- projDist$theta
+
+    cat(" HC, ")
+    time <- proc.time()
+    PlassoHC <- HC(X, cond_eta, theta = theta,
+                   family="gaussian", penalty=penalty, method = "projection",
+                   alpha = 0.99, gamma = 1.1,
+                   penalty.factor=HC_penalty_fact, nlambda = n.lambda,
+                   lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
+    PhcTime <- proc.time() - time
+
+    cat(" SW, ")
+    #stepwise
+    time <- proc.time()
+    Pstep <- WPSW(X, Y = cond_eta, theta, force=1, p=2,
+                  direction = "backward", method = "projection",
+                  transport.method = transport.method,
+                  display.progress = FALSE)
+    PstepTime <- proc.time() - time
+    # trajStep <- step$theta
+
+    cat(" SA\n")
+    #simulated annealing
+    annealTime <- NULL
+
+    time <- proc.time()
+    Panneal <- WPSA(X=X, Y=cond_eta, theta=theta,
+                    force = 1, p=2, model.size = sa_seq, iter = SAiter, temps = SAtemps,
+                    options = list(method = "projection",
+                                   energy.distribution = "boltzman",
+                                   transport.method = transport.method,
+                                   cooling.schedule="exponential",
+                                   proposal.method = sa_prop),
+                    display.progress=FALSE, max.time = sa_max_time)
+    PannealTime <- proc.time() - time
+
+    cat(paste0(Panneal$message,"\n"))
+    if(Panneal$message != "completed") {
+      PannealTime <- paste0(">", PannealTime)
+    }
+
+    time <- proc.time()
+    PL1 <- W1L1(X=X, Y=cond_eta, solver = "gurobi",
+                nlambda = n.lambda, penalty = penalty,
+                lambda.min.ratio = lambda.min.ratio, maxit = 1e5,
+                gamma = 1.1)
+    PL1Time <- proc.time() - time
+
+    time <- proc.time()
+    PLInf <- WInfL1(X=X, Y=cond_eta,
+                    nlambda = n.lambda, penalty = penalty,
+                    lambda.min.ratio = lambda.min.ratio,
+                    gamma = 1.1, solver = "gurobi")
+    PLInfTime <- proc.time() - time
+
+    time <- list(selection = list(ip = ipTime[3], lasso = selTime[3],
+                                  HC = hcTime[3],
+                                  step = stepTime[3],
+                                  anneal = annealTime[3]),
+                 projection = list(lasso = projTime[3],
+                                   L1 = PL1Time[3],
+                                   LInf = PLInfTime[3],
+                                   HC = PhcTime[3], step = PstepTime[3],
+                                   anneal = PannealTime[3]))
 
     imp_insamp <- WPVI(X = X, Y = NULL, theta = theta, pred.fun = pred.fun,
                        p = 2, ground_p = 2, transport.method = "exact")
-    imp_newX <- WPVI(X = X_new, Y = NULL, theta = theta_new, pred.fun = pred.fun,
-                     p = 2, ground_p = 2, transport.method = "exact")
-    imp_single <- WPVI(X = X_sing, Y = NULL, theta = theta_sing, pred.fun = pred.fun,
-                     p = 2, ground_p = 2, transport.method = "exact")
 
-  } else {
-    W2_insamp <- W2_newX <- W2_single <- mse_insamp <-  mse_newX <-  mse_single <- NULL
-    imp_insamp <- imp_newX <- imp_single <- NULL
+
   }
+
+
+  # augDat <- augPseudo(X, cond_eta, theta, theta_norm, pseudo.obs, n, same=TRUE)
+  # lambdas <- calc.lambdas(augDat, lambda.min.ratio, penalty_fact, n.lambda)
+
+  # }
+  # trajAnneal <- anneal$theta
+
+
+  # if (not.only.timing) {
+  #   inSampModels <- list("Binary Programming" = ip,
+  #                        "L2" = lassoSel,
+  #                        "Simulated Annealing" = anneal,
+  #                        "Stepwise" = step,
+  #                        "Hahn-Carvalho" = lassoHC)
+  #   inSampModelsProj <- list("L2" = lassoProj,
+  #                            "L1" = PL1,
+  #                            "LInf" = PLInf,
+  #                            "Simulated Annealing" = Panneal,
+  #                            "Stepwise" = Pstep,
+  #                            "Hahn-Carvalho" = PlassoHC)
+  #   rm("ip","lassoSel", "anneal","step","lassoHC")
+  #   rm("lassoProj","PL1", "PLInf", "Panneal","Pstep","PlassoHC")
+  #
+  #   cat("Calculating distances\n")
+  #   if( calc_w2_post){
+  #     W2_insamp <- distCompare(inSampModels, target = list(posterior = theta,
+  #                                                          mean = cond_mu),
+  #                              method = wp_alg,
+  #                              quantity=c("posterior","mean"),
+  #                              parallel=NULL,
+  #                              transform = data$invlink,
+  #                              epsilon = epsilon,
+  #                              niter = otmaxit)
+  #     mse_insamp <- distCompare(inSampModels, target = list(posterior = full_param,
+  #                                                           mean = true_mu),
+  #                               method = "mse",
+  #                               quantity=c("posterior","mean"),
+  #                               parallel=NULL,
+  #                               transform = data$invlink,
+  #                               epsilon = epsilon,
+  #                               niter = otmaxit)
+  #     PW2_insamp <- distCompare(inSampModelsProj, target = list(posterior = theta,
+  #                                                               mean = cond_mu),
+  #                               method = wp_alg,
+  #                               quantity=c("posterior","mean"),
+  #                               parallel=NULL,
+  #                               transform = data$invlink,
+  #                               epsilon = epsilon,
+  #                               niter = otmaxit)
+  #     Pmse_insamp <- distCompare(inSampModelsProj, target = list(posterior = full_param,
+  #                                                                mean = true_mu),
+  #                                method = "mse",
+  #                                quantity=c("posterior","mean"),
+  #                                parallel=NULL,
+  #                                transform = data$invlink,
+  #                                epsilon = epsilon,
+  #                                niter = otmaxit)
+  #   }
+  #   else {
+  #     W2_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
+  #                                                          mean = cond_mu),
+  #                              method = wp_alg,
+  #                              quantity=c("mean"),
+  #                              parallel=NULL,
+  #                              transform = data$invlink,
+  #                              epsilon = epsilon,
+  #                              niter = otmaxit)
+  #     mse_insamp <- distCompare(inSampModels, target = list(posterior = NULL,
+  #                                                           mean = true_mu),
+  #                               method = "mse",
+  #                               quantity="mean",
+  #                               parallel=NULL,
+  #                               transform = data$invlink,
+  #                               epsilon = epsilon,
+  #                               niter = otmaxit)
+  #     PW2_insamp <- distCompare(inSampModelsProj, target = list(posterior = NULL,
+  #                                                               mean = cond_mu),
+  #                               method = wp_alg,
+  #                               quantity=c("mean"),
+  #                               parallel=NULL,
+  #                               transform = data$invlink,
+  #                               epsilon = epsilon,
+  #                               niter = otmaxit)
+  #     Pmse_insamp <- distCompare(inSampModelsProj, target = list(posterior = NULL,
+  #                                                                mean = true_mu),
+  #                                method = "mse",
+  #                                quantity="mean",
+  #                                parallel=NULL,
+  #                                transform = data$invlink,
+  #                                epsilon = epsilon,
+  #                                niter = otmaxit)
+  #   }
+  #
+  #   rm(inSampModels)
+  #   rm(inSampModelsProj)
+  #
+  #   #### new X variable ####
+  #   #mse on new outcome data from same paramters and different X
+  #   #new method
+  #   # augDatN <- augPseudo(X_new, cond_mu_new, theta, theta_norm, pseudo.obs, n, same=TRUE)
+  #   # lambdas <- calc.lambdas(augDatN, lambda.min.ratio, penalty_fact, n.lambda)
+  #   cat(paste0("Running methods, new X variable: ", date(),"\n"))
+  #   cat("  Selection: IP")
+  #   ipN <- W2IP(X = X_new, Y = cond_eta_new, theta = theta_new,
+  #               display.progress=TRUE,
+  #               transport.method = transport.method,
+  #               model.size = ip_seq,
+  #               infimum.maxit = 100, solution.method = "cone",
+  #               parallel = NULL)
+  #
+  #   cat(" Lasso")
+  #   lassoSelN <- W2L1(X_new, cond_eta_new, theta_new, family="gaussian",
+  #                     penalty=penalty, alpha = 0.99, gamma = 1.1,
+  #                     penalty.factor=penalty_factN, nlambda = n.lambda,
+  #                     lambda.min.ratio = lambda.min.ratio, infimum.maxit=100,
+  #                     maxit = 1e5,
+  #                     transport.method = transport.method,
+  #                     display.progress=TRUE, method = "selection.variable")
+  #   # trajSelN <- extractCoef(lassoSelN)
+  #
+  #   cat(" HC, ")
+  #   #carvalho method
+  #   lassoHCN <- HC(X_new, cond_eta_new, theta = theta_new,
+  #                  family="gaussian", penalty=penalty, alpha = 0.99, gamma = 1.1,
+  #                  penalty.factor=HC_penalty_fact, nlambda = n.lambda,
+  #                  lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
+  #
+  #   cat(" SW")
+  #   #stepwise
+  #   stepN <- WPSW(X_new, cond_eta_new, theta_new, force=1, p=2,
+  #                 direction = "backward", method = "selection.variable",
+  #                 transport.method = transport.method,
+  #                 display.progress = TRUE)
+  #
+  #   cat(" SA")
+  #   annealN <-  WPSA(X=X_new, Y=cond_eta_new, theta=theta_new,
+  #                    force = 1, p=2, model.size = sa_seq, iter = SAiter,
+  #                    temps = SAtemps,
+  #                    options = list(method = "selection.variable",
+  #                                   energy.distribution = "boltzman",
+  #                                   transport.method = transport.method,
+  #                                   cooling.schedule="exponential",
+  #                                   proposal.method = sa_prop),
+  #                    display.progress = TRUE, max.time = sa_max_time)
+  #   cat(paste0(annealN$message,"\n"))
+  #   cat("\n")
+  #
+  #   cat("  Projection: Lasso")
+  #   #projection
+  #   lassoProjN <- W2L1(X_new, cond_eta_new, theta_new, family="gaussian", penalty=penalty,
+  #                      penalty.factor=proj_penalty_fact, nlambda = n.lambda,
+  #                      lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
+  #                      maxit=1e5, alpha = 0.99, gamma = 1.1,
+  #                      transport.method = transport.method,
+  #                      display.progress=TRUE, method = "projection")
+  #
+  #   cat(" SW")
+  #   #stepwise
+  #   PstepN <- WPSW(X_new, cond_eta_new, theta_new, force=1, p=2,
+  #                  direction = "backward", method = "projection",
+  #                  transport.method = transport.method,
+  #                  display.progress = TRUE)
+  #   cat(" HC, ")
+  #   #HC
+  #   PlassoHCN <- HC(X_new, cond_eta_new, theta = theta_new, alpha = 0.99, gamma = 1.1,
+  #                   family="gaussian", penalty=penalty, method = "projection",
+  #                   penalty.factor=HC_penalty_fact, nlambda = n.lambda,
+  #                   lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
+  #   cat(" SA")
+  #   # anneal
+  #   PannealN <-  WPSA(X=X_new, Y=cond_eta_new, theta=theta_new,
+  #                     force = 1, p=2, model.size = sa_seq, iter = SAiter,
+  #                     temps = SAtemps,
+  #                     options = list(method = "projection",
+  #                                    energy.distribution = "boltzman",
+  #                                    transport.method = transport.method,
+  #                                    cooling.schedule="exponential",
+  #                                    proposal.method = sa_prop),
+  #                     display.progress = TRUE, max.time = sa_max_time)
+  #   cat(paste0(PannealN$message,"\n"))
+  #   cat("\n")
+  #   # }
+  #   # trajAnnealN <- annealCoef(annealN, theta)
+  #   newXModels <- list("Binary Programming" = ipN,
+  #                      "Lasso" = lassoSelN,
+  #                      "Simulated Annealing" = annealN,
+  #                      "Stepwise" = stepN,
+  #                      "Hahn-Carvalho" = lassoHCN)
+  #   rm("ipN","lassoSelN", "annealN","stepN","lassoHCN")
+  #   newXModelsP <- list("Lasso" = lassoProjN,
+  #                       "Simulated Annealing" = PannealN,
+  #                       "Stepwise" = PstepN,
+  #                       "Hahn-Carvalho" = PlassoHCN)
+  #   rm("lassoProjN",
+  #      "PannealN", "PstepN","PlassoHCN")
+  #
+  #   cat("Calculating distances\n")
+  #   if( calc_w2_post){
+  #     W2_newX <- distCompare(newXModels, target = list(posterior = theta_new,
+  #                                                      mean = cond_mu_new),
+  #                            method = wp_alg,
+  #                            quantity=c("posterior","mean"),
+  #                            parallel=NULL,
+  #                            transform = data$invlink,
+  #                            epsilon = epsilon,
+  #                            niter = otmaxit)
+  #     mse_newX <- distCompare(newXModels, target = list(posterior = full_param,
+  #                                                       mean = new_mu),
+  #                             method = "mse",
+  #                             quantity=c("posterior","mean"),
+  #                             parallel=NULL,
+  #                             transform = data$invlink,
+  #                             epsilon = epsilon,
+  #                             niter = otmaxit)
+  #     PW2_newX <- distCompare(newXModelsP, target = list(posterior = theta_new,
+  #                                                        mean = cond_mu_new),
+  #                             method = wp_alg,
+  #                             quantity=c("posterior","mean"),
+  #                             parallel=NULL,
+  #                             transform = data$invlink,
+  #                             epsilon = epsilon,
+  #                             niter = otmaxit)
+  #     Pmse_newX <- distCompare(newXModelsP, target = list(posterior = full_param,
+  #                                                         mean = new_mu),
+  #                              method = "mse",
+  #                              quantity=c("posterior","mean"),
+  #                              parallel=NULL,
+  #                              transform = data$invlink,
+  #                              epsilon = epsilon,
+  #                              niter = otmaxit)
+  #   }
+  #   else {
+  #     W2_newX <- distCompare(newXModels, target = list(posterior = NULL,
+  #                                                      mean = cond_mu_new),
+  #                            method = wp_alg,
+  #                            quantity=c("mean"),
+  #                            parallel=NULL,
+  #                            transform = data$invlink,
+  #                            epsilon = epsilon,
+  #                            niter = otmaxit)
+  #     mse_newX <- distCompare(newXModels, target = list(posterior = NULL,
+  #                                                       mean = new_mu),
+  #                             method = "mse",
+  #                             quantity="mean",
+  #                             parallel=NULL,
+  #                             transform = data$invlink,
+  #                             epsilon = epsilon,
+  #                             niter = otmaxit)
+  #     PW2_newX <- distCompare(newXModelsP, target = list(posterior = NULL,
+  #                                                        mean = cond_mu_new),
+  #                             method = wp_alg,
+  #                             quantity=c("mean"),
+  #                             parallel=NULL,
+  #                             transform = data$invlink,
+  #                             epsilon = epsilon,
+  #                             niter = otmaxit)
+  #     Pmse_newX <- distCompare(newXModelsP, target = list(posterior = NULL,
+  #                                                         mean = new_mu),
+  #                              method = "mse",
+  #                              quantity="mean",
+  #                              parallel=NULL,
+  #                              transform = data$invlink,
+  #                              epsilon = epsilon,
+  #                              niter = otmaxit)
+  #   }
+  #
+  #
+  #   rm(newXModels, newXModelsP)
+
+
 
 
 
@@ -863,26 +931,20 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   outList <- list (
     W2_dist = list(inSamp = list(selection = W2_insamp,
                                  projection = PW2_insamp),
-                   newX = list(selection = W2_newX,
-                               projection = PW2_newX),
+                   # newX = list(selection = W2_newX,
+                   #             projection = PW2_newX),
                    single = list(selection = W2_single,
                                  projection = PW2_single) ),
     mse = list(inSamp = list(selection = mse_insamp,
                              projection = Pmse_insamp),
-               newX = list(selection = mse_newX,
-                           projection = Pmse_newX),
+               # newX = list(selection = mse_newX,
+               #             projection = Pmse_newX),
                single = list(selection = mse_single,
                              projection = Pmse_single) ),
     importance = list(inSamp = imp_insamp,
-                      newX = imp_newX,
+                      # newX = imp_newX,
                       single = imp_single),
-    time = list(selection = list(ip = ipTime[3], lasso = selTime[3],
-                                 HC = hcTime[3],
-                                 step = stepTime[3],
-                                 anneal = annealTime[3]),
-                projection = list(lasso = projTime[3],
-                                  HC = PhcTime[3], step = PstepTime[3],
-                                  anneal = PannealTime[3]) )#,
+    time = time #,
   )
 
   return(outList)

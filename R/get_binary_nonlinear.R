@@ -301,7 +301,7 @@ get_binary_nonlinear_model <- function() {
     }
 
     if(is.null(hyperparameters$learning.rate)) {
-      learning.rate <- 20
+      learning.rate <- 1e-2
     } else {
       learning.rate <- hyperparameters$learning.rate
     }
@@ -324,7 +324,7 @@ get_binary_nonlinear_model <- function() {
       first.layer.width <- hyperparameters$first.layer.width
     }
     if(is.null(hyperparameters$hidden.layer.width)) {
-      hidden.layer.width <- ncol(x) * 10
+      hidden.layer.width <- as.integer(2/3 * ncol(x) + 1)
     } else {
       hidden.layer.width <- hyperparameters$hidden.layer.width
     }
@@ -337,7 +337,6 @@ get_binary_nonlinear_model <- function() {
       verbose <- dots$verbose
     }
 
-
     res <- nn_train(x=x, y=y, niter = niter, learning.rate = learning.rate,
                     lambda = lambda,
                     test.portion = test.portion,
@@ -347,10 +346,9 @@ get_binary_nonlinear_model <- function() {
                     python.path = python.path,
                     model = NULL,
                     verbose = verbose)
-
-    run.test <- !is.null(dots[["X.test"]])
+    xt <- dots[["X.test"]]
+    run.test <- !is.null(xt)
     if (run.test) {
-      xt <- dots[["X.test"]]
       if (all(xt[,1] == 1)) xt <- xt[,-1,drop=FALSE]
       xt <- torch$FloatTensor(xt)
     }
@@ -717,14 +715,14 @@ get_binary_nonlinear_model <- function() {
 
       output <- rnn(n.samp, x, y, hyperparameters,...)
       theta <- NULL
-      mu <- output$mu
+      mu <- as.matrix(output$mu)
       eta <- qlogis(mu)
+
       model <- function(x) {
-        return(output$model$predict(torch$FloatTensor(x))$data$numpy())
+        return(as.matrix(output$model$predict(torch$FloatTensor(x))$data$numpy()))
       }
 
-      X.test <- dots[["X.test"]]
-      if (!is.null(X.test)) {
+      if (!is.null(dots[["X.test"]])) {
         test$mu <- output$mu.test
         test$eta <- qlogis(test$mu)
       }

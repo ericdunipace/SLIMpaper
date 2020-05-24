@@ -4,7 +4,7 @@ nn_fun_path <- torch <- NULL
   # np <<- reticulate::import("numpy", delay_load = TRUE)
   # scipy <<- reticulate::import("scipy", delay_load = TRUE)
   torch <<- reticulate::import("torch", delay_load = TRUE)
-  nn_fun_path <<- file.path(system.file(package="CoarsePosteriorSummary"), "python/nn_run.py")
+  nn_fun_path <<- file.path(system.file(package="CoarsePosteriorSummary"), "python")
 }
 
 
