@@ -108,10 +108,22 @@ get_binary_nonlinear_model <- function() {
     hist(plogis(eta))
   }
 
+  model_matrix <- function(X, ...) {
+    if(all(X[,1] == 1)) X <- X[,-1,drop=FALSE]
+    p <- ncol(X)
+    form <- formula(paste0("~",paste0("I(X",1:p,"^2)", collapse=" + ")))
+
+    X <- model.matrix(object=form, data = data.frame(X))
+    return(X)
+  }
+
+
   multiply.cols <- function(x) {
     return(apply(x,1,prod) )
   }
-  data_gen_functions <- list(brownian=brownian, modified_friedman = modified_friedman, gp = gp)
+  data_gen_functions <- list(brownian=brownian,
+                             modified_friedman = modified_friedman,
+                             gp = gp)
   rdata <- function(n, x, param, ...) {
 
     dots <- list(...)
@@ -273,7 +285,9 @@ get_binary_nonlinear_model <- function() {
     probs <- plogis(logit.p)
     return(list(Y = rbinom(n, 1, probs), mu = probs, eta = logit.p,
                 link = binomial()$linkfun, invlink = binomial()$linkinv, param = theta,
-                data_gen_functions=data_gen_functions, method=method, extra = extra))
+                data_gen_functions=data_gen_functions,
+                model_matrix = model_matrix,
+                method=method, extra = extra))
   }
 
   #### Posterior on Coefficients ####

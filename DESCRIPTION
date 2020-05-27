@@ -17,7 +17,7 @@ Imports:
   RcppEigen (>= 0.3.3.4.0),
   transport,
   foreach,
-  dbarts,
+  BART,
   rstan,
   rstanarm,
   survival,
@@ -33,4 +33,5 @@ Suggests:
   INLA,
   rjags,
   testthat (>= 2.1.0),
-  BART
+  mgcv,
+  qgam

@@ -56,9 +56,13 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
 
   # SETUP PARAMETERS
   param <- target$rparam()
-  p_star <- min(length(param$theta),p)
+  p_star <- if(family != "gaussian") {
+    min(length(param$theta),p)
+  } else {
+    min(length(param$theta),p + 4)
+  }
   param$theta <- param$theta[1:p_star]
-  full_param <- c(param$theta, rep(0, p-p_star))
+  full_param <- c(param$theta, rep(0, max(p-p_star,0)))
 
   #set up data
   X <- target$X$rX(n, target$X$corr, p)
@@ -69,11 +73,11 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                                     covariance = cov(X[,-1,drop=FALSE])/n))
 
 
-  data <- target$rdata(n, X[,1:p_star,drop=FALSE], c(param$theta),
+  data <- target$rdata(n, X, c(param$theta),
                        param$sigma2, method = "modified.friedman", corr = target$X$corr)
-  single_data <- target$rdata(1, X_sing[,1:p_star,drop=FALSE], c(param$theta),
+  single_data <- target$rdata(1, X_sing, c(param$theta),
                               param$sigma2, method = "modified.friedman", corr = target$X$corr)
-  new_data <- target$rdata(n, X_new[,1:p_star,drop=FALSE], c(param$theta), param$sigma2, method = "modified.friedman", corr = target$X$corr)
+  new_data <- target$rdata(n, X_new, c(param$theta), param$sigma2, method = "modified.friedman", corr = target$X$corr)
 
   Y <- data$Y
   single_Y <- single_data$Y
@@ -91,11 +95,20 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
 
   #sample theta
   if(family != "binomial") {
-    post_sample <- target$rpost(n.samps, X, Y, hyperparameters,
-                              method = posterior.method, stan_dir = stan_dir,
-                              X.test = rbind(X_sing, X_new, X_neighborhood),
-                              chains = 1, m0 = 20,
-                              is.exponential = TRUE)
+    X <- data$model_matrix(X,p_star)
+    X_sing <- data$model_matrix(X_sing,p_star)
+    X_new <- data$model_matrix(X_new, p_star)
+    X_neighborhood <- data$model_matrix(X_neighborhood, p_star)
+
+    hyperparameters$mu <- rep(0, p_star)
+    hyperparameters$Lambda <- matrix(1, p_star, p_star)
+
+    post_sample <- target$rpost(n.samps, X,
+                                Y, hyperparameters,
+                                method = posterior.method, stan_dir = stan_dir,
+                                X.test = rbind(X_sing, X_new, X_neighborhood),
+                                chains = 1, m0 = 20,
+                                is.exponential = TRUE)
 
     post_interp <- post_sample
     theta <- theta_new <- theta_sing <- post_interp$theta #regression coef
@@ -132,19 +145,12 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     #                             chains = 1, m0 = 20)
     # add non-linearities if binomial
     # if(family == "binomial") {
-      cov_X <- cov(X[,-1,drop = FALSE])
+      # cov_X <- cov(X[,-1,drop = FALSE])
       # form <- formula("~.**2")
-      form <- formula(paste0("~",paste0("I(X",1:(p-1),"^2)", collapse=" + ")))
-
-      X <- model.matrix(object=form, data = data.frame(X[,-1,drop = FALSE]))
-      p <- ncol(X)
-      X_new <- model.matrix(form, data = data.frame(X_new[,-1,drop = FALSE]))
-      #resamp x_neighb for larger space
-      X_neighborhood <- CoarsePosteriorSummary::rmvnorm(nsamples = p*3,
-                                                        mean = X_sing[,-1,drop = FALSE],
-                                                        covariance = cov_X/n)
-      X_sing <- model.matrix(form, data = data.frame(X_sing[,-1,drop = FALSE]))
-      X_neighborhood <- model.matrix(form, data = data.frame(X_neighborhood))
+    X <- data$model_matrix(X)
+    X_sing <- data$model_matrix(X_sing)
+    X_new <- data$model_matrix(X_new)
+    X_neighborhood <- data$model_matrix(X_neighborhood)
 
     # }
     theta <- lm.fit(X, post_sample$eta)$coefficients
@@ -292,6 +298,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     mse_insamp  <-  mse_newX  <-  mse_single  <-
     Pmse_insamp <-  Pmse_newX <-  Pmse_single <- NULL
   imp_insamp    <- imp_newX   <- imp_single   <- NULL
+  w2_r2_single  <- Pw2_r2_single              <- NULL
 
   if(not.only.timing) {
     #### new method, single datapoint ####
@@ -416,6 +423,9 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                transform = data$invlink,
                                epsilon = epsilon,
                                niter = otmaxit)
+      # cat("W2 selection\n")
+      w2_r2_single <- WPR2(W2_single, p = 2, method = wp_alg)
+
       mse_single <- distCompare(singleModels, target = list(posterior = full_param,
                                                             mean = new_mu_sing),
                                 method = "mse",
@@ -424,6 +434,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 transform = data$invlink,
                                 epsilon = epsilon,
                                 niter = otmaxit)
+      # cat("W2 projection\n")
       PW2_single <- distCompare(singleModelsP, target = list(posterior = theta_sing,
                                                              mean = cond_mu_sing),
                                 method = wp_alg,
@@ -432,6 +443,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 transform = data$invlink,
                                 epsilon = epsilon,
                                 niter = otmaxit)
+      Pw2_r2_single <- WPR2(PW2_single, p = 2, method = wp_alg)
+
       Pmse_single <- distCompare(singleModelsP, target = list(posterior = full_param,
                                                               mean = new_mu_sing),
                                  method = "mse",
@@ -451,6 +464,9 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                transform = data$invlink,
                                epsilon = epsilon,
                                niter = otmaxit)
+      # cat("W2 selection\n")
+      w2_r2_single <- WPR2(W2_single, p = 2, method = wp_alg)
+
       mse_single <- distCompare(singleModels, target = list(posterior = NULL,
                                                             mean = new_mu_sing),
                                 method = "mse",
@@ -459,6 +475,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 transform = data$invlink,
                                 epsilon = epsilon,
                                 niter = otmaxit)
+      # cat("W2 projection\n")
       PW2_single <- distCompare(singleModelsP, target = list(posterior = NULL,
                                                              mean = cond_mu_sing),
                                 method = wp_alg,
@@ -467,6 +484,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 transform = data$invlink,
                                 epsilon = epsilon,
                                 niter = otmaxit)
+      Pw2_r2_single <- WPR2(PW2_single, p = 2, method = wp_alg)
+
       Pmse_single <- distCompare(singleModelsP, target = list(posterior = NULL,
                                                               mean = new_mu_sing),
                                  method = "mse",
@@ -944,6 +963,10 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     importance = list(inSamp = imp_insamp,
                       # newX = imp_newX,
                       single = imp_single),
+    W2_r2 = list(inSamp = list(selection = NULL,
+                               projection = NULL),
+                 single = list(selection = w2_r2_single,
+                             projection = Pw2_r2_single) ),
     time = time #,
   )
 

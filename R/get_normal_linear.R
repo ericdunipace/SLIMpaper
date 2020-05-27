@@ -28,12 +28,81 @@ get_normal_linear_model <- function() {
   rX <- gen_x()$rX
 
   #### Y Data ####
+  slim_model_mat <- function(x, n.theta) {
+
+    stopifnot(is.matrix(x))
+    add.int <- FALSE
+    if(all(x[,1] == 1)) {
+      x <- x[,-1, drop = FALSE]
+      n.theta <- n.theta - 1
+      add.int <- TRUE
+    }
+    p <- n.theta
+    p.x <- ncol(x)
+
+    if(p > p.x) {
+      n.sq <- min(4,p - p.x)
+    } else {
+      warning("No square terms added. Length of theta less than ncol x")
+      if(add.int) x <- cbind(1,x)
+      return(x)
+    }
+    sq.vars <- c(1,3,7)
+    sq.mat <- matrix(NA_real_, nrow=nrow(x), ncol = n.sq)
+    for( i in 1:n.sq){
+      if(i < 4) {
+        sq.mat[,i] <- x[,sq.vars[i]]^2
+      } else if(i == 4 & p.x >=15) {
+        sq.mat[,i] <- x[,13] * x[,15]
+      }
+
+    }
+    if(add.int) x <- cbind(1,x)
+    return(cbind(x, sq.mat))
+  }
+
+  slim_sq_corr <- function(corr, n.x, n.theta) {
+
+    p <- n.theta
+    p.x <- n.x
+
+    if(p > p.x) {
+      n.sq <- min(4,p - p.x)
+    } else {
+      return(NULL)
+    }
+    sq.vars <- c(1,3,7)
+    cross.vars <- c(13,15)
+    cor.mat <- matrix(0, nrow=n.sq, ncol = n.sq)
+    grps <- lapply(seq(0,20,5), function(nn) sq.vars <= (nn + 5) &
+                     sq.vars > nn)
+    for( i in grps){
+      if(all(isFALSE(i))) next
+      idx <- which(i)
+      n.row <- length(idx)
+      cor.mat[idx,idx] <- matrix(2 * corr^2, n.row, n.row)
+      diag(cor.mat)[idx] <- 2
+    }
+    if (n.sq == 4) {
+
+      if(any(sq.vars %in% cross.vars)) {
+        idx <- which(sq.vars %in% cross.vars)
+        cor.mat[idx,4] <- cor.mat[4,idx] <- 2 * corr #all vars are 1
+      }
+      cor.mat[4,4] <- 1 + corr * corr
+    }
+
+    return(cor.mat)
+  }
   rdata <- function(n, x, theta, sigma2, ...) {
     dots <- list(...)
     corr.x <- dots$corr
     scale <- dots$scale
     if(is.null(corr.x)) corr.x <- 0
     if(is.null(scale)) scale <- TRUE
+    # if(is.null(dots$method)) dots$method <- "linear"
+    #
+    # method <- match.arg(dots$method, c("linear","nonlinear"))
 
     if(ncol(x) > length(theta)) {
       x <- x[, 1: length(theta), drop=FALSE]
@@ -48,9 +117,18 @@ get_normal_linear_model <- function() {
       intercept <- 0
     }
 
+    if(ncol(x) + 4 > length(theta)) {
+      x <- x[,1:(length(theta) - 4), drop = FALSE]
+    }
     p <- ncol(x)
     corr.mat <- corr_mat_construct(corr.x, p)
     diag(corr.mat) <- 1
+    corr.mat <- as.matrix(
+      Matrix::bdiag(corr.mat, slim_sq_corr(corr.x,p, length(theta)) ))
+    x <- slim_model_mat(x, length(theta))
+
+
+
     theta_norm <- c(t(theta) %*% corr.mat %*% theta)
     theta_scaled <- if(scale) {
                       theta/sqrt(theta_norm)
@@ -61,7 +139,13 @@ get_normal_linear_model <- function() {
     Y <- rnorm(n, mu, sqrt(sigma2))
     theta <- c(intercept, theta_scaled)
 
-    return(list(Y = Y, mu = mu, eta = mu, link = gaussian()$linkfun, invlink = gaussian()$linkinv, theta = theta))
+    return(list(Y = Y,
+                mu = mu, eta = mu,
+                link = gaussian()$linkfun,
+                invlink = gaussian()$linkinv,
+                theta = theta,
+                data_gen_function = slim_model_mat,
+                model_matrix = slim_model_mat))
   }
 
   #### Parameters ####
@@ -80,6 +164,7 @@ get_normal_linear_model <- function() {
     dots <- list(...)
     model <- NULL
     test <- list(eta = NULL, mu = NULL)
+
 
     method <- dots$method
 
@@ -164,7 +249,9 @@ get_normal_linear_model <- function() {
     } else {
       stopifnot(match.arg(method, c("conjugate","stan")))
     }
-    return(list(theta=theta, sigma=sigma, eta = eta, mu = mu, model=model, test = test))
+    return(list(theta=theta,
+                sigma=sigma, eta = eta,
+                mu = mu, model=model, test = test))
 
   }
 
@@ -179,7 +266,7 @@ get_normal_linear_model <- function() {
               rdata = rdata,
               rpost = rpost,
               X = list(rX = rX, corr = NULL),
-              data_gen_function = NULL,
+              data_gen_function = slim_model_mat,
               rparam = rparam,
               link = gaussian()$linkfun,
               sel.pred.fun = sel.pred.fun,
