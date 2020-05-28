@@ -96,7 +96,7 @@ abart.fix <- function (x.train, times, delta, x.test = matrix(0, 0, 0), K = 100,
       h <- (i - 1) * K + j
       res$surv.train[, h] <- pnorm(log(events[j]),
                                    mean = res$yhat.train[,i],
-                                   sd = res$sigma[seq(nskip+keepevery,keepevery*ndpost, length.out = ndpost)],
+                                   sd = res$sigma[seq(nskip+keepevery,keepevery*ndpost + nskip, length.out = ndpost)],
                                    lower.tail = FALSE)
     }
     res$yhat.train.mean <- apply(res$yhat.train, 2, mean)
@@ -131,6 +131,7 @@ abart.fix <- function (x.train, times, delta, x.test = matrix(0, 0, 0), K = 100,
       res$prob.test.mean <- apply(res$prob.test, 2, mean)
     }
   }
+  res$sigma <- res$sigma[seq(nskip+keepevery,keepevery*ndpost + nskip, length.out = ndpost)]
   res$times = events
   res$K = K
   res$offset = offset
@@ -362,4 +363,40 @@ mc.surv.bart.fix <- function (x.train = matrix(0, 0, 0), y.train = NULL, times =
     attr(post, "class") <- "survbart"
     return(post)
   }
+}
+
+predict.abart <- function(object, newdata, mc.cores = 1,
+                          openmp = (BART::mc.cores.openmp() > 0),
+                          ...) {
+  stopifnot(inherits(object, "abart"))
+
+  np = ncol(newdata)
+  K <- object$K
+  ndpost <- object$ndpost
+  events = unique(sort(object$times))
+  x.test <- t(BART::bartModelMatrix(newdata))
+
+  pred <- list()
+  pred$tx.test <- t(x.test)
+  pred$times <- events
+  pred$K <- K
+
+  pred$yhat.test <- pwbart(x.test = x.test,
+                           treedraws = object$treedraws,
+                           mu = object$offset,
+                           mc.cores = mc.cores,
+                           TRUE)
+  # sigma.length <- length(object$sigma)
+  # sigma.idx <- (sigma.length - ndpost +1):sigma.length
+  pred$surv.test <- matrix(nrow = ndpost, ncol = np *K)
+  for (i in 1:np) for (j in 1:K) {
+    h <- (i - 1) * K + j
+    pred$surv.test[, h] <- pnorm(log(events[j]),
+                                 mean = pred$yhat.test[,i],
+                                 sd = object$sigma,#[sigma.idx],
+                                 lower.tail = FALSE)
+  }
+  pred$yhat.test.mean <- apply(pred$yhat.test, 2, mean)
+  pred$surv.test.mean <- apply(pred$surv.test, 2, mean)
+  return(pred)
 }
