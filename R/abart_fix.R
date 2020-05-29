@@ -91,12 +91,13 @@ abart.fix <- function (x.train, times, delta, x.test = matrix(0, 0, 0), K = 100,
   }
   K <- length(events)
   if (type == "abart") {
+    res$sigma <- res$sigma[seq(nskip+keepevery,keepevery*ndpost + nskip, length.out = ndpost)]
     res$surv.train <- matrix(nrow = ndpost, ncol = n * K)
     for (i in 1:n) for (j in 1:K) {
       h <- (i - 1) * K + j
       res$surv.train[, h] <- pnorm(log(events[j]),
                                    mean = res$yhat.train[,i],
-                                   sd = res$sigma[seq(nskip+keepevery,keepevery*ndpost + nskip, length.out = ndpost)],
+                                   sd = res$sigma,
                                    lower.tail = FALSE)
     }
     res$yhat.train.mean <- apply(res$yhat.train, 2, mean)
@@ -117,7 +118,7 @@ abart.fix <- function (x.train, times, delta, x.test = matrix(0, 0, 0), K = 100,
         h <- (i - 1) * K + j
         res$surv.test[, h] <- pnorm(log(events[j]),
                                     mean = res$yhat.test[, i],
-                                    sd = res$sigma[seq(nskip+keepevery,keepevery*ndpost, length.out = ndpost)],
+                                    sd = res$sigma,
                                     lower.tail = FALSE)
       }
       res$yhat.test.mean <- apply(res$yhat.test, 2, mean)
@@ -131,10 +132,10 @@ abart.fix <- function (x.train, times, delta, x.test = matrix(0, 0, 0), K = 100,
       res$prob.test.mean <- apply(res$prob.test, 2, mean)
     }
   }
-  res$sigma <- res$sigma[seq(nskip+keepevery,keepevery*ndpost + nskip, length.out = ndpost)]
   res$times = events
   res$K = K
   res$offset = offset
+  res$ndpost = ndpost
   names(res$treedraws$cutpoints) = dimnames(x.train)[[1]]
   dimnames(res$varcount)[[2]] = as.list(dimnames(x.train)[[1]])
   dimnames(res$varprob)[[2]] = as.list(dimnames(x.train)[[1]])
@@ -214,7 +215,7 @@ mc.abart.fix <- function (x.train, times, delta, x.test = matrix(0, 0, 0), K = 1
                                 post$treedraws$trees)
     keeptest <- length(x.test) > 0
     for (i in 2:mc.cores) {
-      post$sigma <- cbind(post$sigma, post.list[[i]]$sigma)
+      post$sigma <- c(post$sigma, post.list[[i]]$sigma)
       post$yhat.train <- rbind(post$yhat.train, post.list[[i]]$yhat.train)
       post$surv.train <- rbind(post$surv.train, post.list[[i]]$surv.train)
       if (keeptest) {
@@ -370,11 +371,13 @@ predict.abart <- function(object, newdata, mc.cores = 1,
                           ...) {
   stopifnot(inherits(object, "abart"))
 
-  np = ncol(newdata)
+
+
   K <- object$K
   ndpost <- object$ndpost
   events = unique(sort(object$times))
   x.test <- t(BART::bartModelMatrix(newdata))
+  np = ncol(x.test)
 
   pred <- list()
   pred$tx.test <- t(x.test)
@@ -389,12 +392,14 @@ predict.abart <- function(object, newdata, mc.cores = 1,
   # sigma.length <- length(object$sigma)
   # sigma.idx <- (sigma.length - ndpost +1):sigma.length
   pred$surv.test <- matrix(nrow = ndpost, ncol = np *K)
-  for (i in 1:np) for (j in 1:K) {
-    h <- (i - 1) * K + j
-    pred$surv.test[, h] <- pnorm(log(events[j]),
-                                 mean = pred$yhat.test[,i],
-                                 sd = object$sigma,#[sigma.idx],
-                                 lower.tail = FALSE)
+  for (i in 1:np) {
+    for (j in 1:K) {
+      h <- (i - 1) * K + j
+      pred$surv.test[, h] <- pnorm(log(events[j]),
+                                   mean = pred$yhat.test[,i],
+                                   sd = object$sigma,#[sigma.idx],
+                                   lower.tail = FALSE)
+    }
   }
   pred$yhat.test.mean <- apply(pred$yhat.test, 2, mean)
   pred$surv.test.mean <- apply(pred$surv.test, 2, mean)
