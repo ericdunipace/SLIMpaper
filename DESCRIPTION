@@ -18,8 +18,6 @@ Imports:
   transport,
   foreach,
   BART,
-  rstan,
-  rstanarm,
   survival,
   reticulate
 LinkingTo: 
@@ -34,4 +32,6 @@ Suggests:
   rjags,
   testthat (>= 2.1.0),
   mgcv,
-  qgam
+  qgam,
+  rstan,
+  rstanarm,
