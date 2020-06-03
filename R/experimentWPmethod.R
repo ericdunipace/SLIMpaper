@@ -381,6 +381,12 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                  nlambda = n.lambda, penalty = penalty,
                  lambda.min.ratio = lambda.min.ratio, maxit = 1e5,
                  gamma = 1.1, display.progress = TRUE)
+    cat("\n L3\n")
+    PL3O <- WPL1(X=X_neighborhood, Y=cond_eta_neighb, p = 3,
+                     nlambda = n.lambda, penalty = penalty,
+                     lambda.min.ratio = lambda.min.ratio,
+                     gamma = 1.1,
+                     display.progress = TRUE)
 
     cat("\n LInfinity\n")
     PLInfO <- WInfL1(X=X_neighborhood, Y=cond_eta_neighb,
@@ -404,7 +410,10 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     singleModelsP <- list("Lasso" = lassoProjO,
                           "Simulated Annealing" = PannealO,
                           "Stepwise" = PstepO,
-                          "Hahn-Carvalho" = PlassoHCO)
+                          "Hahn-Carvalho" = PlassoHCO,
+                          "L1" = PL1O,
+                          "L3" = PL3O,
+                          "LInf" = PLInfO)
     rm("lassoProjO",
        "PannealO", "PstepO","PlassoHCO")
     #recalculate values for single obs
@@ -649,6 +658,13 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     PL1Time <- proc.time() - time
 
     time <- proc.time()
+    PL3 <- WPL1(X=X, Y=cond_eta, p = 3,
+                nlambda = n.lambda, penalty = penalty,
+                lambda.min.ratio = lambda.min.ratio, maxit = 1e5,
+                gamma = 1.1)
+    PL3Time <- proc.time() - time
+
+    time <- proc.time()
     PLInf <- WInfL1(X=X, Y=cond_eta,
                     nlambda = n.lambda, penalty = penalty,
                     lambda.min.ratio = lambda.min.ratio,
@@ -661,6 +677,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                   anneal = annealTime[3]),
                  projection = list(lasso = projTime[3],
                                    L1 = PL1Time[3],
+                                   L3 = PL3Time[3],
                                    LInf = PLInfTime[3],
                                    HC = PhcTime[3], step = PstepTime[3],
                                    anneal = PannealTime[3]))
