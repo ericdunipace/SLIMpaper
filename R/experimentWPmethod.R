@@ -342,7 +342,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     cat(paste0(annealO$message,"\n"))
     cat("\n")
 
-    cat("  Projection: Lasso\n")
+    cat("  Projection: Lasso, ",date(),"\n")
     #projection
     lassoProjO <- W2L1(X_neighborhood, cond_eta_neighb, theta_sing, family="gaussian", penalty=penalty,
                        penalty.factor=proj_penalty_fact, nlambda = n.lambda,
@@ -351,19 +351,19 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                        transport.method = transport.method,
                        display.progress=TRUE, method = "projection")
 
-    cat(" SW\n")
+    cat(" SW, ",date(),"\n")
     #stepwise
     PstepO <- WPSW(X_neighborhood, cond_eta_neighb, theta_sing, force=1, p=2,
                    direction = "backward", method = "projection",
                    transport.method = transport.method,
                    display.progress = TRUE)
-    cat(" HC\n")
+    cat(" HC, ",date(),"\n")
     #HC
     PlassoHCO <- HC(X_neighborhood, cond_eta_neighb, theta = theta_sing, alpha = 0.99, gamma = 1.1,
                     family="gaussian", penalty=penalty, method = "projection",
                     penalty.factor=HC_penalty_fact, nlambda = n.lambda,
                     lambda.min.ratio = lambda.min.ratio, maxit = 1e5)
-    cat(" SA\n")
+    cat(" SA, ",date(),"\n")
     # anneal
     PannealO <-  WPSA(X_neighborhood, cond_eta_neighb, theta=theta_sing,
                       force = 1, p=2, model.size = sa_seq, iter = SAiter,
@@ -375,7 +375,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                      proposal.method = sa_prop),
                       display.progress = TRUE, max.time = sa_max_time)
 
-    cat("\n L1\n")
+    cat("\n L1, ",date(),"\n")
     PL1O <- W1L1(X=X_neighborhood, Y=cond_eta_neighb,
                  solver = "gurobi",
                  nlambda = n.lambda, penalty = penalty,
@@ -388,7 +388,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     #                  gamma = 1.1,
     #                  display.progress = TRUE)
 
-    cat("\n LInfinity\n")
+    cat("\n LInfinity, ",date(),"\n")
     PLInfO <- WInfL1(X=X_neighborhood, Y=cond_eta_neighb,
                      nlambda = n.lambda, penalty = penalty,
                      lambda.min.ratio = lambda.min.ratio,
