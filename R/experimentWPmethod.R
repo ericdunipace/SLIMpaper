@@ -8,6 +8,11 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   n.lambda <- conditions$n.lambda
   penalty_method <- conditions$penalty.factor
   family  <- conditions$family
+  solver <- conditions$solver
+  if(is.null(solver) | solver == "") {
+    solver <- "gurobi"
+  }
+
   epsilon <- 0.05
   otmaxit <- 100
   # pseudo.obs <- conditions$pseudo.obs
@@ -310,7 +315,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                 display.progress=TRUE,
                 transport.method = transport.method,
                 model.size = ip_seq,
-                infimum.maxit = 100, solution.method = "gurobi",
+                infimum.maxit = 100, solution.method = solver,
                 parallel = NULL)
 
     cat(" Lasso")
@@ -377,7 +382,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
 
     cat("\n L1, ",date(),"\n")
     PL1O <- W1L1(X=X_neighborhood, Y=cond_eta_neighb,
-                 solver = "gurobi",
+                 solver = solver,
                  nlambda = n.lambda, penalty = penalty,
                  lambda.min.ratio = lambda.min.ratio, maxit = 1e5,
                  gamma = 1.1, display.progress = TRUE)
@@ -392,7 +397,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     PLInfO <- WInfL1(X=X_neighborhood, Y=cond_eta_neighb,
                      nlambda = n.lambda, penalty = penalty,
                      lambda.min.ratio = lambda.min.ratio,
-                     gamma = 1.1, solver = "gurobi",
+                     gamma = 1.1, solver = solver,
                      display.progress = TRUE)
 
     cat("\n")
@@ -531,7 +536,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                display.progress=FALSE,
                transport.method = transport.method,
                model.size = ip_seq,
-               infimum.maxit = 100, solution.method = "gurobi",
+               infimum.maxit = 100, solution.method = solver,
                parallel = NULL)
     ipTime <- proc.time() - time
     # trajSel <- selDist$theta
@@ -651,7 +656,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     }
 
     time <- proc.time()
-    PL1 <- W1L1(X=X, Y=cond_eta, solver = "gurobi",
+    PL1 <- W1L1(X=X, Y=cond_eta, solver = solver,
                 nlambda = n.lambda, penalty = penalty,
                 lambda.min.ratio = lambda.min.ratio, maxit = 1e5,
                 gamma = 1.1)
@@ -668,7 +673,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     PLInf <- WInfL1(X=X, Y=cond_eta,
                     nlambda = n.lambda, penalty = penalty,
                     lambda.min.ratio = lambda.min.ratio,
-                    gamma = 1.1, solver = "gurobi")
+                    gamma = 1.1, solver = solver)
     PLInfTime <- proc.time() - time
 
     time <- list(selection = list(ip = ipTime[3], lasso = selTime[3],
