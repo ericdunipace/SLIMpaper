@@ -12,6 +12,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   if(is.null(solver) | solver == "") {
     solver <- "gurobi"
   }
+  solver <- match.arg(solver, choices = c("mosek", "gurobi",
+                                          "cplex", "cone", "lp"))
 
   epsilon <- 0.05
   otmaxit <- 100
