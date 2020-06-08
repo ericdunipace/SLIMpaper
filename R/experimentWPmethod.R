@@ -437,8 +437,19 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                transform = data$invlink,
                                epsilon = epsilon,
                                niter = otmaxit)
+      W1_single <- distCompare(singleModels, target = list(posterior = theta_sing,
+                                                           mean = cond_mu_sing),
+                               method = wp_alg,
+                               quantity=c("posterior","mean"),
+                               parallel=NULL,
+                               transform = data$invlink,
+                               epsilon = epsilon,
+                               niter = otmaxit,
+                               ground_p = 1,
+                               p = 1)
       # cat("W2 selection\n")
       w2_r2_single <- WPR2(Y = cond_mu_sing, nu = W2_single, p = 2, method = wp_alg)
+      w1_r2_single <- WPR2(Y = cond_mu_sing, nu = W1_single, p = 1, method = wp_alg)
 
       mse_single <- distCompare(singleModels, target = list(posterior = full_param,
                                                             mean = new_mu_sing),
@@ -457,7 +468,18 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 transform = data$invlink,
                                 epsilon = epsilon,
                                 niter = otmaxit)
+      PW1_single <- distCompare(singleModelsP, target = list(posterior = theta_sing,
+                                                             mean = cond_mu_sing),
+                                method = wp_alg,
+                                quantity=c("posterior","mean"),
+                                parallel=NULL,
+                                transform = data$invlink,
+                                epsilon = epsilon,
+                                niter = otmaxit,
+                                p = 1,
+                                ground_p = 1)
       Pw2_r2_single <- WPR2(Y = cond_mu_sing, nu = PW2_single, p = 2, method = wp_alg)
+      Pw1_r2_single <- WPR2(Y = cond_mu_sing, nu = PW1_single, p = 1, method = wp_alg)
 
       Pmse_single <- distCompare(singleModelsP, target = list(posterior = full_param,
                                                               mean = new_mu_sing),
@@ -478,8 +500,19 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                transform = data$invlink,
                                epsilon = epsilon,
                                niter = otmaxit)
+      W1_single <- distCompare(singleModels, target = list(posterior = NULL,
+                                                           mean = cond_mu_sing),
+                               method = wp_alg,
+                               quantity=c("mean"),
+                               parallel=NULL,
+                               transform = data$invlink,
+                               epsilon = epsilon,
+                               niter = otmaxit,
+                               ground_p = 1,
+                               p = 1)
       # cat("W2 selection\n")
       w2_r2_single <- WPR2(Y = cond_mu_sing, nu = W2_single, p = 2, method = wp_alg)
+      w1_r2_single <- WPR2(Y = cond_mu_sing, nu = W1_single, p = 1, method = wp_alg)
 
       mse_single <- distCompare(singleModels, target = list(posterior = NULL,
                                                             mean = new_mu_sing),
@@ -498,7 +531,18 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 transform = data$invlink,
                                 epsilon = epsilon,
                                 niter = otmaxit)
+      PW1_single <- distCompare(singleModelsP, target = list(posterior = NULL,
+                                                             mean = cond_mu_sing),
+                                method = wp_alg,
+                                quantity=c("mean"),
+                                parallel=NULL,
+                                transform = data$invlink,
+                                epsilon = epsilon,
+                                niter = otmaxit,
+                                p = 1,
+                                ground_p = 1)
       Pw2_r2_single <- WPR2(Y = cond_mu_sing, nu = PW2_single, p = 2, method = wp_alg)
+      Pw1_r2_single <- WPR2(Y = cond_mu_sing, nu = PW1_single, p = 1, method = wp_alg)
 
       Pmse_single <- distCompare(singleModelsP, target = list(posterior = NULL,
                                                               mean = new_mu_sing),
@@ -989,6 +1033,10 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                projection = NULL),
                  single = list(selection = w2_r2_single,
                              projection = Pw2_r2_single) ),
+    W1_r2 = list(inSamp = list(selection = NULL,
+                               projection = NULL),
+                 single = list(selection = w1_r2_single,
+                               projection = Pw1_r2_single) ),
     time = time #,
   )
 
