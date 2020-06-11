@@ -1,2 +1,2 @@
 # .checkINLA()
-.checkSP()
+.checkLIMBS()
