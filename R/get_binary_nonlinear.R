@@ -345,6 +345,10 @@ get_binary_nonlinear_model <- function() {
 
     python.path <- dots$python.path
 
+    if(is.null(python.path) | python.path == "") {
+      python.path <- NULL
+    }
+
     if(is.null(dots$verbose)) {
       verbose <- FALSE
     } else {

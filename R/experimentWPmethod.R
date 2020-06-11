@@ -9,6 +9,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   penalty_method <- conditions$penalty.factor
   family  <- conditions$family
   solver <- conditions$solver
+  python.path <- conditions$python.path
   if(is.null(solver) | solver == "") {
     solver <- "gurobi"
   }
@@ -115,7 +116,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 method = posterior.method, stan_dir = stan_dir,
                                 X.test = rbind(X_sing, X_new, X_neighborhood),
                                 chains = 1, m0 = 20,
-                                is.exponential = TRUE)
+                                is.exponential = TRUE,
+                                python.path = python.path)
 
     post_interp <- post_sample
     theta <- theta_new <- theta_sing <- post_interp$theta #regression coef
@@ -146,7 +148,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 is.exponential = TRUE,
                                 test.portion = 0,
                                 learning.rate = 1e-3,
-                                niter = 50)
+                                niter = 50,
+                                python.path = python.path)
     # post_interp <- target$rpost(n.samps, X, Y, NULL, method = "logistic", stan_dir = "exec/Stan/logistic_horseshoe_noQR.stan",
     #                             X.test = rbind(X_sing, X_new, X_neighborhood),
     #                             chains = 1, m0 = 20)
