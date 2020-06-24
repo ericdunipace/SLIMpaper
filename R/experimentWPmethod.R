@@ -10,11 +10,15 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   family  <- conditions$family
   solver <- conditions$solver
   python.path <- conditions$python.path
+  recalc <- conditions$recalculate
   if(is.null(solver) | solver == "") {
     solver <- "gurobi"
   }
   solver <- match.arg(solver, choices = c("mosek", "gurobi",
                                           "cplex", "cone", "lp"))
+  recalc <- if(is.null(recalc) | recalc == "") {
+    recalc <- FALSE
+  }
 
   epsilon <- 0.05
   otmaxit <- 100
@@ -427,10 +431,12 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     rm("lassoProjO",
        "PannealO", "PstepO","PlassoHCO")
     #recalculate values for single obs
-    singleModelsP <- lapply(singleModelsP, function(x) {
-      x$eta <- lapply(x$theta, function(tt) X_sing %*% tt)
-      return(x)
-    })
+    if(recalc = TRUE) {
+      singleModelsP <- lapply(singleModelsP, function(x) {
+        x$eta <- lapply(x$theta, function(tt) X_sing %*% tt)
+        return(x)
+      })
+    }
 
     cat("Calculating distances\n")
     if( calc_w2_post){
