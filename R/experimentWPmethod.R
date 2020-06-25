@@ -431,7 +431,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     rm("lassoProjO",
        "PannealO", "PstepO","PlassoHCO")
     #recalculate values for single obs
-    if(recalc = TRUE) {
+    if(recalc == TRUE) {
       singleModelsP <- lapply(singleModelsP, function(x) {
         x$eta <- lapply(x$theta, function(tt) X_sing %*% tt)
         return(x)
