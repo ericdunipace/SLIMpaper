@@ -11,14 +11,16 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   solver <- conditions$solver
   python.path <- conditions$python.path
   recalc <- conditions$recalculate
-  if(is.null(solver) | solver == "") {
-    solver <- "gurobi"
+  if(is.null(solver) ) {
+    solver <- "mosek"
+  }
+  if(solver == "") {
+    solver <- "mosek"
   }
   solver <- match.arg(solver, choices = c("mosek", "gurobi",
                                           "cplex", "cone", "lp"))
-  recalc <- if(is.null(recalc) | recalc == "") {
-    recalc <- FALSE
-  }
+  if(is.null(recalc)) recalc <- FALSE
+  if(recalc == "") recalc <- FALSE
 
   epsilon <- 0.05
   otmaxit <- 100
@@ -91,6 +93,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                               param$sigma2, method = "modified.friedman", corr = target$X$corr)
   new_data <- target$rdata(n, X_new, c(param$theta), param$sigma2, method = "modified.friedman", corr = target$X$corr)
 
+  neighb_data <- target$rdata(n, X_neighborhood, c(param$theta), param$sigma2, method = "modified.friedman", corr = target$X$corr)
+
   Y <- data$Y
   single_Y <- single_data$Y
   new_Y_new_X <- new_data$Y
@@ -99,6 +103,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   true_mu <- data$mu
   new_mu <- new_data$mu
   new_mu_sing <- single_data$mu
+  new_mu_neighb <- neighb_data$mu
 
   # indices for different data
   single_idx <- 1
@@ -431,11 +436,16 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     rm("lassoProjO",
        "PannealO", "PstepO","PlassoHCO")
     #recalculate values for single obs
-    if(recalc == TRUE) {
+    if( recalc ) {
       singleModelsP <- lapply(singleModelsP, function(x) {
         x$eta <- lapply(x$theta, function(tt) X_sing %*% tt)
         return(x)
       })
+      cond_mu_calc <- cond_mu_sing
+      new_mu_calc <- new_mu_sing
+    } else {
+      cond_mu_calc <- cond_mu_neighb
+      new_mu_calc <- new_mu_neighb
     }
 
     cat("Calculating distances\n")
@@ -474,7 +484,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 niter = otmaxit)
       # cat("W2 projection\n")
       PW2_single <- distCompare(singleModelsP, target = list(posterior = theta_sing,
-                                                             mean = cond_mu_sing),
+                                                             mean = cond_mu_calc),
                                 method = wp_alg,
                                 quantity=c("posterior","mean"),
                                 parallel=NULL,
@@ -482,7 +492,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 epsilon = epsilon,
                                 niter = otmaxit)
       PW1_single <- distCompare(singleModelsP, target = list(posterior = theta_sing,
-                                                             mean = cond_mu_sing),
+                                                             mean = cond_mu_calc),
                                 method = wp_alg,
                                 quantity=c("posterior","mean"),
                                 parallel=NULL,
@@ -491,13 +501,13 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 niter = otmaxit,
                                 p = 1,
                                 ground_p = 1)
-      Pw2_r2_single <- WPR2(Y = cond_mu_sing, nu = PW2_single, p = 2, method = wp_alg)
-      Pw1_r2_single <- WPR2(Y = cond_mu_sing, nu = PW1_single, p = 1, method = wp_alg)
+      Pw2_r2_single <- WPR2(Y = cond_mu_calc, nu = PW2_single, p = 2, method = wp_alg)
+      Pw1_r2_single <- WPR2(Y = cond_mu_calc, nu = PW1_single, p = 1, method = wp_alg)
       Pw2_r2_single_null <- WPR2(Y = NULL, nu = PW2_single, p = 2, method = wp_alg)
       Pw1_r2_single_null <- WPR2(Y = NULL, nu = PW1_single, p = 1, method = wp_alg)
 
       Pmse_single <- distCompare(singleModelsP, target = list(posterior = full_param,
-                                                              mean = new_mu_sing),
+                                                              mean = new_mu_calc),
                                  method = "mse",
                                  quantity=c("posterior","mean"),
                                  parallel=NULL,
@@ -541,7 +551,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 niter = otmaxit)
       # cat("W2 projection\n")
       PW2_single <- distCompare(singleModelsP, target = list(posterior = NULL,
-                                                             mean = cond_mu_sing),
+                                                             mean = cond_mu_calc),
                                 method = wp_alg,
                                 quantity=c("mean"),
                                 parallel=NULL,
@@ -549,7 +559,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 epsilon = epsilon,
                                 niter = otmaxit)
       PW1_single <- distCompare(singleModelsP, target = list(posterior = NULL,
-                                                             mean = cond_mu_sing),
+                                                             mean = cond_mu_calc),
                                 method = wp_alg,
                                 quantity=c("mean"),
                                 parallel=NULL,
@@ -558,13 +568,13 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 niter = otmaxit,
                                 p = 1,
                                 ground_p = 1)
-      Pw2_r2_single <- WPR2(Y = cond_mu_sing, nu = PW2_single, p = 2, method = wp_alg)
-      Pw1_r2_single <- WPR2(Y = cond_mu_sing, nu = PW1_single, p = 1, method = wp_alg)
+      Pw2_r2_single <- WPR2(Y = cond_mu_calc, nu = PW2_single, p = 2, method = wp_alg)
+      Pw1_r2_single <- WPR2(Y = cond_mu_calc, nu = PW1_single, p = 1, method = wp_alg)
       Pw2_r2_single_null <- WPR2(Y = NULL, nu = PW2_single, p = 2, method = wp_alg)
       Pw1_r2_single_null <- WPR2(Y = NULL, nu = PW1_single, p = 1, method = wp_alg)
 
       Pmse_single <- distCompare(singleModelsP, target = list(posterior = NULL,
-                                                              mean = new_mu_sing),
+                                                              mean = new_mu_calc),
                                  method = "mse",
                                  quantity="mean",
                                  parallel=NULL,
