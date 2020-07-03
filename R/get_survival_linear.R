@@ -608,7 +608,7 @@ get_survival_linear_model <- function() {
       # scale_intercept <- dots$scale_intercept
       chains <- dots$chains
       X.test <- dots$X.test
-      if(is.null(n.intervals)) n.intervals <- 15
+      if(is.null(n.intervals) & is.null(cutpoints)) n.intervals <- 15
 
       if(is.null(m0)) m0 <- round(0.1 * p)
       if(m0 < 1) m0 <- round(m0 * p)
@@ -621,20 +621,23 @@ get_survival_linear_model <- function() {
         # cutpoints <- quantile(scaled.times, seq(0,1,length.out = n.intervals))
         # cutpoints <- c(0, cutpoints)
         cutpoints <- seq(0,max(scaled.times), length.out = n.intervals + 1)
+      } else {
+        if(is.null(n.intervals)) n.intervals <- length(cutpoints) - 1
       }
       if(m0 >= ncol(sx)) {
         m0 <- ncol(sx) - 1
         warning("Adjusting m0 value. Must be less than number of predictors")
       }
+      time.order <- order(scaled.times)
 
       stan_dat <- list(
         N = as.integer(length(unique(id))),
-        NT = n.intervals,
-        obs_t = as.double(scaled.times),
+        NT = as.integer(n.intervals),
+        obs_t = as.double(scaled.times)[time.order],
         times = as.double(cutpoints),
-        fail = as.integer(fail),
+        fail = as.integer(fail)[time.order],
         P = as.integer(ncol(sx)),
-        X = as.matrix(sx),
+        X = as.matrix(sx)[time.order,],
         m0 = as.double(m0)
         )
 
@@ -647,7 +650,8 @@ get_survival_linear_model <- function() {
                           warmup = warmup, chains=chains,
                           pars = c("baseline_S","individ_S","beta","log_hazard","eta","intercept","dN_out","int_dur"),
                           control = list(adapt_delta = 0.9,
-                                         max_treedepth = 20))
+                                         max_treedepth = 20),
+                          check_data = FALSE)
                           # sample_file = "cox_stan.csv")
       samples <- rstan::extract(stanFit, pars= c("baseline_S","individ_S","log_hazard","beta","eta","intercept"))
 
