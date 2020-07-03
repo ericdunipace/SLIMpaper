@@ -1,5 +1,14 @@
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+  BiocManager::install()
+}
+# source("https://bioconductor.org/biocLite.R")
+if(!requireNamespace("curatedOvarianData", quietly = TRUE) ) {
+  BiocManager::install(c("curatedOvarianData"))
+}
+
 #### Data Cleaning/Examine ####
-source("data-raw/DataClean/downloadOvarian.R")
+# source("data-raw/DataClean/downloadOvarian.R")
 # data(package="curatedOvarianData")
 require(curatedOvarianData)
 require(CoarsePosteriorSummary)
@@ -43,7 +52,7 @@ plot(sfit)
 
 #### non-x vars ####
 remove_all <- !(colnames(ovar) %in% c("unique_patient_ID", "days_to_tumor_recurrence","vital_status", "days_to_death",
-                "os_binary", "relapse_binary","substage", "debulking")) &
+                                      "os_binary", "relapse_binary","substage", "debulking")) &
   (colnames(ovar) %in% c("age_at_initial_pathologic_diagnosis", colnames(express)))
 remove_rec <- !(colnames(ovar) %in% c(remove_all, "recurrence_status","site_of_tumor_first_recurrence")) & (colnames(ovar) %in% c("age_at_initial_pathologic_diagnosis","tumorstage", "summarygrade", colnames(express)))
 
@@ -113,7 +122,7 @@ output <- list(recurr = list(X     = mm.recur,
                death =  list(X     = mm.death,
                              event = event.death,
                              time  = time.death)
-              )
+)
 ovar <- output$recurr
 usethis::use_data(ovar, compress="xz", version = 2)
 # usethis::use_data(ovar, compress="xz", overwrite=TRUE, version = 2)

@@ -194,6 +194,8 @@ get_survival_linear_model <- function() {
       ncpu <- 1
     }
 
+    if(!is.null(seed)) set.seed(seed)
+
     if(method == "ss-jags") {
       mu_vec <- rep(m, ncol(x))
       prec_matrix <- matrix(0, ncol(x), ncol(x))
@@ -322,7 +324,7 @@ get_survival_linear_model <- function() {
       xdf <- as.data.frame(log(x))
       sel <- BVSNLP::bvs(X = xdf, resp = resp, family = "survival",
                          niter = n.samp*10, prep = TRUE, mod_prior = "unif", logT = FALSE,
-                         inseed = seed, ncpu = ncpu, parallel.MPI = parallel.MPI)
+                         inseed = sample.int(.Machine$integer.max,1), ncpu = ncpu, parallel.MPI = parallel.MPI)
       mpm <- sel$MPM
       if(length(mpm)==0) {
         mpm <- sort(unique(unlist(sel$max_models[sel$max_prob_vec > (log(0.01) + sel$max_prob)])))
@@ -403,7 +405,7 @@ get_survival_linear_model <- function() {
       xdf <- as.data.frame(log(x))
       model <- bvsmod(X = xdf, resp = resp, family = "survival",
                          niter = n.samp, prep = TRUE, mod_prior = "unif", logT = FALSE,
-                         inseed = seed, ncpu = ncpu, parallel.MPI = parallel.MPI)
+                         inseed = sample.int(.Machine$integer.max, 1), ncpu = ncpu, parallel.MPI = parallel.MPI)
     } else if (method == "inla") {
       # if(all(x[,1]==1) || all(x[,1]==0)) x <- x[,-1]
       sx <- scale(x)
@@ -567,8 +569,7 @@ get_survival_linear_model <- function() {
       save.samples <- sapply(samples, function(ss) ss$latent[which.not.pred,])
 
       model$samples <- save.samples
-      surv.calc <- function(model, theta) {
-        n <- nrow(x)
+      surv.calc <- function(model, theta,n) {
         intercept <- theta[1,]
         # theta_reg <- theta[-1,]
         # eta <- x %*% theta_reg
@@ -586,12 +587,12 @@ get_survival_linear_model <- function() {
         baseSurv <- exp(-cumHaz)
         rownames(baseSurv) <- haz.times
 
-        Surv <- simplify2array(lapply(1:n, function(i) baseSurv^matrix(exp(eta[i,]), nT, nS, byrow=TRUE)))
+        Surv <- simplify2array(lapply(1:n, function(i) baseSurv))
         # Surv <- baseSurv
         return(list(surv = Surv, base = baseSurv))
       }
 
-      survlist <- surv.calc(model, theta)
+      survlist <- surv.calc(model, theta, n)
       mu$S <- survlist
       # mu$time
 
