@@ -629,6 +629,7 @@ get_survival_linear_model <- function() {
         warning("Adjusting m0 value. Must be less than number of predictors")
       }
       time.order <- order(scaled.times)
+      reverse.time.order <- order(time.order)
 
       stan_dat <- list(
         N = as.integer(length(unique(id))),
@@ -648,8 +649,8 @@ get_survival_linear_model <- function() {
       stanModel <- rstan::stan_model(stan_dir)
       stanFit <- rstan::sampling(stanModel, data=stan_dat, iter=iter,
                           warmup = warmup, chains=chains,
-                          pars = c("baseline_S","individ_S","beta","log_hazard","eta","intercept","dN_out","int_dur"),
-                          control = list(adapt_delta = 0.9,
+                          pars = c("baseline_S","individ_S","beta","log_hazard","eta","intercept"), #,"dN_out","int_dur"),
+                          control = list(adapt_delta = 0.95,
                                          max_treedepth = 20),
                           check_data = FALSE)
                           # sample_file = "cox_stan.csv")
@@ -657,8 +658,8 @@ get_survival_linear_model <- function() {
 
       theta <- t( samples$beta)
       theta <- diag(1/attr(sx, "scaled:scale")) %*% theta
-      mu <- list(S = list(surv = samples$individ_S, base = t(samples$baseline_S)))
-      eta <- t(samples$eta)
+      mu <- list(S = list(surv = aperm(samples$individ_S, c(2,1,3)), base = t(samples$baseline_S)))
+      eta <- t(samples$eta)[reverse.time.order,]
 
       model <- stanFit
       # mu$Xtrans <- list(center=attr(sx, "scaled:center"), scale = attr(sx, "scaled:scale"))
