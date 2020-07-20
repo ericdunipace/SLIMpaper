@@ -328,7 +328,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     ipO <- W2IP(X = X_sing, Y = cond_eta_sing, theta = theta_sing,
                 display.progress=TRUE,
                 transport.method = transport.method,
-                model.size = ip_seq,
+                model.size = ip_seq, maxit = 1e4,
                 infimum.maxit = 100, solution.method = solver,
                 parallel = NULL)
 
@@ -367,7 +367,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                        penalty.factor=proj_penalty_fact, nlambda = n.lambda,
                        lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
                        maxit=1e5, alpha = 0.99, gamma = 1.1,
-                       transport.method = transport.method,
+                       transport.method = transport.method, maxit = 1e4,
                        display.progress=TRUE, method = "projection")
 
     cat(" SW, ",date(),"\n")
