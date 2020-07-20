@@ -367,7 +367,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                        penalty.factor=proj_penalty_fact, nlambda = n.lambda,
                        lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
                        maxit=1e5, alpha = 0.99, gamma = 1.1,
-                       transport.method = transport.method, maxit = 1e4,
+                       transport.method = transport.method, maxit = 1e5,
                        display.progress=TRUE, method = "projection")
 
     cat(" SW, ",date(),"\n")

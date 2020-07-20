@@ -21,7 +21,7 @@ class neural(torch.nn.Module):
         self.layer2 = nn.Linear(self.nLayer, self.nLayer2)
         self.layer3 = nn.Linear(self.nLayer2, self.nLayer2)
         #self.layer4 = nn.Linear(self.nLayer2,self.nLayer2)
-        self.layer5 = nn.Linear(self.nLayer2, 1)
+        self.layer4 = nn.Linear(self.nLayer2, 1)
         self.loss = nn.BCEWithLogitsLoss(reduction = 'mean')
     
     def forward(self, y: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
@@ -41,7 +41,7 @@ class neural(torch.nn.Module):
         eta  =   F.elu(self.layer3(eta))
         #eta  =   F.dropout(eta)
         #eta  =   F.elu(self.layer4(eta))
-        eta  =   F.elu(self.layer5(eta))
+        eta  =   F.elu(self.layer4(eta))
         
         return(eta)
 
