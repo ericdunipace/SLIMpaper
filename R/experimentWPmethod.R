@@ -477,16 +477,17 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
       mse_single <- distCompare(singleModels, target = list(posterior = full_param,
                                                             mean = new_mu_sing),
                                 method = "mse",
-                                quantity=c("posterior","mean"),
+                                quantity=c("posterior", "mean"),
                                 parallel=NULL,
                                 transform = data$invlink,
                                 epsilon = epsilon,
                                 niter = otmaxit)
+      mse_single$dist <- mse_single$dist/mean(cond_mu_calc - new_mu_sing)
       # cat("W2 projection\n")
       PW2_single <- distCompare(singleModelsP, target = list(posterior = theta_sing,
                                                              mean = cond_mu_calc),
                                 method = wp_alg,
-                                quantity=c("posterior","mean"),
+                                quantity=c("posterior", "mean"),
                                 parallel=NULL,
                                 transform = data$invlink,
                                 epsilon = epsilon,
@@ -514,6 +515,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                  transform = data$invlink,
                                  epsilon = epsilon,
                                  niter = otmaxit)
+      Pmse_single$dist <- Pmse_single$dist/mean(cond_mu_calc - new_mu_sing)
+
     }
     else {
 
@@ -549,6 +552,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 transform = data$invlink,
                                 epsilon = epsilon,
                                 niter = otmaxit)
+      mse_single$dist <- mse_single$dist/mean(cond_mu_calc - new_mu_sing)
+
       # cat("W2 projection\n")
       PW2_single <- distCompare(singleModelsP, target = list(posterior = NULL,
                                                              mean = cond_mu_calc),
@@ -581,6 +586,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                  transform = data$invlink,
                                  epsilon = epsilon,
                                  niter = otmaxit)
+      Pmse_single$dist <- Pmse_single$dist/mean(cond_mu_calc - new_mu_sing)
     }
 
     rm(singleModels)

@@ -24,7 +24,8 @@ LinkingTo:
   Rcpp (>= 1.0.0), 
   RcppEigen (>= 0.3.3.4.0)
 Depends:
-  limbs
+  limbs,
+  R (>= 2.10)
 Suggests: 
   xtable,
   survival,
@@ -36,4 +37,6 @@ Suggests:
   rstan,
   rstanarm,
   dplyr,
-  forcats
+  forcats,
+  BiocManager,
+  curatedOvarianData

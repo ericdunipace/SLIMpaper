@@ -84,46 +84,83 @@ event.death <- as.integer(event.death[complete.death] == "deceased")
 
 
 #### Generate X variables ####
-mm.recur <- model.matrix(formula("~."), data=ovar[complete.recurr, remove_rec])
-mm.death <- model.matrix(formula("~."), data=ovar[complete.death, remove_all])
+mm.recur <- model.matrix(formula("~."), data=ovar[complete.recurr, remove_rec])[,-1]
+mm.death <- model.matrix(formula("~."), data=ovar[complete.death, remove_all])[,-1]
 
 # mm.recur[,-1] <- scale(log(mm.recur[,-1]))
 # mm.death[,-1] <- scale(log(mm.death[,-1]))
 
 #### Reduce data size using cox regression ####
-set.seed(0193281)
+# set.seed(0193281)
+set.seed(137371725) #from random.org
 cl <- parallel::makeCluster(parallel::detectCores()-1)
 doParallel::registerDoParallel(cl)
-varsel.recur <- glmnet::cv.glmnet(mm.recur[,-1], cbind(time=time.recurr, status=event.recurr),
+varsel.recur <- glmnet::cv.glmnet(mm.recur, cbind(time=time.recurr, status=event.recurr),
                                   family="cox",
                                   parallel=TRUE)
-varsel.death <- glmnet::cv.glmnet(mm.death[,-1], cbind(time=time.death, status=event.death),
+varsel.death <- glmnet::cv.glmnet(mm.death, cbind(time=time.death, status=event.death),
                                   family="cox",
                                   parallel=TRUE)
 parallel::stopCluster(cl)
 
 mincvm <- which.min(varsel.recur$cvm)
-sel <- max( which ( varsel.recur$cvm < (varsel.recur$cvm[mincvm] + varsel.recur$cvup[mincvm]) ) )
-covar.id <- which( as.numeric(coef(varsel.recur, varsel.recur$lambda[sel]))!=0 )+1
-# covar.small <- which( as.numeric(coef(varsel, varsel$lambda.min))!=0 ) + 1
+covar.id <- which( as.numeric(coef(varsel.recur, varsel.recur$lambda[mincvm]))!=0 )
+length(covar.id)
+
+# sel <- max( which ( varsel.recur$cvm < (varsel.recur$cvm[mincvm] + varsel.recur$cvsd[mincvm]) ) )
+# covar.id <- which( as.numeric(coef(varsel.recur, varsel.recur$lambda[sel]))!=0 )
+
+# sel <- max( which ( varsel.recur$cvm < (varsel.recur$cvm[mincvm] + varsel.recur$cvup[mincvm]) ) )
+# covar.id <- which( as.numeric(coef(varsel.recur, varsel.recur$lambda[sel]))!=0 )
+# covar.id <- which( as.numeric(coef(varsel.recur, varsel.recur$lambda[mincvm]))!=0 )
+# covar.small <- which( as.numeric(coef(varsel, varsel$lambda.min))!=0 )
+
 
 mm.recur <- mm.recur[,covar.id]
 
 mincvm <- which.min(varsel.death$cvm)
-sel <- max( which ( varsel.death$cvm < (varsel.death$cvm[mincvm] + varsel.death$cvup[mincvm]) ) )
-covar.id <- which( as.numeric(coef(varsel.death, varsel.death$lambda[sel]))!=0 )+1
-
+# sel <- max( which ( varsel.death$cvm < (varsel.death$cvm[mincvm] + varsel.death$cvup[mincvm]) ) )
+# covar.id <- which( as.numeric(coef(varsel.death, varsel.death$lambda[sel]))!=0 )
+covar.id <- which( as.numeric(coef(varsel.death, varsel.death$lambda[mincvm]))!=0 )
 mm.death <- mm.death[,covar.id]
 
+#currently not using death data so don't save it
+
+#### create training, validation, and test data ####
+shuffle.idx <- sample.int(nrow(mm.recur), nrow(mm.recur), replace = FALSE)
+test.idx <- shuffle.idx[1]
+validation.idx <- shuffle.idx[2:floor(nrow(mm.recur) * .1)]
+train.idx <- shuffle.idx[!(shuffle.idx %in% c(test.idx, validation.idx))]
+
 #### Save ovarian data as rds file ####
-output <- list(recurr = list(X     = mm.recur,
-                             event = event.recurr,
-                             time  = time.recurr),
-               death =  list(X     = mm.death,
-                             event = event.death,
-                             time  = time.death)
-)
-ovar <- output$recurr
+# output <- list(recurr = list(X     = mm.recur,
+#                              event = event.recurr,
+#                              time  = time.recurr),
+#                death =  list(X     = mm.death,
+#                              event = event.death,
+#                              time  = time.death)
+# )
+
+pos <- which(apply(mm.recur, 2, function(x) all(x>0)))
+mm.recur[,pos] <- log(mm.recur[,pos])
+
+X <- mm.recur[train.idx,,drop=FALSE]
+X <- scale(X)
+center <- attributes(X)$`scaled:center`
+scale <- attributes(X)$`scaled:scale`
+
+ovar <- list(train = list(X = X,
+                         event = event.recurr[train.idx],
+                         time = time.recurr[train.idx]),
+             val = list(X = scale(mm.recur[validation.idx,,drop = FALSE],
+                                  center = center,
+                                  scale = scale),
+                        event = event.recurr[validation.idx],
+                        time = time.recurr[validation.idx]),
+             test = list(X = scale(mm.recur[test.idx,,drop = FALSE],
+                                   center = center,
+                                   scale = scale),
+                         event = event.recurr[test.idx],
+                         time = time.recurr[test.idx]))
 usethis::use_data(ovar, compress="xz", version = 2)
 # usethis::use_data(ovar, compress="xz", overwrite=TRUE, version = 2)
-# saveRDS(output, file ="../Data/Ovarian/tcga_ovar.rds")

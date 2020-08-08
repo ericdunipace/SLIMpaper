@@ -821,6 +821,93 @@ get_survival_linear_model <- function() {
         sel.idx <- cox.call$data$expand..coxph[!(cox.call$data$expand..coxph %in% 1:n)]
         test$mu$S <- surv.calc(model$samples, cox.call$data$expand..coxph, sel.idx)
       }
+    } else if(method == "survival.pkg-cox") {
+      sx <- scale(x)
+      p <- ncol(x)
+      n <- nrow(x)
+
+      X.test <- dots$X.test
+
+      model <- survival::coxph(formula = survival::Surv(time = follow.up, event = fail) ~ x)
+      beta <-  coef(model)
+      Sigma <- vcov(model)
+      theta <- 1/attributes(sx)$`scaled:scale` * t(CoarsePosteriorSummary::rmvnorm(nsamples = n.samp, mean = beta, covariance = Sigma))
+      eta <- x %*% theta
+
+      surv.calc <- function(baseSurv,x, theta) {
+        # sx <- scale(x, center = model$Xtrans$center, scale=model$Xtrans$scale)
+        # baseSurv <- t(rstan::extract(stanFit, pars= c("baseline_S"))$baseline_S)
+        # theta <-  rstan::extract(stanFit, pars= c("beta"))$beta
+        eta <- x %*%  theta
+        exp_eta <- exp(eta)
+        nT <- nrow(baseSurv)
+        nS <- ncol(baseSurv)
+        Surv <- simplify2array(lapply(1:n, function(i) baseSurv^matrix(exp_eta[i,], nT, nS, byrow=TRUE)))
+        return(Surv)
+      }
+
+
+      sfit <- survival::survfit(model) #by default will use a matrix centered at means, which should all be at means anyway
+      lsurv <- ifelse(sfit$surv > 0, log(sfit$surv), NA)
+      gt0 <- !is.na(lsurv)
+      baseSurv <- matrix(0., length(sfit$time), n.samp)
+      baseSurv[gt0,] <-exp(replicate(n.samp, rnorm(length(sfit$time), mean = lsurv[gt0], sd = sfit$std.err[gt0])))
+      baseSurv[baseSurv > 1] <- 1
+      baseSurv[baseSurv < 0] <- 0
+      surv <- surv.calc(baseSurv, x, theta)
+
+      mu <- list(S = list(surv = surv, base = baseSurv))
+
+
+      if(is.exponential){
+        intercept <- t(samples$intercept) - t(attr(sx, "scaled:center")) %*% theta
+        theta <- rbind(intercept, theta)
+        eta <- t(samples$eta  + c(samples$intercept))
+        mu$intercept <- intercept
+      }
+
+
+      if(!is.null(X.test)){
+        if(all(X.test[,1] == 1)) X.test <- X.test[,-1, drop = FALSE]
+        if(is.exponential) {
+          S.test <- surv.calc(mu$S$base, X.test, theta[-1,])
+          X.test <- cbind(1, X.test)
+        } else {
+          S.test <- surv.calc(mu$S$base, X.test, theta)
+        }
+        # sxt <- scale(X.test, center = attr(sx, "scaled:center"), scale = attr(sx, "scaled:scale"))
+        testEta <- X.test %*% theta
+        test <- list(eta = testEta, mu = list(S = S.test))
+      }
+
+    }
+    else if(method == "survival.pkg-km") {
+      n <- length(follow.up)
+
+
+      surv.calc <- function(baseSurv,n) {
+        # sx <- scale(x, center = model$Xtrans$center, scale=model$Xtrans$scale)
+        # baseSurv <- t(rstan::extract(stanFit, pars= c("baseline_S"))$baseline_S)
+        # theta <-  rstan::extract(stanFit, pars= c("beta"))$beta
+        nT <- nrow(baseSurv)
+        nS <- ncol(baseSurv)
+        Surv <- simplify2array(lapply(1:n, function(i) baseSurv))
+        return(Surv)
+      }
+
+
+      sfit <- survival::survfit(survival::Surv(time = follow.up, event = event) ~ 1)
+      lsurv <- ifelse(sfit$surv > 0, log(sfit$surv), NA)
+      gt0 <- !is.na(lsurv)
+      baseSurv <- matrix(0., length(sfit$time), n.samp)
+      baseSurv[gt0,] <-exp(replicate(n.samp, rnorm(length(sfit$time), mean = lsurv[gt0], sd = sfit$std.err[gt0])))
+      baseSurv[baseSurv > 1] <- 1
+      baseSurv[baseSurv < 0] <- 0
+      surv <- surv.calc(baseSurv, n)
+      model <- sfit
+
+      mu <- list(S = list(surv = surv, base = baseSurv))
+
     }
 
 
