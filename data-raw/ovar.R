@@ -97,12 +97,15 @@ cl <- parallel::makeCluster(parallel::detectCores()-1)
 doParallel::registerDoParallel(cl)
 varsel.recur <- glmnet::cv.glmnet(mm.recur, cbind(time=time.recurr, status=event.recurr),
                                   family="cox",
-                                  parallel=TRUE)
+                                  parallel=TRUE,
+                                  nfolds = nrow(mm.recur))
 varsel.death <- glmnet::cv.glmnet(mm.death, cbind(time=time.death, status=event.death),
                                   family="cox",
-                                  parallel=TRUE)
+                                  parallel=TRUE,
+                                  nfolds = nrow(mm.death))
 parallel::stopCluster(cl)
 
+# plot(varsel.recur)
 mincvm <- which.min(varsel.recur$cvm)
 covar.id <- which( as.numeric(coef(varsel.recur, varsel.recur$lambda[mincvm]))!=0 )
 length(covar.id)

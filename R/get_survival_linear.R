@@ -822,6 +822,7 @@ get_survival_linear_model <- function() {
         test$mu$S <- surv.calc(model$samples, cox.call$data$expand..coxph, sel.idx)
       }
     } else if(method == "survival.pkg-cox") {
+      warning("This is an MLE method that samples from the asymptotic distribution")
       sx <- scale(x)
       p <- ncol(x)
       n <- nrow(x)
@@ -838,6 +839,7 @@ get_survival_linear_model <- function() {
         # sx <- scale(x, center = model$Xtrans$center, scale=model$Xtrans$scale)
         # baseSurv <- t(rstan::extract(stanFit, pars= c("baseline_S"))$baseline_S)
         # theta <-  rstan::extract(stanFit, pars= c("beta"))$beta
+        n <- nrow(x)
         eta <- x %*%  theta
         exp_eta <- exp(eta)
         nT <- nrow(baseSurv)
@@ -882,6 +884,7 @@ get_survival_linear_model <- function() {
 
     }
     else if(method == "survival.pkg-km") {
+      warning("This is an MLE method that samples from the asymptotic distribution")
       n <- length(follow.up)
 
 
@@ -1051,6 +1054,10 @@ get_survival_linear_model <- function() {
       as.integer( (times <= curTime) & (event == 1) )))
     eventNotHappen <- t(sapply(readTime, function(curTime)
       as.integer( times > curTime )))
+    if(n == 1) {
+      eventHappen <- t(eventHappen)
+      eventNotHappen <- t(eventNotHappen)
+    }
     # cens_mat <- vector("list", ncens)
     bs <- matrix(0, nrow=ntimes, ncol=nsamp)
     if(readTime[1] != 0) {
@@ -1105,6 +1112,7 @@ get_survival_linear_model <- function() {
       surv_at_time <- predAtTime(curTime, surv, surv.times)
       cens_at_time <- predAtTime(curTime, cens_prob, cens.times)
       normalize <- rowSums(eh / cens_prob_at_event + enh / cens_at_time)
+      normalize <- ifelse(normalize == 0, Inf, normalize)
       bs[idx_time, ] <- rowSums(((0 -  surv_at_time)^2 * eh / cens_prob_at_event +
       ( 1 - surv_at_time  )^2 * enh / cens_at_time)/ normalize )
       # for (samp in nsamp) {
