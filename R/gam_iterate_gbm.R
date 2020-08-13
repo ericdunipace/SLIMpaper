@@ -25,3 +25,23 @@ gam_iterate <- function(formula, y, x, extract, time, nT, which.gam = c("gam","q
   }
   return(covar_vals)
 }
+
+gamm_interp_data_gbm <- function(gammX, times) {
+  nT <- length(unique(times))
+  # gammX       <- preDF$tx.test[,-1]
+  gammX       <- as.data.frame(gammX)
+  colnames(gammX) <- c("Age", "Gender", "KPS", "MGMT", "ResectionBiopsy", "ResectionSub","ResectionTotal")
+  gammX$Res   <- factor(apply(gammX[,5:7],1,which.max), levels = 1:3, labels = c("Biopsy","Sub","Gross"))
+  gammX       <- gammX[,c(1:4,8)]
+  gammT       <- rep(times, n_neighb)
+  colnames(gammX) <- c("Age", "Gender", "KPS", "MGMT", "Resection")
+  gammXmod    <- data.frame(model.matrix(~. + Age:Resection -1, data = gammX))
+  gammXmod$Resection<- gammX$Resection
+  gammXmod$ResectionBiopsy <- gammXmod$ResectionSub <- gammXmod$ResectionGross <- NULL
+  extend_extract <- length(levels(gammX$Resection))
+  extract_terms <- data.frame(matrix(1, nrow= nT, ncol=ncol(gammX)), time = times)
+  colnames(extract_terms) <- c(colnames(gammX), "time")
+  extract_terms[(nT+1): (nT*extend_extract), c("Age","Gender","KPS","MGMT")] <- 0
+  extract_terms$Resection <- factor(rep(levels(gammX$Resection), each = nT))
+  return(list(gammX = gammX, times = gammT, extract_terms = extract_terms))
+}
