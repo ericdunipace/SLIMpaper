@@ -33,7 +33,7 @@ gamm_interp_data_gbm <- function(gammX, times) {
   colnames(gammX) <- c("Age", "Gender", "KPS", "MGMT", "ResectionBiopsy", "ResectionSub","ResectionTotal")
   gammX$Res   <- factor(apply(gammX[,5:7],1,which.max), levels = 1:3, labels = c("Biopsy","Sub","Gross"))
   gammX       <- gammX[,c(1:4,8)]
-  gammT       <- rep(times, n_neighb)
+  gammT       <- rep(times, nrow(gammX))
   colnames(gammX) <- c("Age", "Gender", "KPS", "MGMT", "Resection")
   gammXmod    <- data.frame(model.matrix(~. + Age:Resection -1, data = gammX))
   gammXmod$Resection<- gammX$Resection
