@@ -394,6 +394,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                      proposal.method = sa_prop),
                       display.progress = TRUE, max.time = sa_max_time)
 
+    # PL1O <- NULL
     cat("\n L1, ",date(),"\n")
     PL1O <- W1L1(X=X_neighborhood, Y=cond_eta_neighb,
                  solver = solver,
@@ -406,7 +407,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     #                  lambda.min.ratio = lambda.min.ratio,
     #                  gamma = 1.1,
     #                  display.progress = TRUE)
-
+    # PLInfO <- NULL
     cat("\n LInfinity, ",date(),"\n")
     PLInfO <- WInfL1(X=X_neighborhood, Y=cond_eta_neighb,
                      nlambda = n.lambda, penalty = penalty,
@@ -429,10 +430,11 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     singleModelsP <- list("Lasso" = lassoProjO,
                           "Simulated Annealing" = PannealO,
                           "Stepwise" = PstepO,
-                          "Hahn-Carvalho" = PlassoHCO,
-                          "L1" = PL1O,
+                          "Hahn-Carvalho" = PlassoHCO
+                          , "L1" = PL1O
                           # "L3" = PL3O,
-                          "LInf" = PLInfO)
+                          , "LInf" = PLInfO
+                          )
     rm("lassoProjO",
        "PannealO", "PstepO","PlassoHCO")
     #recalculate values for single obs
