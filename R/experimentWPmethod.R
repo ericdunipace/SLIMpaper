@@ -482,7 +482,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 transform = data$invlink,
                                 epsilon = epsilon,
                                 niter = otmaxit)
-      mse_single$dist <- mse_single$dist/mean(cond_mu_calc - new_mu_sing)
+      mse_single$dist <- mse_single$dist/mean(c(cond_mu_sing) - c(new_mu_sing))
       # cat("W2 projection\n")
       PW2_single <- distCompare(singleModelsP, target = list(posterior = theta_sing,
                                                              mean = cond_mu_calc),
@@ -520,7 +520,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                  transform = data$invlink,
                                  epsilon = epsilon,
                                  niter = otmaxit)
-      Pmse_single$dist <- Pmse_single$dist/mean(cond_mu_calc - new_mu_sing)
+      Pmse_single$dist <- Pmse_single$dist/mean(cond_mu_calc - c(new_mu_calc))
 
     }
     else {
@@ -557,7 +557,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 transform = data$invlink,
                                 epsilon = epsilon,
                                 niter = otmaxit)
-      mse_single$dist <- mse_single$dist/mean(cond_mu_calc - new_mu_sing)
+      mse_single$dist <- mse_single$dist/mean(c(cond_mu_sing) - c(new_mu_sing))
 
       # cat("W2 projection\n")
       PW2_single <- distCompare(singleModelsP, target = list(posterior = NULL,
@@ -597,11 +597,10 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                  transform = data$invlink,
                                  epsilon = epsilon,
                                  niter = otmaxit)
-      Pmse_single$dist <- Pmse_single$dist/mean(cond_mu_calc - new_mu_sing)
+      Pmse_single$dist <- Pmse_single$dist/mean(cond_mu_calc - c(new_mu_calc))
     }
 
     rm(singleModels)
-
 
     #### Variable importance ####
     cat(paste0("Running variable importance: ", date(),"\n"))
