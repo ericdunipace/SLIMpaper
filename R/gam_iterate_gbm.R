@@ -39,9 +39,10 @@ gamm_interp_data_gbm <- function(gammX, times) {
   gammXmod$Resection<- gammX$Resection
   gammXmod$ResectionBiopsy <- gammXmod$ResectionSub <- gammXmod$ResectionGross <- NULL
   extend_extract <- length(levels(gammX$Resection))
-  extract_terms <- data.frame(matrix(1, nrow= nT, ncol=ncol(gammX)), time = times)
-  colnames(extract_terms) <- c(colnames(gammX), "time")
+  extract_terms <- data.frame(matrix(1, nrow= nT, ncol=ncol(gammX)))
+  colnames(extract_terms) <- colnames(gammX)
   extract_terms[(nT+1): (nT*extend_extract), c("Age","Gender","KPS","MGMT")] <- 0
   extract_terms$Resection <- factor(rep(levels(gammX$Resection), each = nT))
+  extract_terms$time <- times
   return(list(gammX = gammX, times = gammT, extract_terms = extract_terms))
 }

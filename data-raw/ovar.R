@@ -14,9 +14,6 @@ require(curatedOvarianData)
 require(CoarsePosteriorSummary)
 
 #### Load Data ####
-# data( GSE26712_eset )
-# data(GSE32062.GPL6480_eset)
-# data( GSE9891_eset )
 data( TCGA_eset ) # has most observations
 pheno <- phenoData(TCGA_eset)@data
 express <- t(exprs(TCGA_eset))
