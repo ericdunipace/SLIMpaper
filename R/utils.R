@@ -31,8 +31,23 @@ xtx_theta <- function(x,theta) {
 }
 
 xty_theta <- function(x, theta, y, transport.method) {
-  sufficientStatistics(X_ = x, Y_ = y, theta_ = theta, same = FALSE, method = "selection.variable",
-                       transport_method = transport.method)$XtY
+  # options argument
+  # const bool same = Rcpp::as<bool>(options_["same"]);
+  # const CharacterVector method = Rcpp::as<Rcpp::CharacterVector>(options_["method"]);
+  # const std::string trans_meth = Rcpp::as<std::string>(options_["transport.method"]);
+  # double epsilon = Rcpp::as<double>(options_["epsilon"]);
+  # int niter = Rcpp::as<int>(options_["niter"]);
+
+  # sufficientStatistics arguments
+  # const NumericMatrix & X_, const NumericMatrix & Y_,
+  # const NumericMatrix & theta_,
+  # const Rcpp::List & options_
+
+  sufficientStatistics(X_ = x, Y_ = y, theta_ = theta,
+                       options_ = list(same = FALSE, method = "selection.variable",
+                       transport.method = transport.method,
+                       epsilon = 0.05,
+                       niter = 100L))$XtY
 }
 
 set_penalty_factor <- function(theta, method, intercept = TRUE, ...){

@@ -366,7 +366,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     lassoProjO <- W2L1(X_neighborhood, cond_eta_neighb, theta_sing, family="gaussian", penalty=penalty,
                        penalty.factor=proj_penalty_fact, nlambda = n.lambda,
                        lambda.min.ratio = lambda.min.ratio, infimum.maxit=1,
-                       maxit=1e5, alpha = 0.99, gamma = 1.1,
+                       maxit=1e6, alpha = 0.99, gamma = 1.1,
                        transport.method = transport.method,
                        display.progress=TRUE, method = "projection")
 
@@ -484,7 +484,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 transform = data$invlink,
                                 epsilon = epsilon,
                                 niter = otmaxit)
-      mse_single$dist <- mse_single$dist/mean(c(cond_mu_sing) - c(new_mu_sing))
+      mse_single$mean$dist <- mse_single$mean$dist/mean((c(cond_mu_sing) - c(new_mu_sing))^2)
       # cat("W2 projection\n")
       PW2_single <- distCompare(singleModelsP, target = list(posterior = theta_sing,
                                                              mean = cond_mu_calc),
@@ -522,7 +522,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                  transform = data$invlink,
                                  epsilon = epsilon,
                                  niter = otmaxit)
-      Pmse_single$dist <- Pmse_single$dist/mean(cond_mu_calc - c(new_mu_calc))
+      Pmse_single$mean$dist <- Pmse_single$mean$dist/mean((cond_mu_calc - c(new_mu_calc))^2)
 
     }
     else {
@@ -548,8 +548,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
       # cat("W2 selection\n")
       w2_r2_single <- WPR2(Y = cond_mu_sing, nu = W2_single, p = 2, method = wp_alg)
       w1_r2_single <- WPR2(Y = cond_mu_sing, nu = W1_single, p = 1, method = wp_alg)
-      w2_r2_single_null <- WPR2(Y = cond_mu_sing, nu = singleModels, p = 2, method = wp_alg)
-      w1_r2_single_null <- WPR2(Y = cond_mu_sing, nu = singleModels, p = 1, method = wp_alg)
+      w2_r2_single_null <- WPR2(Y = cond_mu_sing, nu = singleModels, p = 2, method = wp_alg, base = data$invlink(colMeans(cond_eta)))
+      w1_r2_single_null <- WPR2(Y = cond_mu_sing, nu = singleModels, p = 1, method = wp_alg, base = data$invlink(colMeans(cond_eta)))
 
       mse_single <- distCompare(singleModels, target = list(posterior = NULL,
                                                             mean = new_mu_sing),
@@ -559,7 +559,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 transform = data$invlink,
                                 epsilon = epsilon,
                                 niter = otmaxit)
-      mse_single$dist <- mse_single$dist/mean(c(cond_mu_sing) - c(new_mu_sing))
+      mse_single$mean$dist <- mse_single$mean$dist/mean((c(cond_mu_sing) - c(new_mu_sing))^2)
 
       # cat("W2 projection\n")
       PW2_single <- distCompare(singleModelsP, target = list(posterior = NULL,
@@ -583,8 +583,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
       Pw2_r2_single <- WPR2(Y = cond_mu_calc, nu = PW2_single, p = 2, method = wp_alg)
       Pw1_r2_single <- WPR2(Y = cond_mu_calc, nu = PW1_single, p = 1, method = wp_alg)
       if(recalc) {
-        Pw2_r2_single_null <- WPR2(Y = NULL, nu = PW2_single, p = 2, method = wp_alg)
-        Pw1_r2_single_null <- WPR2(Y = NULL, nu = PW1_single, p = 1, method = wp_alg)
+        Pw2_r2_single_null <- WPR2(Y = cond_mu_sing, nu = PW2_single, p = 2, method = wp_alg)
+        Pw1_r2_single_null <- WPR2(Y = cond_mu_sing, nu = PW1_single, p = 1, method = wp_alg)
       } else {
         Pw2_r2_single_null <- WPR2(Y = cond_mu_calc, nu = singleModelsP, p = 2, method = wp_alg)
         Pw1_r2_single_null <- WPR2(Y = cond_mu_calc, nu = singleModelsP, p = 1, method = wp_alg)
@@ -599,7 +599,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                  transform = data$invlink,
                                  epsilon = epsilon,
                                  niter = otmaxit)
-      Pmse_single$dist <- Pmse_single$dist/mean(cond_mu_calc - c(new_mu_calc))
+      Pmse_single$mean$dist <- Pmse_single$mean$dist/mean((cond_mu_calc - c(new_mu_calc))^2)
     }
 
     rm(singleModels)
