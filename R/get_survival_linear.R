@@ -828,8 +828,9 @@ get_survival_linear_model <- function() {
       n <- nrow(x)
 
       X.test <- dots$X.test
+      df <- data.frame(follow.up, fail, x)
 
-      model <- survival::coxph(formula = survival::Surv(time = follow.up, event = fail) ~ x)
+      model <- survival::coxph(formula = survival::Surv(time = follow.up, event = fail) ~ ., data = df, x = TRUE, y = TRUE)
       beta <-  coef(model)
       Sigma <- vcov(model)
       theta <- 1/attributes(sx)$`scaled:scale` * t(CoarsePosteriorSummary::rmvnorm(nsamples = n.samp, mean = beta, covariance = Sigma))
@@ -1129,7 +1130,7 @@ get_survival_linear_model <- function() {
     # intbs <- diff(readTime) %*% ( ( bs[idx -1,] + bs[idx,]) / 2 )
     # intbs <- intbs/diff(range(readTime))
     intbs <- (diff(c(0,readTime)) %*% bs)/max(readTime)
-
+    browser()
 
     output <- list(
         brier.score = list(

@@ -11,10 +11,10 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   solver <- conditions$solver
   python.path <- conditions$python.path
   recalc <- conditions$recalculate
-  if(is.null(solver) ) {
+  if (is.null(solver) ) {
     solver <- "mosek"
   }
-  if(solver == "") {
+  if (solver == "") {
     solver <- "mosek"
   }
   solver <- match.arg(solver, choices = c("mosek", "gurobi",
@@ -426,7 +426,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                          "Simulated Annealing" = annealO,
                          "Stepwise" = stepO#,
     )
-    rm("ipO", "lassoSelO", "annealO","stepO")
+    # rm("ipO", "lassoSelO", "annealO","stepO")
     singleModelsP <- list("Lasso" = lassoProjO,
                           "Simulated Annealing" = PannealO,
                           "Stepwise" = PstepO,
@@ -435,8 +435,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                           # "L3" = PL3O,
                           , "LInf" = PLInfO
                           )
-    rm("lassoProjO",
-       "PannealO", "PstepO","PlassoHCO")
+    # rm("lassoProjO",
+    #    "PannealO", "PstepO","PlassoHCO")
     #recalculate values for single obs
     if( recalc ) {
       singleModelsP <- lapply(singleModelsP, function(x) {
@@ -1098,7 +1098,15 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                     single = list(selection = w1_r2_single_null,
                                                   projection = Pw1_r2_single_null) )
               ),
-    time = time #,
+    time = time, #,
+    data = list(test = list(
+                            X = X_sing,
+                            mean = new_mu_sing)
+    ),
+    models = list(
+      selection = singleModels,
+      projection = singleModelsP
+    )
   )
 
   return(outList)

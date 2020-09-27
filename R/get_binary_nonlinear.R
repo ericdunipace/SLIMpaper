@@ -109,11 +109,11 @@ get_binary_nonlinear_model <- function() {
   }
 
   model_matrix <- function(X, ...) {
-    if(all(X[,1] == 1)) X <- X[,-1,drop=FALSE]
-    p <- ncol(X)
-    form <- formula(paste0("~",paste0("I(X",1:p,"^2)", collapse=" + ")))
-
-    X <- model.matrix(object=form, data = data.frame(X))
+    # if(all(X[,1] == 1)) X <- X[,-1,drop=FALSE]
+    # p <- ncol(X)
+    # form <- formula(paste0("~. + ", paste0("I(X",1:p,"^2)", collapse=" + ")))
+    #
+    # X <- model.matrix(object=form, data = data.frame(X))
     return(X)
   }
 
