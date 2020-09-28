@@ -602,7 +602,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
       Pmse_single$mean$dist <- Pmse_single$mean$dist/mean((cond_mu_calc - c(new_mu_calc))^2)
     }
 
-    rm(singleModels)
+    # rm(singleModels)
 
     #### Variable importance ####
     cat(paste0("Running variable importance: ", date(),"\n"))
