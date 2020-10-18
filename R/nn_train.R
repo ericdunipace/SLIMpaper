@@ -6,8 +6,8 @@ nn_train <- function(x, y, niter = 10L, learning.rate = 0.01, lambda,
                      model = NULL,
                      verbose = FALSE) {
 
-  if(is.null(python.path)) python.path <- "/usr/local/bin/python3"
-  reticulate::use_python(python.path)
+  if(is.null(python.path)) python.path <- "/usr/bin/python3"
+  reticulate::use_python(python.path, require = TRUE)
 
   check_python_modules()
 

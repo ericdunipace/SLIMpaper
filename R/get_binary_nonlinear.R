@@ -368,7 +368,7 @@ get_binary_nonlinear_model <- function() {
     run.test <- !is.null(xt)
     if (run.test) {
       if (all(xt[,1] == 1)) xt <- xt[,-1,drop=FALSE]
-      xt <- torch$FloatTensor(xt)
+      xtt <- torch$FloatTensor(xt)
     }
 
     boots <- lapply(1:n.samp, function(i) {
@@ -383,16 +383,26 @@ get_binary_nonlinear_model <- function() {
                        python.path = python.path,model = NULL)
       yhat <- temp$yhat
       yhat.test <- NULL
+      derivative.x <- NULL
       if (run.test) {
-        yhat.test <- plogis(temp$model$predict(xt)$data$numpy())
+        yhat.test <- plogis(temp$model$predict(xtt)$data$numpy())
+        derivative.x <- matrix(NA, nrow(xt), ncol(xt))
+        for(i in 1:nrow(xt)) {
+          xtv <- torch$autograd$Variable(xtt[i-1], requires_grad = TRUE)
+          xtv$retain_grad()
+          temp.pred <- temp$model$predict(xtv)
+          temp.pred$backward()
+          derivative.x[i,] <- xtv$grad$data$numpy()
+        }
       }
-      return(list(mu = yhat, mu.test = yhat.test))
+      return(list(mu = yhat, mu.test = yhat.test, derivative.x = derivative.x))
     })
 
     mu <- sapply(boots, function(b) b$mu)
     mu.test <- sapply(boots, function(b) b$mu.test)
+    derivatives <- lapply(boots, function(b) b$derivative.x)
 
-    return(list(mu = mu, mu.test = mu.test, model = res$model))
+    return(list(mu = mu, mu.test = mu.test, derivatives = derivatives, model = res$model))
 
 
   }
@@ -743,6 +753,7 @@ get_binary_nonlinear_model <- function() {
       if (!is.null(dots[["X.test"]])) {
         test$mu <- output$mu.test
         test$eta <- qlogis(test$mu)
+        test$derivatives <- output$derivatives
       }
     }
 

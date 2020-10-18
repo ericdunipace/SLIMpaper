@@ -110,6 +110,9 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   new_idx <- 2:(n+1)
   neighb_idx <- (n+2):(n+1 + p*3)
 
+  #derivative store
+  derivative.test <- NA
+
   #sample theta
   if(family != "binomial") {
     X <- data$model_matrix(X,p_star)
@@ -137,6 +140,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
       t_theta <- theta
     }
     sigma <- post_interp$sigma
+
+    derivative.test <- theta
 
     # X <- target$model_matrix(X)
     # X_sing <- target$model_matrix(X_sing)
@@ -183,6 +188,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                         )
     t_theta <- t(theta)
     calc_w2_post <- FALSE
+    derivative.test <- sapply(post_sample$test$derivatives, function(d) d[1,])
   }
 
 
@@ -1106,6 +1112,9 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     models = list(
       selection = singleModels,
       projection = singleModelsP
+    ),
+    derivatives = list(
+      test = derivative.test
     )
   )
 
