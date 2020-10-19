@@ -370,7 +370,20 @@ get_binary_nonlinear_model <- function() {
       if (all(xt[,1] == 1)) xt <- xt[,-1,drop=FALSE]
       xtt <- torch$FloatTensor(xt)
     }
-    yhat.test <- plogis(temp$model$predict(xtt)$data$numpy())
+    yhat.test <- NULL
+    derivative.x <- NULL
+    if (run.test) {
+      yhat.test <- plogis(res$model$predict(xtt)$data$numpy())
+      derivative.x <- matrix(NA, nrow(xt), ncol(xt))
+      for(i in 1:nrow(xt)) {
+        xtv <- torch$autograd$Variable(xtt[i-1], requires_grad = TRUE)
+        xtv$retain_grad()
+        temp.pred <- res$model$predict(xtv)
+        temp.pred$backward()
+        derivative.x[i,] <- xtv$grad$data$numpy()
+      }
+    }
+
     boots <- lapply(1:n.samp, function(i) {
       boot.idx <- sample.int(n,n,replace=TRUE)
       temp <- nn_train(x=x[boot.idx, , drop = FALSE], y=y[boot.idx, , drop=FALSE],
@@ -404,10 +417,9 @@ get_binary_nonlinear_model <- function() {
 
     return(list(mu = mu, mu.test = mu.test, derivatives = derivatives, model = res$model,
                 yhat.model = list(train = res$yhat,
-                                  test = yhat.test))
+                                  test = yhat.test,
+                                  derivatives = derivative.x))
            )
-
-
   }
 
   rpost <- function(n.samp, x, y, hyperparameters,...) { # implements either BART or BNN
@@ -749,9 +761,9 @@ get_binary_nonlinear_model <- function() {
       mu <- as.matrix(output$mu)
       eta <- qlogis(mu)
 
-      model <- function(x) {
-        return(as.matrix(output$model$predict(torch$FloatTensor(x))$data$numpy()))
-      }
+      # model <- function(x) {
+      #   return(as.matrix(output$model$predict(torch$FloatTensor(x))$data$numpy()))
+      # }
 
       if (!is.null(dots[["X.test"]])) {
         test$mu <- output$mu.test
@@ -760,7 +772,8 @@ get_binary_nonlinear_model <- function() {
       }
     }
 
-    return(list(theta=theta, mu=mu, eta=eta, model=model, test = test))
+    return(list(theta=theta, mu=mu, eta=eta, model=output$model, test = test,
+                yhat = output$yhat.model))
   }
 
 

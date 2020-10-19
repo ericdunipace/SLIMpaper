@@ -1111,7 +1111,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     ),
     models = list(
       selection = singleModels,
-      projection = singleModelsP
+      projection = singleModelsP,
+      estimation = post_sample
     ),
     derivatives = list(
       test = derivative.test
