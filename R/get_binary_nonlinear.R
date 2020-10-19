@@ -370,7 +370,7 @@ get_binary_nonlinear_model <- function() {
       if (all(xt[,1] == 1)) xt <- xt[,-1,drop=FALSE]
       xtt <- torch$FloatTensor(xt)
     }
-
+    yhat.test <- plogis(temp$model$predict(xtt)$data$numpy())
     boots <- lapply(1:n.samp, function(i) {
       boot.idx <- sample.int(n,n,replace=TRUE)
       temp <- nn_train(x=x[boot.idx, , drop = FALSE], y=y[boot.idx, , drop=FALSE],
@@ -403,7 +403,9 @@ get_binary_nonlinear_model <- function() {
     derivatives <- lapply(boots, function(b) b$derivative.x)
 
     return(list(mu = mu, mu.test = mu.test, derivatives = derivatives, model = res$model,
-                yhat = res$yhat))
+                yhat.model = list(train = res$yhat,
+                                  test = yhat.test))
+           )
 
 
   }
