@@ -415,8 +415,8 @@ get_binary_nonlinear_model <- function() {
     mu.test <- sapply(boots, function(b) b$mu.test)
     derivatives <- lapply(boots, function(b) b$derivative.x)
 
-    return(list(mu = mu, mu.test = mu.test, derivatives = derivatives, model = res$model,
-                yhat.model = list(train = res$yhat,
+    return( list(mu = mu, mu.test = mu.test, derivatives = derivatives, model = res$model,
+                 yhat.model = list(train = res$yhat,
                                   test = yhat.test,
                                   derivatives = derivative.x))
            )
