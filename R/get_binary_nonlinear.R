@@ -374,14 +374,11 @@ get_binary_nonlinear_model <- function() {
     derivative.x <- NULL
     if (run.test) {
       yhat.test <- plogis(res$model$predict(xtt)$data$numpy())
-      derivative.x <- matrix(NA, nrow(xt), ncol(xt))
-      for(i in 1:nrow(xt)) {
-        xtv <- torch$autograd$Variable(xtt[i-1], requires_grad = TRUE)
-        xtv$retain_grad()
-        temp.pred <- res$model$predict(xtv)
-        temp.pred$backward()
-        derivative.x[i,] <- xtv$grad$data$numpy()
-      }
+      xtv <- torch$autograd$Variable(xtt, requires_grad = TRUE)
+      xtv$retain_grad()
+      temp.pred <- res$model$predict(xtv)$sum()
+      temp.pred$backward()
+      derivative.x <- xtv$grad$data$numpy()
     }
 
     boots <- lapply(1:n.samp, function(i) {
@@ -399,14 +396,11 @@ get_binary_nonlinear_model <- function() {
       derivative.x <- NULL
       if (run.test) {
         yhat.test <- plogis(temp$model$predict(xtt)$data$numpy())
-        derivative.x <- matrix(NA, nrow(xt), ncol(xt))
-        for(i in 1:nrow(xt)) {
-          xtv <- torch$autograd$Variable(xtt[i-1], requires_grad = TRUE)
-          xtv$retain_grad()
-          temp.pred <- temp$model$predict(xtv)
-          temp.pred$backward()
-          derivative.x[i,] <- xtv$grad$data$numpy()
-        }
+        xtv <- torch$autograd$Variable(xtt, requires_grad = TRUE)
+        xtv$retain_grad()
+        temp.pred <- temp$model$predict(xtv)$sum()
+        temp.pred$backward()
+        derivative.x <- xtv$grad$data$numpy()
       }
       return(list(mu = yhat, mu.test = yhat.test, derivative.x = derivative.x))
     })
