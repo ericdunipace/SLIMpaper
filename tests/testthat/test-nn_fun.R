@@ -33,7 +33,7 @@ testthat::test_that("nn python works", {
                   first.layer.width = first.layer.width,
                   hidden.layer.width = hidden.layer.width,
                   batch.size = 32L,
-                  test.portion = 0.1, python.path = "/usr/local/bin/python3"))
+                  test.portion = 0.1, python.path = "/usr/bin/python3"))
 
   #check names
   testthat::expect_equal(names(res), c("yhat","model"))
@@ -68,4 +68,17 @@ testthat::test_that("nn python works", {
     testthat::expect_true(all(xtv$grad$data$numpy()==0))
   }
   testthat::expect_true(all(derivative != 0))
+
+  # check derivative matrix works
+  xtv <- torch$autograd$Variable(xt, requires_grad = TRUE)
+  xtv$retain_grad()
+  holder <- res$model$predict(xtv)$sum()
+  holder$backward()
+  testthat::expect_true(all(xtv$grad$data$numpy()!=0))
+  derivative2 <- xtv$grad$data$numpy()
+  xtv$grad$zero_()
+  testthat::expect_true(all(xtv$grad$data$numpy()==0))
+  testthat::expect_true(all(derivative2 != 0))
+
+  testthat::expect_equal(derivative2, derivative, tolerance = 1e-5)
 })
