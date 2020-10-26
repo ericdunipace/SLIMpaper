@@ -1112,7 +1112,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     models = list(
       selection = singleModels,
       projection = singleModelsP,
-      estimation = post_sample
+      estimation = post_sample[c("test","yhat.model")]
     ),
     derivatives = list(
       test = derivative.test
