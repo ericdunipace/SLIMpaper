@@ -82,7 +82,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   X <- target$X$rX(n, target$X$corr, p)
   X_sing <- matrix(c(target$X$rX(1, target$X$corr, p)), nrow=1, ncol=p)
   X_new <- target$X$rX(n, target$X$corr, p)
-  X_neighborhood <- cbind(1, CoarsePosteriorSummary::rmvnorm(nsamples = p*3,
+  X_neighborhood <- cbind(1, CoarsePosteriorSummary::rmvnorm(nsamples = p*10,
                                                     mean = X_sing[,-1,drop=FALSE],
                                                     covariance = cov(X[,-1,drop=FALSE])/n))
 
@@ -108,7 +108,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   # indices for different data
   single_idx <- 1
   new_idx <- 2:(n+1)
-  neighb_idx <- (n+2):(n+1 + p*3)
+  neighb_idx <- (n+2):(n+1 + p*10)
 
   #derivative store
   derivative.test <- NA
@@ -142,6 +142,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     sigma <- post_interp$sigma
 
     derivative.test <- theta
+
+    pred.orig <- deriv.orig <- NULL
 
     # X <- target$model_matrix(X)
     # X_sing <- target$model_matrix(X_sing)
@@ -189,6 +191,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     t_theta <- t(theta)
     calc_w2_post <- FALSE
     derivative.test <- sapply(post_sample$test$derivatives, function(d) d[1,])
+    pred.orig <- c(post_sample$yhat$test)[c(single_idx,neighb_idx)]
+    deriv.orig <- post_sample$yhat$derivatives[c(single_idx,neighb_idx),]
   }
 
 
@@ -1107,17 +1111,19 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
     time = time, #,
     data = list(test = list(
                             X = X_sing,
-                            mean = new_mu_sing)
+                            mean = new_mu_sing),
+                neighborhood = list(X = X_neighborhood,
+                                    mean = new_mu_neighb)
     ),
     models = list(
-      selection = singleModels,
-      projection = singleModelsP,
-      estimation = post_sample[c("test","yhat.model")]
-    ),
-    derivatives = list(
-      test = derivative.test
-    )
-  )
+      selection = lapply(singleModels, function(s) s$theta),
+      projection = lapply(singleModelsP, function(s) s$theta),
+      estimation = list(boot = post_sample$test$eta[c(single_idx,neighb_idx),],
+                        original = list(prediction = pred.orig,
+                                        derivatives = deriv.orig)
+                        ),
+    derivatives = derivative.test
+  ))
 
   return(outList)
 }
