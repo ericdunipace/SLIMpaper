@@ -831,10 +831,10 @@ get_survival_linear_model <- function() {
       df <- data.frame(follow.up, fail, x)
 
       model <- survival::coxph(formula = survival::Surv(time = follow.up, event = fail) ~ ., data = df, x = TRUE, y = TRUE)
-      beta <-  coef(model)
+      beta  <-  coef(model)
       Sigma <- vcov(model)
       theta <- 1/attributes(sx)$`scaled:scale` * t(CoarsePosteriorSummary::rmvnorm(nsamples = n.samp, mean = beta, covariance = Sigma))
-      eta <- x %*% theta
+      eta   <- x %*% theta
 
       surv.calc <- function(baseSurv,x, theta) {
         # sx <- scale(x, center = model$Xtrans$center, scale=model$Xtrans$scale)
@@ -849,12 +849,29 @@ get_survival_linear_model <- function() {
         return(Surv)
       }
 
-
-      sfit <- survival::survfit(model) #by default will use a matrix centered at means, which should all be at means anyway
-      lsurv <- ifelse(sfit$surv > 0, log(sfit$surv), NA)
-      gt0 <- !is.na(lsurv)
+      sfit <- survival::survfit(model, stype = 2,
+                                conf.type = "log-log",
+                                se.fit = TRUE)
+      # browser()
       baseSurv <- matrix(0., length(sfit$time), n.samp)
-      baseSurv[gt0,] <-exp(replicate(n.samp, rnorm(length(sfit$time), mean = lsurv[gt0], sd = sfit$std.err[gt0])))
+      model.temp <- model
+      survfittemp <- sfit
+      haz <- surv <- NULL
+      for (i in 1:n.samp) {
+        model.temp$coefficients <- theta[,i] * attributes(sx)$`scaled:scale`
+        survfittemp <- survival::survfit(model.temp, stype = 2,
+                                      conf.type = "log-log",
+                                      se.fit = TRUE)
+        haz  <- log(-log(survfittemp$surv))
+        draw <- haz + rnorm(length(haz)) * survfittemp$std.err/log(survfittemp$surv)
+        surv <- exp(-exp(draw))
+        baseSurv[,i] <-ifelse(is.na(surv) & survfittemp$std.err == 0, survfittemp$surv, surv)
+      }
+      #by default will use a matrix centered at means, which should all be at means anyway
+      # lsurv <- ifelse(sfit$surv > 0, log(sfit$surv), NA)
+      # gt0 <- !is.na(lsurv)
+      # baseSurv <- matrix(0., length(sfit$time), n.samp)
+      # baseSurv[gt0,] <-exp(replicate(n.samp, rnorm(length(sfit$time), mean = lsurv[gt0], sd = sfit$std.err[gt0])))
       baseSurv[baseSurv > 1] <- 1
       baseSurv[baseSurv < 0] <- 0
       surv <- surv.calc(baseSurv, x, theta)
@@ -901,10 +918,14 @@ get_survival_linear_model <- function() {
 
 
       sfit <- survival::survfit(survival::Surv(time = follow.up, event = event) ~ 1)
-      lsurv <- ifelse(sfit$surv > 0, log(sfit$surv), NA)
-      gt0 <- !is.na(lsurv)
-      baseSurv <- matrix(0., length(sfit$time), n.samp)
-      baseSurv[gt0,] <-exp(replicate(n.samp, rnorm(length(sfit$time), mean = lsurv[gt0], sd = sfit$std.err[gt0])))
+      lsurv <- ifelse(sfit$surv > 0 & sfit$surv < 1, log(-log(sfit$surv)), NA)
+      # gt0 <- !is.na(lsurv)
+      # baseSurv <- matrix(NA, length(sfit$time), n.samp)
+
+
+      baseSurv <- exp(-exp(replicate(n.samp, rnorm(length(sfit$time), mean = lsurv, sd = sfit$std.err/log(sfit$surv)))))
+      replace <- is.na(lsurv) & sfit$std.err == 0
+      baseSurv[replace,] <- matrix(sfit$surv[replace], ncol = n.samp)
       baseSurv[baseSurv > 1] <- 1
       baseSurv[baseSurv < 0] <- 0
       surv <- surv.calc(baseSurv, n)
@@ -1098,6 +1119,7 @@ get_survival_linear_model <- function() {
     # ttt <- proc.time()
     for ( curTime in readTime ) {
       idx_time <- which(readTime == curTime)
+      # if(idx_time == 399) browser()
       eh <- matrix(eventHappen[idx_time,], nrow = nsamp, ncol = n, byrow = TRUE)
       enh <- matrix(eventNotHappen[idx_time,], nrow = nsamp, ncol = n, byrow=TRUE)
       # l_eh <- matrix(l_eventHappen[idx_time,], nrow = nsamp, ncol = n, byrow = TRUE)
@@ -1130,7 +1152,7 @@ get_survival_linear_model <- function() {
     # intbs <- diff(readTime) %*% ( ( bs[idx -1,] + bs[idx,]) / 2 )
     # intbs <- intbs/diff(range(readTime))
     intbs <- (diff(c(0,readTime)) %*% bs)/max(readTime)
-    browser()
+    # browser()
 
     output <- list(
         brier.score = list(
