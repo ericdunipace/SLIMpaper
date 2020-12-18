@@ -1,3 +1,11 @@
+#' Simulation study function
+#'
+#' @param target function that is the output of the get_binary_nonlinear, get_normal_linear, etc
+#' @param hyperparameters hyperparameters for the Bayesian methodology
+#' @param conditions conditions for the simulation
+#'
+#' @return
+#' @export
 experimentWPMethod <- function(target, hyperparameters, conditions) {
   n <- conditions$n
   p <- conditions$p
@@ -82,7 +90,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
   X <- target$X$rX(n, target$X$corr, p)
   X_sing <- matrix(c(target$X$rX(1, target$X$corr, p)), nrow=1, ncol=p)
   X_new <- target$X$rX(n, target$X$corr, p)
-  X_neighborhood <- cbind(1, CoarsePosteriorSummary::rmvnorm(nsamples = p*10,
+  X_neighborhood <- cbind(1, SLIMpaper::rmvnorm(nsamples = p*10,
                                                     mean = X_sing[,-1,drop=FALSE],
                                                     covariance = cov(X[,-1,drop=FALSE])/n))
 
@@ -495,6 +503,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 epsilon = epsilon,
                                 niter = otmaxit)
       mse_single$mean$dist <- mse_single$mean$dist/mean((c(cond_mu_sing) - c(new_mu_sing))^2)
+      mse_single$post$dist <- mse_single$post$dist/mean((as.matrix(full_param) - c(theta))^2)
       # cat("W2 projection\n")
       PW2_single <- distCompare(singleModelsP, target = list(posterior = theta_sing,
                                                              mean = cond_mu_calc),
@@ -533,6 +542,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                  epsilon = epsilon,
                                  niter = otmaxit)
       Pmse_single$mean$dist <- Pmse_single$mean$dist/mean((cond_mu_calc - c(new_mu_calc))^2)
+      Pmse_single$post$dist <- Pmse_single$post$dist/mean((as.matrix(full_param) - c(theta))^2)
 
     }
     else {
@@ -570,6 +580,7 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                 epsilon = epsilon,
                                 niter = otmaxit)
       mse_single$mean$dist <- mse_single$mean$dist/mean((c(cond_mu_sing) - c(new_mu_sing))^2)
+      # mse_single$post$dist <- mse_single$post$dist/mean((as.matrix(full_param) - c(theta))^2)
 
       # cat("W2 projection\n")
       PW2_single <- distCompare(singleModelsP, target = list(posterior = NULL,
@@ -610,6 +621,8 @@ experimentWPMethod <- function(target, hyperparameters, conditions) {
                                  epsilon = epsilon,
                                  niter = otmaxit)
       Pmse_single$mean$dist <- Pmse_single$mean$dist/mean((cond_mu_calc - c(new_mu_calc))^2)
+      # Pmse_single$post$dist <- Pmse_single$post$dist/mean((as.matrix(full_param) - c(theta))^2)
+
     }
 
     # rm(singleModels)

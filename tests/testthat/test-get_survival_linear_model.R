@@ -1,6 +1,6 @@
 testthat::test_that("surv pred function works", {
   set.seed(130824)
-  library(CoarsePosteriorSummary)
+  library(SLIMpaper)
   target <- get_survival_linear_model()
 
   n <- 128

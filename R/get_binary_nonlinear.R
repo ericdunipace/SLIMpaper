@@ -1,4 +1,18 @@
 
+#' Get the binary nonlinear data simulation
+#'
+#' @return list with slots
+#' `rprior`
+#' `rdata`
+#' `rpost`
+#' `X = list(rX = rX, corr = NULL)`, rX being a function to simulate the x data = function(n, corr, p)
+#' `data_gen_functions`
+#'  `rparam`
+#'  `sel.pred.fun `
+#'  `link` with the logistic link function
+#'  `invlink` with the logistic inverse link function
+#'  `mf.data`
+#' @export
 get_binary_nonlinear_model <- function() {
   #### Prior Function ####
   rprior_coef <- function(n, mu, sigma){

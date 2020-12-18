@@ -1,4 +1,8 @@
-abart.fix <- function (x.train, times, delta, x.test = matrix(0, 0, 0), K = 100,
+#' fixes bug in abart program from the BART package
+#' @details For arguments and such see \link[BART]{abart}.
+#' @export
+#'
+abart.fix <- function(x.train, times, delta, x.test = matrix(0, 0, 0), K = 100,
           type = "abart", ntype = 1, sparse = FALSE, theta = 0, omega = 1,
           a = 0.5, b = 1, augment = FALSE, rho = NULL, xinfo = matrix(0,
                                                                       0, 0), usequants = FALSE, rm.const = TRUE, sigest = NA,

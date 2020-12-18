@@ -833,7 +833,7 @@ get_survival_linear_model <- function() {
       model <- survival::coxph(formula = survival::Surv(time = follow.up, event = fail) ~ ., data = df, x = TRUE, y = TRUE)
       beta  <-  coef(model)
       Sigma <- vcov(model)
-      theta <- 1/attributes(sx)$`scaled:scale` * t(CoarsePosteriorSummary::rmvnorm(nsamples = n.samp, mean = beta, covariance = Sigma))
+      theta <- 1/attributes(sx)$`scaled:scale` * t(SLIMpaper::rmvnorm(nsamples = n.samp, mean = beta, covariance = Sigma))
       eta   <- x %*% theta
 
       surv.calc <- function(baseSurv,x, theta) {

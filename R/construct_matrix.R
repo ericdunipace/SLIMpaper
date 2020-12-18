@@ -1,3 +1,11 @@
+#' Constructs survival matrix for use in applied data examples
+#'
+#' @param x covariates
+#' @param nT number of unique times
+#' @param intercept include an intercept?
+#'
+#' @return
+#' @export
 construct_interp_survival_matrix <- function(x, nT, intercept = FALSE) {
 
   n <- nrow(x)

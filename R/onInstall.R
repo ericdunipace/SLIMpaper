@@ -1,2 +1,2 @@
 # .checkINLA()
-.checkLIMBS()
+.checkWpProj()

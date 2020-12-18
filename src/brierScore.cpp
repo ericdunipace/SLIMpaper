@@ -1,4 +1,4 @@
-#include "CoarsePosteriorSummary_types.h"
+#include "SLIMpaper_types.h"
 
 // [[Rcpp::export]]
 Rcpp::NumericMatrix brierScore_(vector & y,

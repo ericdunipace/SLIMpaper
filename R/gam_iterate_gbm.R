@@ -1,3 +1,16 @@
+#' Run the p-Wasserstein projections for the GAM example
+#'
+#' @param formula an R formula object suitable for \link[gam]{gam} or \link[qgam]{qgam}
+#' @param y prediction matrix
+#' @param x covariates
+#' @param extract new data for prediction
+#' @param time vector of times
+#' @param nT number of timepoints
+#' @param which.gam "gam" or "qgam" for the models?
+#' @param ... not currently used
+#'
+#' @return
+#' @export
 gam_iterate <- function(formula, y, x, extract, time, nT, which.gam = c("gam","qgam"),...) {
 
   covar_vals_raw <- list()
@@ -26,6 +39,13 @@ gam_iterate <- function(formula, y, x, extract, time, nT, which.gam = c("gam","q
   return(covar_vals)
 }
 
+#' Title
+#'
+#' @param gammX gam model
+#' @param times event times
+#'
+#' @return
+#' @export
 gamm_interp_data_gbm <- function(gammX, times) {
   nT <- length(unique(times))
   # gammX       <- preDF$tx.test[,-1]

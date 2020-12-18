@@ -1,3 +1,9 @@
+#' safely sums values on the exp scale from the log scale
+#'
+#' @param x vector to be summed
+#'
+#' @return real number
+#' @export
 log_sum_exp <- function(x) {
   # if(is.vector(x)) {
     if(all(is.infinite(x))) return(x[1])
@@ -11,6 +17,13 @@ log_sum_exp <- function(x) {
   # }
 }
 
+#' logged sum of exponentiated variables
+#'
+#' @param x a number
+#' @param y another number
+#'
+#' @return \eqn{\log(\exp(x) + \exp(y))}
+#' @export
 log_sum_exp2 <- function(x,y) {
   mx <- pmax(x,y)
   # if(is.infinite(mx)) return(mx)

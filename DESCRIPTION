@@ -1,12 +1,12 @@
-Package: CoarsePosteriorSummary
+Package: SLIMpaper
 Type: Package
-Title: Reproduces the figures and data in "Interpretable Posterior Summaries Using the Wasserstein Distance"
+Title: Interpretable Model Summaries Using the Wasserstein Distance
 Version: 0.1
-Date: 2019-04-24
+Date: 2020-12-17
 Author: Eric Dunipace
 Maintainer: Eric Dunipace <eduniapce@g.harvard.edu>
-Description: More about what it does (maybe more than one line)
-License: What license is it under?
+Description: This R package reproduces the code found in the paper "Interpretable Model Summaries Using the Wasserstein Distance". The methodology is used to make interpretable linear models that approximtae arbitrarily complex statistical models.
+License: GPL v3.0
 Imports: 
   doParallel,
   ggplot2,
@@ -24,7 +24,7 @@ LinkingTo:
   Rcpp (>= 1.0.0), 
   RcppEigen (>= 0.3.3.4.0)
 Depends:
-  limbs,
+  WpProj,
   R (>= 2.10)
 Suggests: 
   xtable,
@@ -40,3 +40,4 @@ Suggests:
   forcats,
   BiocManager,
   curatedOvarianData
+RoxygenNote: 7.1.1

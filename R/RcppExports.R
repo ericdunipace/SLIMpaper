@@ -2,18 +2,18 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 brierScore_ <- function(y, event, times, pred, cens_weight, cens_prob, S, S_c) {
-    .Call(`_CoarsePosteriorSummary_brierScore_`, y, event, times, pred, cens_weight, cens_prob, S, S_c)
+    .Call(`_SLIMpaper_brierScore_`, y, event, times, pred, cens_weight, cens_prob, S, S_c)
 }
 
 bayesConjRegNormal <- function(n_samp, hyperparameters, Y_, X_) {
-    .Call(`_CoarsePosteriorSummary_bayesConjRegNormal`, n_samp, hyperparameters, Y_, X_)
+    .Call(`_SLIMpaper_bayesConjRegNormal`, n_samp, hyperparameters, Y_, X_)
 }
 
 rmvnorm <- function(nsamples, mean, covariance) {
-    .Call(`_CoarsePosteriorSummary_rmvnorm`, nsamples, mean, covariance)
+    .Call(`_SLIMpaper_rmvnorm`, nsamples, mean, covariance)
 }
 
 dmvnorm <- function(x, mean, covariance) {
-    .Call(`_CoarsePosteriorSummary_dmvnorm`, x, mean, covariance)
+    .Call(`_SLIMpaper_dmvnorm`, x, mean, covariance)
 }
 

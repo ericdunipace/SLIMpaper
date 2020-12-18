@@ -11,7 +11,7 @@ if(!requireNamespace("curatedOvarianData", quietly = TRUE) ) {
 # source("data-raw/DataClean/downloadOvarian.R")
 # data(package="curatedOvarianData")
 require(curatedOvarianData)
-require(CoarsePosteriorSummary)
+require(SLIMpaper)
 
 #### Load Data ####
 data( TCGA_eset ) # has most observations

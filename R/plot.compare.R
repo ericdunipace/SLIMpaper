@@ -1,3 +1,16 @@
+#' Plot to compare WpProj outputs
+#'
+#' @param models WpProj models
+#' @param target target predicctions
+#' @param X covariates
+#' @param theta coefficients
+#' @param method w2 or mse?
+#' @param quantity posterior (parameters) or mean
+#' @param parallel foreach backend
+#' @param transform transform to use
+#'
+#' @return
+#' @export
 plot.compare <- function(models, target = NULL, X = NULL, theta = NULL, method = c("w2", "mse"), quantity=c("posterior","mean"), parallel=FALSE, transform = function(x){return(x)}) {
 
   require(ggplot2)

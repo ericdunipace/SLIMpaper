@@ -1,4 +1,4 @@
 library(testthat)
-library(CoarsePosteriorSummary)
+library(SLIMpaper)
 
-test_check("CoarsePosteriorSummary")
+test_check("SLIMpaper")

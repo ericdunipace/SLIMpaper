@@ -1,2 +1,2 @@
-# CoarsePosteriorSummary
+# SLIMpaper
 Replicates paper code

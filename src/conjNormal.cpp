@@ -1,4 +1,4 @@
-#include "CoarsePosteriorSummary_types.h"
+#include "SLIMpaper_types.h"
 
 using namespace Rcpp;
 
