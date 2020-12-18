@@ -14,7 +14,6 @@ R/DataAnalysis
 R/DataClean
 R/Simulations
 R/.DS_Store
-inst/figure
 src/not_used_src
 examples
 
