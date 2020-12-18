@@ -1,7 +1,7 @@
 #ifndef SORT_H
 #define SORT_H
 
-#include "CoarsePosteriorSummary_types.h"
+#include "SLIMpaper_types.h"
 #include <vector>
 
 
