@@ -16,4 +16,9 @@ R/Simulations
 R/.DS_Store
 src/not_used_src
 examples
-
+Output/
+archive/
+exec/
+figures/
+R/deprecated/Ovarian
+inst/figure/rawplots
