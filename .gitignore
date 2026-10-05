@@ -9,17 +9,26 @@ inst/python/.DS_store
 src/*.o
 src/*.so
 src/*.dll
-R/cluster
-R/DataAnalysis
-R/DataClean
-R/Simulations
 R/.DS_Store
 src/not_used_src
-examples
 Output/
 archive/
-exec/
-figures/
+
+# cluster runs: keep scripts and configs, not results or logs
+R/cluster/Output/
+R/cluster/TextOutput/
+R/cluster/SlurmOutput/
+*.Rout
+
+# compiled Stan models are rebuilt from the .stan files
+exec/Stan/*.rds
+exec/Stan/*.xib
+
+# examples: keep the code, not the cached results
+examples/**
+!examples/**/
+!examples/**/*.Rmd
+!examples/**/*.R
 R/deprecated/Ovarian
 inst/figure/rawplots
 

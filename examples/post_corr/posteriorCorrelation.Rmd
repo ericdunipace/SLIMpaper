@@ -1,0 +1,289 @@
+---
+title: "Posterior Correlation"
+output: html_document
+author: Eric Dunipace
+date: May 5, 2019
+---
+<style>
+p.caption {
+  font-size: 0.9em;
+  font-style: italic;
+  color: grey;
+  margin-right: 10%;
+  margin-left: 10%;  
+  text-align: justify;
+}
+</style>
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We use the same data generating process as the data in the Gaussian example but we set all correlations to 0. The generating code is copied here for reference.
+```{r data, message= FALSE, warning = FALSE}
+#### Load packages ####
+require(SparsePosterior)
+require(ggplot2)
+require(CoarsePosteriorSummary)
+require(rstan)
+require(ggsci)
+
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores()-1)
+
+group.names <- c("Selection","Loc./Scale","Projection")
+
+#### generate data ####
+set.seed(9283749)
+n <- 1024
+p <- 101
+nsamp <- 1000
+nlambda <- 100
+lambda.min.ratio <- 1e-10
+gamma <- 1
+pseudo.observations <- 0
+
+target <- get_normal_linear_model()
+param <- target$rparam()
+
+target$X$corr <- 0
+X <- target$X$rX(n, target$X$corr, p)
+Y <- target$rdata(n,X[,1:length(param$theta)], param$theta, param$sigma2)
+
+x <- target$X$rX(1, target$X$corr, p)
+
+true_mu_full <- X[,1:length(param$theta)] %*% c(param$theta)
+true_mu <- x[,1:length(param$theta)] %*% c(param$theta)
+```
+
+Again we use a conjugate prior for ease of estimation in this case.
+```{r posterior, message = FALSE, warning = FALSE}
+
+hyperparameters <- list(mu = NULL, sigma = NULL,
+                          alpha = NULL, beta = NULL,
+                          Lambda = NULL)
+  hyperparameters$mu <- rep(0,p)
+  hyperparameters$sigma <- diag(1,p,p)
+  hyperparameters$alpha <- 10
+  hyperparameters$beta <- 10
+  hyperparameters$Lambda <- solve(hyperparameters$sigma)
+  
+# posterior <- target$rpost(nsamp, X, Y, method = "stan",
+#                           stan_dir ="../../Stan/normal_horseshoe_noQR.stan",
+#                           m0 = 20, scale_intercept = 2.5, chains = 4) # this can take a bit
+
+posterior <- target$rpost(nsamp, X, Y, hyperparameters = hyperparameters, method="conjugate")
+
+
+cond_mu <- x %*% posterior$theta
+cond_mu_full <- X %*% posterior$theta
+
+penalty.factor <- 1/rowMeans(abs(posterior$theta))
+```
+
+
+We can then generate the coarsened posterior using: 1) the selection variable method, 2) the location/scale posterior adapatiation, and 3) the projection method:
+```{r method_in_sample, message=FALSE, warning=FALSE, cache=TRUE}
+theta_selection <- W2L1(X=X, Y = cond_mu_full, 
+                        theta=posterior$theta, penalty="selection.lasso",
+                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                        infimum.maxit=1e4, maxit = 1e3, gamma = gamma,
+                        pseudo_observations = 0, display.progress = TRUE,
+                 penalty.factor = penalty.factor, method="selection.variable")
+
+#these iterations may not be enough
+theta_adaptive <-W2L1(X=X, Y=cond_mu_full, 
+                        theta=posterior$theta, penalty="mcp",
+                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                        infimum.maxit=1e1, maxit = 1e4, gamma = gamma,
+                        pseudo_observations = pseudo.observations, display.progress = TRUE,
+                 penalty.factor = penalty.factor,
+                  method="location.scale")
+theta_proj <- W2L1(X=X, Y=cond_mu_full, 
+                        theta=posterior$theta, penalty="mcp",
+                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                        infimum.maxit=1, maxit = 1e4, gamma = gamma,
+                        pseudo_observations = pseudo.observations, display.progress = TRUE,
+                 penalty.factor = penalty.factor, method="projection")
+
+theta <- list(selection = NULL, adaptive = NULL, projection = NULL)
+
+theta$selection <- extractTheta(theta_selection, posterior$theta)$theta
+theta$adaptive <- extractTheta(theta_adaptive, posterior$theta)$theta
+theta$projection <-  extractTheta(theta_proj, posterior$theta)$theta
+
+nactive <- list(selection = extractCoef(theta_selection)$nzero,
+              adaptive = extractCoef(theta_adaptive)$nzero/2,
+              projection = extractCoef(theta_proj)$nzero/nsamp)
+active_counts <- table(unlist(nactive))
+overlap_names <- names(active_counts[active_counts ==3])
+desired_active <- c(1, round(p/2), p)
+dist_to_desired_active <- as.matrix(dist(c(desired_active, 
+                                           as.numeric(overlap_names))))[1:3,4:(length(overlap_names)+3)]
+which_overlap <- overlap_names[apply(dist_to_desired_active,1,which.min)]
+which_overlap <- as.numeric(which_overlap)
+overlap <- lapply(nactive, function(nn) which(nn %in% which_overlap))
+```
+
+
+The we examine the correlation between the full posterior on an observation that the posterior was trained upong. We arbitrarily choose observation 1.
+
+```{r correlation_in_sample, cache=TRUE, warning=FALSE, messages=FALSE}
+selected.obs <- 1
+x_single_in <- X[selected.obs,,drop=FALSE]
+mu_in_sample <- cond_mu_full[selected.obs,]
+alpha.point <- 0.2
+
+plot_in <- mu_adapt_in_sample <- list(selection = NULL, adaptive = NULL, projection = NULL)
+
+mu_adapt_in_sample$selection <- lapply(theta$selection, function(tt) x_single_in %*% tt)
+mu_adapt_in_sample$adaptive <- lapply(theta$adaptive, function(tt) x_single_in %*% tt)
+mu_adapt_in_sample$projection <- lapply(theta$projection, function(tt) x_single_in %*% tt)
+
+mu_full_in <- cond_mu_full[selected.obs,]
+
+xlim <- mapply(function(i,j) {vals <- unlist(i[j]); c(min(vals),max(vals))}, i=mu_adapt_in_sample, j= overlap)
+xlim <- c(min(xlim[1,]),max(xlim[2,]))
+
+init_plot <- ggplot() +  xlab("Coarsened Posterior Predictive Mean") + ylab("Full Posterior Predictive Mean") + geom_abline(slope=1,intercept=0) +
+  ggtitle("Values of Coarsened vs. Full Posterior Predictive Means") + theme_bw()
+
+
+plot_in$selection <- init_plot + 
+  geom_point(aes(x = unlist(mu_adapt_in_sample$selection[overlap$selection]), 
+                 y = rep(mu_in_sample,3), 
+                 color = as.factor(rep(which_overlap, each=nsamp))), alpha=alpha.point) +
+    xlim(xlim) + labs(color = "Num. Active Coef.") + scale_color_jama() +
+  guides(colour = guide_legend(override.aes = list(alpha=1)))
+  
+plot_in$adaptive <- init_plot + 
+  geom_point(aes(x = unlist(mu_adapt_in_sample$adaptive[overlap$adaptive]), 
+                 y = rep(mu_in_sample,3), 
+                 color = as.factor(rep(which_overlap, each=nsamp))), alpha=alpha.point) +
+    xlim(xlim) + labs(color = "Num. Active Coef.") + scale_color_jama() +
+  guides(colour = guide_legend(override.aes = list(alpha=1)))
+
+plot_in$projection <- init_plot + 
+  geom_point(aes(x = unlist(mu_adapt_in_sample$projection[overlap$projection]), 
+                 y = rep(mu_in_sample,3), 
+                 color = as.factor(rep(which_overlap, each=nsamp))), alpha=alpha.point) +
+    xlim(xlim) + labs(color = "Num. Active Coef.") + scale_color_jama() +
+  guides(colour = guide_legend(override.aes = list(alpha=1)))
+
+```
+
+
+```{r insampsel, echo=FALSE, fig.height= 4, fig.width=6, fig.align = "center", out.width="80%", optipng = '-o7', fig.cap = "Selection Method: Predicted values from the coarsened posterior predictive mean and the full posterior predictive mean for a single observation taken from the set of data used to estimate both the full posterior and coarsened posterior. Coarsened posterior estimated using the selection method. Black line denotes where coarse and full posterior predictive means are equal."}
+print(plot_in$selection)
+```
+
+```{r insampadapt, echo=FALSE, fig.height= 4, fig.width=6, fig.align = "center", out.width="80%", optipng = '-o7',fig.cap = "Location/Scale Method: Predicted values from the coarsened posterior predictive mean and the full posterior predictive mean for a single observation taken from the set of data used to estimate both the full posterior and coarsened posterior. Coarsened posterior estimated using the location/scale method. Black line denotes where coarse and full posterior predictive means are equal."}
+print(plot_in$adaptive)
+```
+
+```{r insampproj, echo=FALSE, fig.height= 4, fig.width=6, fig.align = "center", out.width="80%", optipng = '-o7', fig.cap = "Projection Method: Predicted values from  the coarsened posterior predictive mean and the full posterior predictive mean for a single observation taken from the set of data used to estimate both the full posterior and coarsened posterior. Coarsened posterior estimated using the projection method. Black line denotes where coarse and full posterior predictive means are equal."}
+print(plot_in$projection)
+```
+
+
+## Variable importance for a single testing observation
+
+Sometimes, especially in medical settings, we may want to know the variable importance for a single observation. Fortunately, our method allows us to do that in several ways. However, now we have to use the pseudo observation feature to make sure that our solution is identifiable. This penalizes our method if it strays too far from the estimated posterior. Unfortunately, this also greatly slows down computation time since the posterior distribution is quite large in this case and finding the optimal transport solutions is quite costly. Because of this, we are running our infimum calculations only for 5 iterations in both methods that utilize this posterior penalization. We also use a elastic net solution because things can get quite bad!
+```{r method_out_sample, message=FALSE, warning=FALSE, cache=TRUE}
+pseudo.observations_single <- 3
+theta_selection_out <- W2L1(X=x, Y = cond_mu, 
+                        theta=posterior$theta, penalty="selection.lasso",
+                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                        infimum.maxit=1e4, maxit = 1e4, gamma = gamma,
+                        pseudo_observations = 0, display.progress = TRUE,
+                 penalty.factor = penalty.factor, method="selection.variable")
+theta_adaptive_out <-W2L1(X=x, Y=cond_mu, 
+                        theta=posterior$theta, penalty="mcp",
+                        nlambda = nlambda, lambda.min.ratio = lambda.min.ratio,
+                        infimum.maxit=5, maxit = 1e4, gamma = 3, alpha = 0.5,
+                        pseudo_observations = pseudo.observations_single, display.progress = TRUE,
+                 penalty.factor = penalty.factor,
+                  method="location.scale")
+theta_proj_out <- W2L1(X=x, Y=cond_mu, 
+                        theta=posterior$theta, penalty="mcp.net",
+                        nlambda = 10, lambda.min.ratio = lambda.min.ratio,
+                        infimum.maxit=5, maxit = 1e3, gamma = 1, alpha = 0.5,
+                        pseudo_observations = pseudo.observations_single, display.progress = TRUE,
+                 penalty.factor = penalty.factor, method="projection")
+
+theta_out <- list(selection = NULL, adaptive = NULL, projection = NULL)
+
+theta_out$selection <- extractTheta(theta_selection_out, posterior$theta)$theta
+theta_out$adaptive <- extractTheta(theta_adaptive_out, posterior$theta)$theta
+theta_out$projection <-  extractTheta(theta_proj_out, posterior$theta)$theta
+
+nactive_out <- list(selection = extractCoef(theta_selection_out)$nzero,
+              adaptive = extractCoef(theta_adaptive_out)$nzero/2,
+              projection = extractCoef(theta_proj_out)$nzero/nsamp)
+active_counts_out <- table(unlist(nactive_out))
+overlap_names_out <- names(active_counts_out[active_counts_out ==3])
+desired_active_out <- c(1, round(p/2), p)
+dist_to_desired_active_out <- as.matrix(dist(c(desired_active_out,
+                              as.numeric(overlap_names_out))))[1:3,4:(length(overlap_names_out)+3),drop=FALSE]
+which_overlap_out <- overlap_names_out[apply(dist_to_desired_active_out,1,which.min)]
+which_overlap_out <- as.numeric(unique(which_overlap_out))
+overlap_out <- lapply(nactive_out, function(nn) which(nn %in% which_overlap_out))
+
+```
+
+```{r correlation_out_sample}
+x_single_out <- x
+alpha.point <- 0.2
+
+plot_out <- mu_adapt_out_sample <- list(selection = NULL, adaptive = NULL, projection = NULL)
+
+mu_adapt_out_sample$selection <- lapply(theta_out$selection, function(tt) x_single_out %*% tt)
+mu_adapt_out_sample$adaptive <- lapply(theta_out$adaptive, function(tt) x_single_out %*% tt)
+mu_adapt_out_sample$projection <- lapply(theta_out$projection, function(tt) x_single_out %*% tt)
+
+
+mu_out <- cond_mu
+
+xlim_out <- mapply(function(i,j) {vals <- unlist(i[j]); c(min(vals),max(vals))}, i=mu_adapt_out_sample, j= overlap_out)
+xlim_out<- c(min(xlim_out[1,]),max(xlim_out[2,]))
+
+init_plot_out <- ggplot() +  xlab("Coarsened Posterior Predictive Mean") + 
+  ylab("Full Posterior Predictive Mean") + geom_abline(slope=1,intercept=0) +
+  ggtitle("Values of Coarsened vs. Full Posterior Predictive Means") + 
+  theme_bw()
+
+
+plot_out$selection <- init_plot_out + 
+  geom_point(aes(x = unlist(mu_adapt_out_sample$selection[overlap_out$selection]), 
+                 y = rep(mu_out,length(overlap_out$selection)), 
+                 color = as.factor(rep(which_overlap_out, each=nsamp))), alpha=alpha.point) +
+    xlim(xlim_out) + labs(color = "Num. Active Coef.") + scale_color_jama() +
+  guides(colour = guide_legend(override.aes = list(alpha=1)))
+  
+plot_out$adaptive <- init_plot_out + 
+  geom_point(aes(x = unlist(mu_adapt_out_sample$adaptive[overlap_out$adaptive]), 
+                 y = rep(mu_out,length(overlap_out$adaptive)), 
+                 color = as.factor(rep(which_overlap_out, each=nsamp))), alpha=alpha.point) +
+    xlim(xlim_out) + labs(color = "Num. Active Coef.") + scale_color_jama() +
+  guides(colour = guide_legend(override.aes = list(alpha=1)))
+
+plot_out$projection <- init_plot_out + 
+  geom_point(aes(x = unlist(mu_adapt_out_sample$projection[overlap_out$projection]), 
+                 y = rep(mu_out,length(overlap_out$projection)), 
+                 color = as.factor(rep(which_overlap_out, each=nsamp))), alpha=alpha.point) +
+    xlim(xlim_out) + labs(color = "Num. Active Coef.") + scale_color_jama() +
+  guides(colour = guide_legend(override.aes = list(alpha=1)))
+
+```
+
+
+```{r outsampsel,echo=FALSE, fig.height= 4, fig.width=6, fig.align = "center",out.width="80%", optipng = '-o7', fig.cap = "Selection Method: Predicted values from the coarsened posterior predictive mean and the full posterior predictive mean for a single observation taken from the set of data used to estimate both the full posterior and coarsened posterior. Coarsened posterior estimated using the selection method. Black line denotes where coarse and full posterior predictive means are equal."}
+print(plot_out$selection)
+```
+
+```{r outsampadapt, echo=FALSE, fig.height= 4, fig.width=6, fig.align = "center",out.width="80%", optipng = '-o7',  fig.cap = "Location/Scale Method: Predicted values from the coarsened posterior predictive mean and the full posterior predictive mean for a single observation taken not used to estimate the full posterior. The coarsened posterior was estimated using only this observation. Coarsened posterior estimated using the location/scale method. Black line denotes where coarse and full posterior predictive means are equal."}
+print(plot_out$adaptive)
+```
+
+```{r outsampproj, echo=FALSE, fig.height= 4, fig.width=6, fig.align = "center",out.width="80%", optipng = '-o7', fig.cap = "Projection Method: Predicted values from the coarsened posterior predictive mean and the full posterior predictive mean for a single observation taken not used to estimate the full posterior. The coarsened posterior was estimated using only this observation. Coarsened posterior estimated using the projection method. Black line denotes where coarse and full posterior predictive means are equal."}
+print(plot_out$projection)
+```

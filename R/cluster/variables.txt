@@ -1,0 +1,51 @@
+#arrays
+#numobs=(16 128 512 1024 2048 4096 8192 131072)
+numobs=(1024)
+#numcoef=(11 21 51 101 501)
+numcoef=(21)
+corrs=(0 0.5 0.9)
+
+#methods=(fixed prior nonprior)
+#methods=(fixed)
+
+transport_methods=(exact sinkhorn univariate.approximation.pwr greenkhorn randkhorn gandkhorn hilbert rank)
+#penalties=(lasso mcp elastic.net)
+penalties=(lasso mcp mcp.net elastic.net scad scad.net)
+families=(gaussian binomial exponential)
+#families=(gaussian)
+#penalty_factors=(expectation distance none wt_expect covar)
+penalty_factors=(none)
+PRIOR_SIGMA=(1 1)
+#x_methods=(simple complex)
+#x_methods=(simple)
+#x_methods=(complex)
+
+#single values
+#X_METHOD=simple
+NSAMPS=100
+CORR_X=0 # 0, 0.5, 0.9
+PENALTY=mcp.net
+#FAMILY=gaussian
+L0=FALSE #TRUE FALSE
+W2_POST=TRUE
+TIMING=FALSE
+POSTERIOR_METHOD=conjugate #stan, conjugate, bart, gamm, stan-cox, inla, inla.cens
+#gaussian = stan, conjugate
+#exponential = stan-cox, inla, inla.cens
+#binomial = logistic
+STAN_PATH=(Stan/cox_horseshoe_noQR.stan)
+PYTHON_PATH=$(which python3)
+#gaussian=(Stan/normal_horseshoe_noQR.stan)
+#exponential=(Stan/logistic_horseshoe_noQR.stan)
+#binomial=(Stan/cox_horseshoe_noQR.stan)
+#exact sinkhorn greenkhorn randkhorn gandkhorn hilbert rank univariate.approximation.pwr
+TRANSPORT_METHOD=hilbert
+WP_DIST_ALG=exact
+SOLVER=mosek
+RECALC_SINGLE=FALSE
+
+
+LAMBDA_MIN_RATIO=1e-4
+NUMEXPERIMENT=100
+
+export transport_methods penalty_factors penalties families x_methods NSAMPS PRIOR_SIGMA CORR_X PENALTY FAMILY W2_POST TIMING PSEUDO_OBSERVATIONS LAMBDA_MIN_RATIO NUMEXPERIMENT numbs numcoef POSTERIOR_METHOD STAN_PATH L0 WP_DIST_ALG TRANSPORT_METHOD SOLVER RECALC_SINGLE PYTHON_PATH

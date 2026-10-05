@@ -1,0 +1,35 @@
+# copy and paste or source this file
+source run.txt
+export SLURM_ARRAY_TASK_ID=100
+#export KMP_DUPLICATE_LIB_OK=TRUE
+
+R --no-save "--args ${transport_methods[*]} cc ${penalty_factors[*]} cc ${PRIOR_SIGMA[*]} cc ${penalties[*]} cc ${families[*]} cc ${STAN_PATH[*]}"
+
+options(error = recover)
+source("cluster.R")
+
+
+source run_binom.txt
+export SLURM_ARRAY_TASK_ID=100
+#export KMP_DUPLICATE_LIB_OK=TRUE
+
+R --no-save "--args ${transport_methods[*]} cc ${penalty_factors[*]} cc ${PRIOR_SIGMA[*]} cc ${penalties[*]} cc ${families[*]} cc ${STAN_PATH[*]}"
+
+options(error = recover)
+source("cluster.R")
+
+source run.txt
+export SLURM_ARRAY_TASK_ID=1
+R CMD BATCH --no-save "--args ${transport_methods[*]} cc ${penalty_factors[*]} cc ${PRIOR_SIGMA[*]} cc ${penalties[*]} cc ${families[*]} cc ${STAN_PATH[*]}" cluster.R
+
+
+R --no-save "--args ${families[*]} cc ${corrs[*]} cc ${numobs[*]} cc ${numcoef[*]} cc ${penalty_factors[*]}"
+
+R CMD BATCH --no-save "--args ${families[*]} cc ${corrs[*]} cc ${numobs[*]} cc ${numcoef[*]} cc ${penalty_factors[*]}" seed.R
+
+#### Seed
+
+source variables.txt
+
+R CMD BATCH --no-save --no-restore "--args ${families[*]} cc ${corrs[*]} cc ${numobs[*]} cc ${numcoef[*]} cc ${penalty_factors[*]}" seed.R Output/seed.txt
+

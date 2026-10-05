@@ -1,0 +1,44 @@
+data {
+  # Set up data
+    for(i in 1:N) {
+       for(t in 1:T) {
+  # risk set = 1 if obs.time >= t
+          Y[i,t] <- step(obs.time[i] - time[t] + eps)
+  # counting process jump = 1 if obs.time in [ time[t], time[t+1] )
+  # i.e. if t[t] <= obs.time < time[j+1]
+          dN[i, t] <- Y[i, t] * step(time[t + 1] - obs.time[i] - eps) * fail[i]
+       }
+    }
+  #priors for mean hazard
+    c <- 0.01
+    r <- 0.1
+    for (t in 1 : T) {
+       dL0.star[t] <- r * (time[t + 1] - time[t])
+       dalpha[t] <- dL0.star[t] * c # prior mean hazard
+    }
+
+    #spike_a <- 1.0
+    #spike_b <- 1.0
+}
+
+model{
+# likelihood
+    # eta[1:n,1] <- X[1:n,1:p] %*% beta
+    # for (t in 2:T) {
+      # eta[1:n,t] <- eta[1:n,1]
+    # }
+    eta <-  X %*% beta
+    for (n in 1:N) {
+      for (t in 1:T) {
+        dN[n, t] ~ dpois(mu[n, t])
+        mu[n,t] <- Y[n,t] * exp(eta[n]) * baseHaz[t]
+      }
+    }
+
+  # priors
+    beta ~ dmnorm(mu_vec, prec_matrix)
+    for (t in 1:T) {
+      baseHaz[t] ~ dgamma(dalpha[t], c)
+    }
+
+}
