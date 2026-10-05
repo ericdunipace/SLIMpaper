@@ -186,7 +186,7 @@ for(family in families) {
       date <- gsub(" ", "_", as.name(as.character(Sys.time())))
       date <- gsub(":", "=", date)
       term <- paste0(c(date, ".rds"), collapse="")
-      spfn <- paste0(c("SP",family,conditions$transport.method,"Corr",target$X$corr,n,p,arraynum,term),collapse="_")
+      spfn <- paste0(c("SP",family,conditions$transport.method,"Corr",target$X$corr,conditions$n,p,arraynum,term),collapse="_")
       spdir <- file.path("Output", conditions$family, conditions$penalty,conditions$penalty.factor,
                          conditions$transport.method, paste0("Corr_",corr.x),conditions$n,conditions$p)
       svfn <- file.path(spdir, spfn)

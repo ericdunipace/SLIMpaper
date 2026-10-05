@@ -29,6 +29,7 @@ exec/
 examples/
 figures/
 inst/figure/simulation/old_*
+inst/figure/simulation/*mcp.net*
 inst/figure/toy_eg/selection_order_slima_*
 inst/figure/toy_eg/selection_order_slimp_*
 inst/figure/applied/GBM/heat_global.pdf
