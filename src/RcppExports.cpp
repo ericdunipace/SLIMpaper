@@ -7,6 +7,11 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
 // brierScore_
 Rcpp::NumericMatrix brierScore_(vector& y, vectorI& event, vector& times, Rcpp::List& pred, Rcpp::List& cens_weight, matrix& cens_prob, int S, int S_c);
 RcppExport SEXP _SLIMpaper_brierScore_(SEXP ySEXP, SEXP eventSEXP, SEXP timesSEXP, SEXP predSEXP, SEXP cens_weightSEXP, SEXP cens_probSEXP, SEXP SSEXP, SEXP S_cSEXP) {

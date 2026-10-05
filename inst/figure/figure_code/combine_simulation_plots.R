@@ -14,9 +14,10 @@ combine_plot_temp <- function(family, which.plt = c("mse","w2", "deriv","w1r2","
                               height = 5, width = 7, breaks = NULL, trans = NULL, rm.layer = NULL,
                               limits = list(NULL),
                               # rel.heights = NULL,
-                              # mean = c("mse","w2", "deriv","w1r2","w2r2"),
-                              posterior = NULL,
-                              sep.posterior = FALSE,
+                              # predictions = c("mse","w2", "deriv","w1r2","w2r2"),
+                              parameters = NULL,
+                              sep.parameters = FALSE,
+                              label.map = NULL,
                               labels = NULL, pal = NULL) {
   remove_geom <- function(ggplot2_object, geom_type) {
     # Delete layers that match the requested type.
@@ -31,6 +32,12 @@ combine_plot_temp <- function(family, which.plt = c("mse","w2", "deriv","w1r2","
     layers <- layers[!sapply(layers, is.null)]
     ggplot2_object$layers <- layers
     ggplot2_object
+  }
+  lblr <- function(x) {
+    ifelse(x == 0, "0",
+           ifelse(x < 1, sprintf("%.2f", x),
+                  sprintf("%.0f", x))
+    )
   }
   penalty <- "mcp.net"
   pf <- "none"
@@ -61,48 +68,47 @@ combine_plot_temp <- function(family, which.plt = c("mse","w2", "deriv","w1r2","
               plt2 )
 
     plts <- plts[which.plt]
-    if(!is.null(posterior)) {
-      stopifnot(posterior %in% which.plt)
-      runPosterior <- TRUE
+    if(!is.null(parameters)) {
+      stopifnot(parameters %in% which.plt)
+      runparameters <- TRUE
     } else {
-      runPosterior <- FALSE
+      runparameters <- FALSE
     }
     # }
     # plts[[cur_neighb]] <- do.call("rbind", )
     outfile <- file.path("inst", "figure","simulation", paste0(paste0(c(cur_neighb, family, penalty, pf, method, which.plt), collapse="_"), ".pdf"))
-    # if(!is.null(posterior)) outfile <- file.path("inst", "figure","simulation", paste0(paste0(c(cur_neighb, family, penalty, pf, method, which.plt, "posterior"), collapse="_"), ".pdf"))
-    if(sep.posterior) {
-      outfile.mean <- file.path("inst", "figure","simulation", paste0(paste0(c(cur_neighb, family, penalty, pf, method, which.plt), collapse="_"), "_mean.pdf"))
-      outfile.post <- file.path("inst", "figure","simulation", paste0(paste0(c(cur_neighb, family, penalty, pf, method, which.plt), collapse="_"), "_post.pdf"))
+    # if(!is.null(parameters)) outfile <- file.path("inst", "figure","simulation", paste0(paste0(c(cur_neighb, family, penalty, pf, method, which.plt, "parameters"), collapse="_"), ".pdf"))
+    if (sep.parameters) {
+      outfile.predictions <- file.path("inst", "figure","simulation", paste0(paste0(c(cur_neighb, family, penalty, pf, method, which.plt), collapse="_"), "_predictions.pdf"))
+      outfile.parameters <- file.path("inst", "figure","simulation", paste0(paste0(c(cur_neighb, family, penalty, pf, method, which.plt), collapse="_"), "_parameters.pdf"))
 
     }
 
     print.p.list <- vector("list", length(plts))
     names(print.p.list) <- names(plts)
-    # browser()
-    for(i in names(plts)) {
+    for (i in names(plts)) {
       pp <- list()
-      if(i %in% posterior) {
-        idx <- c("mean","posterior")
+      if(i %in% parameters) {
+        idx <- c("predictions","parameters")
       } else {
-        idx <- "mean"
+        idx <- "predictions"
       }
-      if(i == "deriv") idx <- idx[2:1]
+      if (i == "deriv") idx <- idx[2:1]
       for (j in idx) {
-        express <- if( j == "posterior" &
-                      runPosterior & !is.null(plts[[i]][[j]]) &
+        express <- if( j == "parameters" &
+                      runparameters & !is.null(plts[[i]][[j]]) &
                       i != "deriv") {
           ylab(expression(W[2](beta, theta)))
-        } else if (i == "deriv" & j != "posterior" & !is.null(plts[[i]][[j]])) {
+        } else if (i == "deriv" & j != "parameters" & !is.null(plts[[i]][[j]])) {
           ylab(expression(W[2](nabla[x]~mu, nabla[x]~nu)))
         } else {
           ylab(expression(W[2](mu, nu)))
         }
-        pp[[j]] <- if( (i == "deriv" & j == "mean") | i == "w2") {
+        pp[[j]] <- if( (i == "deriv" & j == "predictions") | i == "w2") {
           plts[[i]][[j]] + express
         # } else if (i != "w2r2" & i != "w1r2") {
         #   plts[[i]][[j]]
-        # } else if (i %in% posterior) {
+        # } else if (i %in% parameters) {
 
         } else {
           plts[[i]][[j]]
@@ -111,26 +117,30 @@ combine_plot_temp <- function(family, which.plt = c("mse","w2", "deriv","w1r2","
         if(!is.null(trans[[i]][[j]]) & !isFALSE(trans[[i]][[j]])) {
           if(isTRUE(trans[[i]][[j]])) trans[[i]][[j]] <- "sqrt"
           if(is.null(breaks[[i]][[j]])) breaks[[i]][[j]] <- waiver()
-          pp[[j]] <- pp[[j]] + scale_y_continuous(trans = trans[[i]][[j]],
+          pp[[j]] <- pp[[j]] + expand_limits(y = 0) +
+            scale_y_continuous(trans = trans[[i]][[j]],
                                         expand = c(0.01,0.05),
                                         breaks = breaks[[i]][[j]],
-                                        limits = limits[[i]][[j]]) +
-            expand_limits(y = 0)
+                                        limits = limits[[i]][[j]],
+                                        labels = lblr)
         }
+
         if(!is.null(rm.layer)) pp[[j]] <- remove_geoms(pp[[j]], rm.layer, FALSE)
 
         if(!is.null(labels) & !is.null(pal)) {
+          grps <- sort(unique(as.character(pp[[j]]$data$groups)))
+          if(!is.null(label.map)) grps <- levels(forcats::fct_relevel(grps, label.map))
           pp[[j]] <- pp[[j]] +
             scale_color_manual(name = "Method:",
-                    breaks = levels(pp[[j]]$data$groups), #c("L1", "L2", "LInf"),
+                    breaks = grps, #c("L1", "L2", "LInf"),
                     labels = labels,
                     values = pal) +
             scale_fill_manual(name = "Method:",
-                              breaks = levels(pp[[j]]$data$groups), #c("L1", "L2", "LInf"),
+                              breaks = grps, #c("L1", "L2", "LInf"),
                               labels = labels,
                               values = pal) +
             scale_size_manual(name = "Method:",
-                              breaks = levels(pp[[i]][[j]]$data$groups), #c("L1", "L2", "LInf"),
+                              breaks = grps, #c("L1", "L2", "LInf"),
                               labels = labels,
                               values = pal)
         }
@@ -140,19 +150,17 @@ combine_plot_temp <- function(family, which.plt = c("mse","w2", "deriv","w1r2","
       print.p.list[[i]] <- pp
 
     }
-    # browser()
     print.p <- list()
-    print.p$mean <- unlist(print.p.list, recursive = FALSE)
-    if(sep.posterior) {
-      temp <- unlist(print.p.list[names(plts) %in% posterior], recursive = FALSE)
-      print.p$post <- temp[grepl("posterior", names(temp))]
-      print.p$mean <- print.p$mean[!grepl("posterior", names(print.p$mean))]
+    print.p$predictions <- unlist(print.p.list, recursive = FALSE)
+    if (sep.parameters) {
+      temp <- unlist(print.p.list[names(plts) %in% parameters], recursive = FALSE)
+      print.p$parameters <- temp[grepl("parameters", names(temp))]
+      print.p$predictions <- print.p$predictions[!grepl("parameters", names(print.p$predictions))]
     }
-
-    plot.legend <- get_legend(print.p$mean[[1]] + ggplot2::theme(legend.position="bottom"))
+    plot.legend <- get_legend(print.p$predictions[[1]] + ggplot2::theme(legend.position="bottom"))
     for(j in names(print.p)) {
         for(i in seq_along(print.p[[j]])) {
-          if(i == 1 & j == "mean") {
+          if(i == 1 & j == "predictions") {
             rho0 <- data.frame(groups = "L1",
                                corr="Corr_0",
                                nactive = 0.5,
@@ -198,6 +206,11 @@ combine_plot_temp <- function(family, which.plt = c("mse","w2", "deriv","w1r2","
           print.p[[j]][[i]] <- print.p[[j]][[i]] + xlab("") + theme(panel.spacing.x = unit(4, "mm")) +
             ggplot2::theme(legend.position="none") +
             ggplot2::theme(axis.text.y = ggplot2::element_text(angle = 90, hjust = 0.5))
+          fg <- sapply(print.p[[j]][[i]]$facet$params$rows, rlang::as_label)
+          if ( is.character(fg) ) {
+            print.p[[j]][[i]] <- print.p[[j]][[i]] + ggplot2::facet_grid(cols =  vars(!!sym(fg)))
+          }
+
           if(i != length(print.p[[j]])) {
             print.p[[j]][[i]] <- print.p[[j]][[i]] +
               theme(axis.title.x=element_blank(),
@@ -207,24 +220,24 @@ combine_plot_temp <- function(family, which.plt = c("mse","w2", "deriv","w1r2","
       }
     # plot.length <- length(print.p)
     # if(is.null(rel.heights)) rel.heights <- rep(3, plot.length)
-    if(sep.posterior) {
-      pred <- arrangeGrob(do.call("rbind", lapply(print.p$mean, ggplotGrob)),
+    if(sep.parameters) {
+      pred <- arrangeGrob(do.call("rbind", lapply(print.p$predictions, ggplotGrob)),
                   bottom = grid::textGrob("Number of active coefficients",
                                           vjust = -1.8, hjust=0.4))
-      post <- arrangeGrob(do.call("rbind", lapply(print.p$post, ggplotGrob)),
+      param <- arrangeGrob(do.call("rbind", lapply(print.p$parameters, ggplotGrob)),
                           bottom = grid::textGrob("Number of active coefficients",
                                                   vjust = -1.8, hjust=0.4))
-      pdf(outfile.mean, width = width, height = height)
+      pdf(outfile.predictions, width = width, height = height)
       print(grid.arrange(pred,
                          plot.legend, nrow = 2, heights = c(10,.5)))
       dev.off()
-      pdf(outfile.post, width = width, height = height)
-      print(grid.arrange(post,
+      pdf(outfile.parameters, width = width, height = height)
+      print(grid.arrange(param,
                          plot.legend, nrow = 2, heights = c(10,.5)))
       dev.off()
 
     } else {
-      sim.plots <- arrangeGrob(do.call("rbind", lapply(print.p$mean, ggplotGrob)),
+      sim.plots <- arrangeGrob(do.call("rbind", lapply(print.p$predictions, ggplotGrob)),
                                bottom = grid::textGrob("Number of active coefficients",
                                                        vjust = -1.8, hjust=0.4))
       pdf(outfile, width = width, height = height)
@@ -246,29 +259,37 @@ combine_plot_temp <- function(family, which.plt = c("mse","w2", "deriv","w1r2","
 # file.path("inst", "figure","simulations", paste0(paste0(c(cur_neighb,family,penalty , pf ,method, cur_corr, "w2plot"), collapse="_"), ".rds"))
 # debugonce(combine_plot_temp)
 combine_plot_temp("binomial", which.plt = c("deriv","w2r2deriv"),   height = 6, width = 7.5,
-                  trans = list(deriv = list(mean = "sqrt", posterior = "sqrt")),
-                  breaks = list(deriv = list(mean = c(0, 0.25, 1, 4),
-                                             posterior = c(0,0.25, 1,4))),
+                  trans = list(deriv = list(predictions = "sqrt", parameters = "sqrt")),
+                  breaks = list(deriv = list(predictions = c(0, 0.25, 1, 4),
+                                             parameters = c(0,0.25, 1,4))),
                   # rel.heights = c(3,5),
-                  limits = list(deriv = list(mean = NULL,
-                                             posterior = c(0,4))),
+                  limits = list(deriv = list(predictions = c(0,4),
+                                             parameters = c(0,4))),
                    labels = expression(W[1], W[2], W[infinity]),
-                   pal = ggsci::pal_jama()(5)[3:5], posterior = c("deriv"))
+                  label.map = c("L1", "Lasso", "LInf"),
+                   pal = ggsci::pal_jama()(5)[3:5], parameters = c("deriv"))
+
+# debugonce(combine_plot_temp)
 combine_plot_temp("gaussian", c("mse","w2","w2r2"),   height = 6, width = 7.5,
-                  breaks = list(mse = list(mean = c(0, 1, 8, 27, 64),
-                                           posterior = c(0, 1, 4, 16, 36, 64, 100)),
-                                w2 = list(mean = c(0, 0.25, 1),
-                                          posterior = c(0, 0.25, 1, 2))),
+                  breaks = list(mse = list(predictions = c(0, 1, 8, 27, 64),
+                                           parameters = c(0, 1, 16, 64,144)),
+                                w2 = list(predictions = c(0, 1,4,9,16),
+                                          parameters = c(0, 0.25, 1, 4))),
+                  limits = list(mse = list(predictions = c(0,70),
+                                             parameters = c(0,144)),
+                                w2 = list(predictions = c(0,16),
+                                          parameters = c(0,4))),
                   rm.layer = "GeomRibbon",
-                  trans = list(mse = list(mean = "cube.root",
-                                          posterior = "sqrt"),
-                               w2 = list(mean= "sqrt",
-                                         posterior = "sqrt")),
+                  trans = list(mse = list(predictions = "cube.root",
+                                          parameters = "sqrt"),
+                               w2 = list(predictions= "sqrt",
+                                         parameters = "sqrt")),
                   labels = expression("B.P.", "Relaxed B.P.", W[1], W[2],
                                       W[infinity]), pal = ggsci::pal_jama()(5),
-                  posterior = c("mse","w2","w2r2"),
-                  sep.posterior = TRUE)
-# combine_plot_temp("gaussian", "w2",   height = 2, width = 7.5, posterior = TRUE, rm.layer = "GeomRibbon",
+                  label.map = c("Binary Programming","Relaxed B.P.","L1", "L2", "LInf"),
+                  parameters = c("mse","w2","w2r2"),
+                  sep.parameters = TRUE)
+# combine_plot_temp("gaussian", "w2",   height = 2, width = 7.5, parameters = TRUE, rm.layer = "GeomRibbon",
 #                   breaks = list(mse = c(0,0.1,0.2,0.3),
 #                                 w2 = c(0:3)),
 #                   labels = expression("B.P.", "Relaxed B.P.", W[1], W[2], W[infinity]), pal = ggsci::pal_jama()(5))

@@ -22,3 +22,7 @@ exec/
 figures/
 R/deprecated/Ovarian
 inst/figure/rawplots
+
+# simulation and timing outputs, reproducible from the vignettes
+Output_*/
+inst/figure/rawplots_old/

@@ -68,7 +68,7 @@ verbose=False):
             Nt = len(Ytest)
             test_ll = model.forward(Ytest, Xtest) * Nt / (N + Nt) + test_ll * N/(N + Nt)
             N += Nt
-        return(test_ll.data.numpy())
+        return(test_ll.data.to("cpu").numpy())
     
     @torch.no_grad()
     def calc_acc(model, test_iter):
@@ -85,7 +85,7 @@ verbose=False):
             pseudo = torch.round(torch.sigmoid(eta))
             acc   += torch.sum(Ytest == pseudo)
         acc   /= N
-        return(acc.data.numpy())
+        return(acc.data.to("cpu").to("cpu").numpy())
     
     # NN model set-up
     model.train() # set train to true, just in case
@@ -124,15 +124,15 @@ verbose=False):
             
             #update parameters
             opt.step()
-            #dat_ll[epoch] = loss.data.numpy() * Nt/(N+Nt) + dat_ll[epoch] * N/(N+Nt)
+            #dat_ll[epoch] = loss.data.to("cpu").numpy() * Nt/(N+Nt) + dat_ll[epoch] * N/(N+Nt)
             #N += Nt
-            #print("Epoch Num: ", epoch+1,", Train: ", count, ", Current loss: ", loss.data.numpy(), end='\r')
+            #print("Epoch Num: ", epoch+1,", Train: ", count, ", Current loss: ", loss.data.to("cpu").numpy(), end='\r')
         #run test
         if verbose:
             if test:
                 model.eval()
                 # with torch.no_grad():
-                dat_ll[epoch]   = loss.data.numpy() #calc_loss(model, train_iter)
+                dat_ll[epoch]   = loss.data.to("cpu").numpy() #calc_loss(model, train_iter)
                 test_ll[epoch]  = calc_loss(model, test_iter)
                 dat_acc[epoch]  = torch.sum(Yt == torch.round(torch.sigmoid(model.predict(Xt))))/float(len(Yt)) #calc_acc(model, train_iter)
                 test_acc[epoch] = calc_acc(model, test_iter)
@@ -141,9 +141,10 @@ verbose=False):
                 ", Cur. Train acc:", round(dat_acc[epoch], 3),
                 ", Test loss:", round(test_ll[epoch],3), ", Test acc:", round(test_acc[epoch],3), flush = True)
             else:
-                dat_ll[epoch] = loss.data.numpy()
+                dat_ll[epoch] = loss.data.to("cpu").numpy()
                 print("Epoch Num:", epoch+1,", Current Avg Loss:", round(dat_ll[epoch],3), flush = True)
     #set to eval mode
     model.eval()
+    del opt
     return(dat_ll, test_ll, model)
 

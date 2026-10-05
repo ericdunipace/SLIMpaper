@@ -1,14 +1,15 @@
 Package: SLIMpaper
 Type: Package
 Title: Interpretable Model Summaries Using the Wasserstein Distance
-Version: 0.1
-Date: 2020-12-17
+Version: 0.2
+Date: 2025-02-17
 Author: Eric Dunipace
 Maintainer: Eric Dunipace <eduniapce@g.harvard.edu>
 Description: This R package reproduces the code found in the paper "Interpretable Model Summaries Using the Wasserstein Distance". The methodology is used to make interpretable linear models that approximtae arbitrarily complex statistical models.
 License: GPL v3.0
 Imports: 
   doParallel,
+  doRNG,
   ggplot2,
   ggridges, 
   ggsci, 
@@ -41,3 +42,4 @@ Suggests:
   BiocManager,
   curatedOvarianData
 RoxygenNote: 7.1.1
+LazyData: true

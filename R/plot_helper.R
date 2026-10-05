@@ -11,6 +11,23 @@ get_legend<-function(plot, location = c("bottom","left", "right", "top")){
   return(legend)
 }
 
+get_legend2<-function(plot, location = c("bottom","left", "right", "top")){
+  loc <- match.arg(location)
+  # tmp <- ggplot2::ggplot_gtable(ggplot2::ggplot_build(plot))
+  # leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  # legend <- tmp$grobs[[leg]]
+  # return(legend)
+  legend <- g_legend(plot + theme(legend.position = location))
+  return(legend)
+}
+
+g_legend<-function(a.gplot){
+  if (!gtable::is.gtable(a.gplot))
+    a.gplot <-  ggplot2::ggplotGrob(a.gplot)
+  #gtable_filter(a.gplot, 'guide-box', fixed=TRUE)
+  leg <- which(sapply(a.gplot$grobs, function(x) x$name) == "guide-box")
+  a.gplot$grobs[[leg]]
+}
 # grid_arrange_shared_legend <- function(...) {
 #   plots <- list(...)
 #   g <- ggplot2::ggplotGrob(plots[[1]] + ggplot2::theme(legend.position="bottom"))$grobs

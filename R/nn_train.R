@@ -3,7 +3,7 @@ nn_train <- function(x, y, niter = 10L, learning.rate = 0.01, lambda,
                      hidden.layer.width = 100L,
                      batch.size = 128L,
                      test.portion = .1, python.path,
-                     model = NULL,
+                     model = NULL, cpu = TRUE,
                      verbose = FALSE) {
 
   if(is.null(python.path)) python.path <- "/usr/bin/python3"
@@ -13,6 +13,7 @@ nn_train <- function(x, y, niter = 10L, learning.rate = 0.01, lambda,
 
   # reticulate::source_python("Python/NN.py")
   # reticulate::source_python(nn_fun_path)
+  # see if cuda or mps available
   NN <- reticulate::import_from_path(module = "NN", path = nn_fun_path)
 
   stopifnot(test.portion >= 0 & test.portion < 1)
@@ -38,9 +39,17 @@ nn_train <- function(x, y, niter = 10L, learning.rate = 0.01, lambda,
     y <- y[-test.idx,,drop=FALSE]
   }
 
+  if(torch$cuda$is_available() && !cpu) {
+    dev = "cuda"
+  } else if (torch$mps$is_available() && !cpu) {
+    dev <- "mps"
+  } else {
+    dev <- "cpu"
+  }
+
   # make features as tensors
-  train_features = torch$FloatTensor(x)
-  train_target = torch$FloatTensor(y)
+  train_features = torch$FloatTensor(x)$to(device = dev)
+  train_target = torch$FloatTensor(y)$to(device = dev)
 
   # change to data laoders
   train_data = torch$utils$data$TensorDataset(train_features, train_target)
@@ -64,6 +73,7 @@ nn_train <- function(x, y, niter = 10L, learning.rate = 0.01, lambda,
   #args for train
   #def train(model, train_iter, test_iter, D, nLayer, num_epoch, lr, test=False):
   # module is neural
+  model$to(device = dev)
 
   result <- NN$model$train(model = model, train_iter = train_loader,
                   test_iter = test_loader,
@@ -75,7 +85,7 @@ nn_train <- function(x, y, niter = 10L, learning.rate = 0.01, lambda,
   # result[[3]]$eval()
   # yhat <- result[[3]]$predict(train_features)$data$numpy()
 
-  yhat <- plogis(model$predict(torch$FloatTensor(x_orig))$data$numpy())
+  yhat <- plogis(model$predict(torch$FloatTensor(x_orig)$to(device = dev))$data$to("cpu")$numpy())
 
   # all.equal(yhat, yhat2)
 

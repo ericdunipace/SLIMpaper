@@ -341,20 +341,20 @@ get_binary_nonlinear_model <- function() {
     }
 
     if(is.null(hyperparameters$batch.size)) {
-      batch.size <- 128
+      batch.size <- 128L
     } else {
       batch.size <- hyperparameters$batch.size
     }
 
     if(is.null(hyperparameters$first.layer.width)) {
-      first.layer.width <- ncol(x) * 10
+      first.layer.width <- as.integer(ncol(x) * 10L)
     } else {
-      first.layer.width <- hyperparameters$first.layer.width
+      first.layer.width <- as.integer(hyperparameters$first.layer.width)
     }
     if(is.null(hyperparameters$hidden.layer.width)) {
       hidden.layer.width <- as.integer(2/3 * ncol(x) + 1)
     } else {
-      hidden.layer.width <- hyperparameters$hidden.layer.width
+      hidden.layer.width <- as.integer(hyperparameters$hidden.layer.width)
     }
 
     python.path <- dots$python.path
@@ -369,6 +369,12 @@ get_binary_nonlinear_model <- function() {
       verbose <- dots$verbose
     }
 
+    if(is.null(dots$cpu)) {
+      cpu <- TRUE
+    } else {
+      cpu <- dots$cpu
+    }
+
     res <- nn_train(x=x, y=y, niter = niter, learning.rate = learning.rate,
                     lambda = lambda,
                     test.portion = test.portion,
@@ -376,7 +382,7 @@ get_binary_nonlinear_model <- function() {
                     hidden.layer.width = hidden.layer.width,
                     batch.size = batch.size,
                     python.path = python.path,
-                    model = NULL,
+                    model = NULL, cpu = cpu,
                     verbose = verbose)
     xt <- dots[["X.test"]]
     run.test <- !is.null(xt)
@@ -387,15 +393,22 @@ get_binary_nonlinear_model <- function() {
     yhat.test <- NULL
     derivative.x <- NULL
     if (run.test) {
-      yhat.test <- plogis(res$model$predict(xtt)$data$numpy())
+      yhat.test <- plogis(res$model$predict(xtt)$data$to("cpu")$numpy())
       xtv <- torch$autograd$Variable(xtt, requires_grad = TRUE)
       xtv$retain_grad()
       temp.pred <- res$model$predict(xtv)$sum()
       temp.pred$backward()
-      derivative.x <- xtv$grad$data$numpy()
+      derivative.x <- xtv$grad$data$to("cpu")$numpy()
     }
+    yhat.train <- res$yhat
+    py_gc <- reticulate::import("gc")
+    # rm(res)
+    rm(xtv, temp.pred, res)
+    py_gc$collect()
+    gc()
 
     boots <- lapply(1:n.samp, function(i) {
+      if(verbose) print(i, sep = ", ")
       boot.idx <- sample.int(n,n,replace=TRUE)
       temp <- nn_train(x=x[boot.idx, , drop = FALSE], y=y[boot.idx, , drop=FALSE],
                        niter = niter, learning.rate = learning.rate,
@@ -404,18 +417,24 @@ get_binary_nonlinear_model <- function() {
                        first.layer.width = first.layer.width,
                        hidden.layer.width = hidden.layer.width,
                        batch.size = batch.size,
-                       python.path = python.path,model = NULL)
+                       python.path = python.path,
+                       model = NULL, #res$model,
+                       cpu = cpu,
+                       verbose = verbose)
       yhat <- temp$yhat
       yhat.test <- NULL
       derivative.x <- NULL
       if (run.test) {
-        yhat.test <- plogis(temp$model$predict(xtt)$data$numpy())
+        yhat.test <- plogis(temp$model$predict(xtt)$data$to("cpu")$numpy())
         xtv <- torch$autograd$Variable(xtt, requires_grad = TRUE)
         xtv$retain_grad()
         temp.pred <- temp$model$predict(xtv)$sum()
         temp.pred$backward()
-        derivative.x <- xtv$grad$data$numpy()
+        derivative.x <- xtv$grad$data$to("cpu")$numpy()
       }
+      rm(temp,xtv,temp.pred)
+      py_gc$collect()
+      gc()
       return(list(mu = yhat, mu.test = yhat.test, derivative.x = derivative.x))
     })
 
@@ -423,8 +442,8 @@ get_binary_nonlinear_model <- function() {
     mu.test <- sapply(boots, function(b) b$mu.test)
     derivatives <- lapply(boots, function(b) b$derivative.x)
 
-    return( list(mu = mu, mu.test = mu.test, derivatives = derivatives, model = res$model,
-                 yhat.model = list(train = res$yhat,
+    return( list(mu = mu, mu.test = mu.test, derivatives = derivatives,
+                 yhat.model = list(train = yhat.train,
                                   test = yhat.test,
                                   derivatives = derivative.x))
            )

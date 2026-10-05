@@ -11,7 +11,7 @@ get_gp <- function() {
     n <- length(x)
 
     Sigma <- kernelFn(sigma_f, L, x, n)
-    f <- t(rmvnorm(iter, mean=rep(m,n), sigma=Sigma, method="svd"))
+    f <- t(mvtnorm::rmvnorm(iter, mean=rep(m,n), sigma=Sigma, method="svd"))
     return(f)
   }
 
@@ -62,23 +62,24 @@ get_gp <- function() {
 
 
   f_dens <- function(f, K) {
-    dmvnorm(f, rep(0,length(f)), K, log=TRUE)
+    require(mvtnorm)
+    mvtnorm::dmvnorm(f, rep(0,length(f)), K, log=TRUE)
   }
 
   likelihood <- function(Y, f, sigma_y) {
-    dnorm(Y, mean=f, sd=sigma_y, log=TRUE)
+    stats::dnorm(Y, mean=f, sd=sigma_y, log=TRUE)
   }
 
   L_prior <- function(L) {
-    dgamma(L, 10, 10, log=TRUE) + L
+    stats::dgamma(L, 10, 10, log=TRUE) + L
   }
 
   sigma_f_prior <- function(sig) {
-    dgamma(sig, 10, 10, log=TRUE)
+    stats::dgamma(sig, 10, 10, log=TRUE)
   }
 
   L_sample <- function(L_current, sd_adapt){
-    L_new <- exp(rnorm(1, log(L_current), sd_adapt))
+    L_new <- exp(stats::rnorm(1, log(L_current), sd_adapt))
   }
 
   kern_dens <- function(f, K, L, sigma) {
@@ -90,7 +91,7 @@ get_gp <- function() {
     L2_new <- L_sample(L2_old, sd_adapt)
     KR_new <- kernelinvLFn(sigma2, L2_new, cost2, nrow(K))
     dens_new <- kern_dens(f, KR_new$K, L2_new, sigma2)
-    if(log(runif(1)) <= dens_new - dens_old) {
+    if(log(stats::runif(1)) <= dens_new - dens_old) {
       return(list(K=KR_new$K, L=L2_new, R=KR_new$R))
     } else {
       return(list(K=K, L=L2_old, R=R))
@@ -109,7 +110,7 @@ get_gp <- function() {
   Rupdate <- function(L2, exp_cost2 ,n) {
     # xmat <- matrix(x, ncol=n,nrow=n)
     # xmatT <- matrix(x, ncol=n, nrow=n, byrow = TRUE)
-    R <- exp_cost2 *exp(L2) + diag(0.001, nrow(R)) # exp(-0.5*L2 * cost2)
+    R <- exp_cost2 * exp(L2) + diag(0.001, nrow(R)) # exp(-0.5*L2 * cost2)
     diag(R) <- diag(R) + 0.001
     return(R)
   }
@@ -121,7 +122,7 @@ get_gp <- function() {
 
 
   invGammaSamp <- function(n, alpha, beta){
-    1/rgamma(n, alpha, beta)
+    1/stats::rgamma(n, alpha, beta)
   }
 
   varUpdate <- function(alpha, beta, y, mu,n){
@@ -133,7 +134,7 @@ get_gp <- function() {
   sigmafUpdate <- function(alpha, beta, f, K,n,sigma2){
     alpha_star <- alpha + n * 0.5
     beta_star <- beta + (crossprod(f, solve(K*sigma2, f)))/2
-    return(rgamma(1, alpha_star, beta_star))
+    return(stats::rgamma(1, alpha_star, beta_star))
   }
 
   f_sample <- function(K,obs, sigma_y, y) {
@@ -147,7 +148,7 @@ get_gp <- function() {
     post_mean <- c(crossprod(K_c, solve(K_tilde,y)))
 
     #samples
-    f_star <- c(rmvnorm(1, post_mean, post_var))
+    f_star <- c(SLIMpaper::rmvnorm(1, post_mean, post_var))
     return(f_star)
   }
 
@@ -193,9 +194,9 @@ get_gp <- function() {
 
     # generate initial variables
     param <- list(
-      L = rgamma(1,alpha_f,beta_f),
-      sigma_f = rgamma(1,alpha_f,beta_f),
-      sigma_y = rgamma(1,alpha_y,beta_y),
+      L = stats::rgamma(1,alpha_f,beta_f),
+      sigma_f = stats::rgamma(1,alpha_f,beta_f),
+      sigma_y = stats::rgamma(1,alpha_y,beta_y),
       R = NULL,
       K = NULL,
       f = NULL
@@ -248,11 +249,11 @@ get_gp <- function() {
           sd_adapt <- 0.75*sd(log(L_adapt[(i-19):i])) + 0.25*sd_adapt
         }
       }
-      if(display.progress) setTxtProgressBar(pb, i)
+      if(display.progress) utils::setTxtProgressBar(pb, i)
     }
     if(display.progress) close(pb)
     # posterior predictive
-    store$y_star <- store$f + matrix(rnorm(iter*(nX),
+    store$y_star <- store$f + matrix(stats::rnorm(iter*(nX),
                                            sd=store$sigma_y), ncol=iter, nrow=nX)
 
     # distribution summary
