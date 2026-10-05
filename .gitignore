@@ -34,6 +34,10 @@ inst/figure/toy_eg/selection_order_slima_*
 inst/figure/toy_eg/selection_order_slimp_*
 inst/figure/applied/GBM/heat_global.pdf
 inst/figure/applied/GBM/logodds_gbm.pdf
+R/DataAnalysis/Ovarian/ovar.sh
+R/DataAnalysis/Ovarian/ovar_seeds.R
+R/DataAnalysis/Ovarian/ovarian_cluster_var.R
+R/DataAnalysis/Ovarian/ovarian_cluster_combine.R
 R/deprecated/Ovarian
 inst/figure/rawplots
 
